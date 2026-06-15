@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAKTI - Sistem Asesmen Komprehensif Terintegrasi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'cyber': { 900: '#0f172a', 800: '#1e293b', 700: '#334155' },
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- FIREBASE COMPAT SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        .dark .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .app-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; }
+        .app-card:hover { transform: translateY(-5px); }
+        .app-icon-box { transition: all 0.3s ease; }
+        .app-card:hover .app-icon-box { transform: scale(1.1) rotate(5deg); }
+
+        /* Styles untuk Aplikasi Terkunci (RBAC) */
+        .app-locked {
+            filter: grayscale(100%);
+            opacity: 0.6;
+            cursor: not-allowed !important;
+            pointer-events: none;
+        }
+        .app-locked::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,0.3);
+            z-index: 10;
+        }
+        .dark .app-locked::after {
+            background: rgba(0,0,0,0.5);
+        }
+        .lock-badge {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 20;
+            background: #ef4444;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 99px;
+            font-size: 11px;
+            font-weight: bold;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 dark:bg-cyber-900 dark:text-white min-h-screen flex flex-col transition-colors duration-500">
+
+    <!-- LOGIN OVERLAY -->
+    <div id="dashboard-login-overlay" class="fixed inset-0 z-[100] bg-gray-100 dark:bg-cyber-900 flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-cyber-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-emerald-900 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
+            
+            <div class="text-center mb-8">
+                <div class="w-20 h-20 bg-indigo-50 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl shadow-sm border border-indigo-100 dark:border-emerald-800">🔐</div>
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Portal Guru</h2>
+                <p class="text-gray-500 dark:text-gray-400 text-sm mt-2">Masuk dengan ID & PIN Anda</p>
+            </div>
+
+            <form id="dashboard-login-form" class="space-y-5">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">ID Pengguna (Username)</label>
+                    <input type="text" id="login-id" class="w-full p-3 pl-4 rounded-xl border bg-gray-50 dark:bg-cyber-900 dark:border-gray-700 text-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-mono text-center text-lg placeholder-gray-400" placeholder="Contoh: budi123" required autocomplete="off">
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">PIN Akses</label>
+                    <input type="password" id="login-pin" class="w-full p-3 rounded-xl border bg-gray-50 dark:bg-cyber-900 dark:border-gray-700 text-gray-800 dark:text-white text-center tracking-[0.5em] font-bold text-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder-gray-300" required placeholder="••••" maxlength="6" inputmode="numeric">
+                </div>
+
+                <button type="submit" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-indigo-500/30 transform active:scale-[0.98]">
+                    BUKA DASHBOARD
+                </button>
+
+                <div class="text-center mt-2">
+                    <button type="button" onclick="loginAsAdminPusat()" class="text-[10px] text-gray-400 hover:text-indigo-500 underline">Login Admin Pusat</button>
+                </div>
+            </form>
+            
+            <p id="login-error-msg" class="text-rose-600 dark:text-rose-400 text-center text-sm mt-4 font-bold hidden bg-rose-50 dark:bg-rose-900/20 p-2 rounded-lg border border-rose-100 dark:border-rose-800 animate-pulse"></p>
+        </div>
+    </div>
+
+    <!-- MODAL PILIH MAPEL -->
+    <div id="mapel-selector-modal" class="fixed inset-0 z-[110] hidden flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div class="bg-white dark:bg-cyber-800 w-full max-w-sm rounded-2xl p-6 shadow-2xl border border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-bold text-center mb-2 dark:text-white">Pilih Mapel Aktif</h3>
+            <p class="text-xs text-center text-gray-500 mb-6">Anda mengampu lebih dari satu mapel.</p>
+            <div id="mapel-options-container" class="space-y-3">
+                <!-- Buttons injected by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Navbar -->
+    <nav class="sticky top-0 z-50 bg-white/80 dark:bg-cyber-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-4">
+                    <img src="Logo.png" alt="Logo Sekolah" class="w-11 h-11 object-contain drop-shadow-sm">
+                    <div>
+                        <h1 class="text-xl font-extrabold leading-tight tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">SAKTI</h1>
+                        <p class="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold">Sistem Asesmen Komprehensif Terintegrasi</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button id="theme-toggle" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                    </button>
+                    <div class="flex items-center gap-3 pl-4 border-l border-gray-200 dark:border-gray-700">
+                        <div class="text-right hidden sm:block">
+                            <p id="user-display-name" class="text-sm font-bold">Guest</p>
+                            <p id="user-display-mapel" class="text-xs text-green-600 dark:text-green-400">Online</p>
+                        </div>
+                        <img id="user-avatar" src="https://ui-avatars.com/api/?name=Guest&background=6366f1&color=fff" class="w-10 h-10 rounded-full ring-2 ring-white dark:ring-gray-800 shadow-sm cursor-pointer" onclick="logout()" title="Klik untuk Logout">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 hidden opacity-0 transition-opacity duration-700" id="main-content">
+        
+        <!-- Welcome Section -->
+        <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600 to-purple-700 p-8 md:p-12 shadow-2xl">
+            <div class="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl"></div>
+            <div class="absolute bottom-0 left-0 -mb-10 -ml-10 w-64 h-64 bg-purple-400 opacity-20 rounded-full blur-3xl"></div>
+            
+            <div class="relative z-10 text-white flex flex-col md:flex-row items-center md:items-start gap-6">
+                <!-- Tempat Logo Sekolah di Banner -->
+                <img src="Logo.png" alt="Logo Sekolah" class="w-28 h-28 md:w-48 md:h-48 object-contain drop-shadow-lg bg-white/10 p-3 rounded-2xl backdrop-blur-sm border border-white/20">
+                
+                <div class="text-center md:text-left">
+                    <h2 class="text-2xl md:text-3xl font-extrabold mb-1">Selamat datang di ruang kendali SAKTI, <span id="welcome-name" class="text-yellow-300">Guru</span>! 🎓</h2>
+                    <p class="text-indigo-100 text-sm md:text-base font-semibold tracking-wide mb-3">(Sistem Asesmen Komprehensif dan Terintegrasi)</p>
+                    <p class="text-white text-base md:text-lg max-w-3xl leading-relaxed mb-5 italic font-medium">"Ciptakan ekosistem asesmen digital sekolah yang lengkap, praktis, aman, berkualitas, dan terpadu."</p>
+                    
+                    <div class="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-2 rounded-xl border border-white/30 shadow-sm">
+                        <svg class="w-5 h-5 text-yellow-300" fill="currentColor" viewBox="0 0 20 20"><path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29-3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z"></path></svg>
+                        <p class="text-sm font-medium">Sesi Aktif Mapel: <strong id="welcome-mapel" class="text-yellow-300 ml-1">-</strong></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Stats Row -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="glass-card p-6 rounded-2xl shadow-sm flex items-center gap-4">
+                <div class="w-14 h-14 rounded-2xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-2xl">📝</div>
+                <div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Total Bank Soal</p>
+                    <h3 id="stat-bank-soal" class="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                        ... <span class="text-xs font-normal px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500">Loading</span>
+                    </h3>
+                </div>
+            </div>
+            <div class="glass-card p-6 rounded-2xl shadow-sm flex items-center gap-4">
+                <div class="w-14 h-14 rounded-2xl bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center text-2xl">🗓️</div>
+                <div>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Ujian Terjadwal</p>
+                    <h3 id="stat-ujian-aktif" class="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                        ... <span class="text-xs font-normal px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500">Loading</span>
+                    </h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- Applications Grid -->
+        <div>
+            <h3 class="text-xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
+                <span class="w-2 h-8 bg-indigo-500 rounded-full"></span>
+                Aplikasi Tersedia
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                
+                <!-- 1. Editor Soal -->
+                <a href="Editor Soal.html" target="_blank" id="card-editor" class="group app-card glass-card p-6 rounded-3xl hover:shadow-xl border-t-4 border-t-blue-500 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /></svg>
+                    </div>
+                    <div class="app-icon-box w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-4 shadow-sm">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    </div>
+                    <h4 class="text-lg font-bold mb-2 group-hover:text-blue-600 transition-colors">Editor Bank Soal</h4>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Input, edit, dan validasi butir soal. Mendukung gambar, rumus matematika, dan berbagai tipe soal.</p>
+                    <div class="mt-6 flex items-center text-sm font-bold text-blue-600 dark:text-blue-400">
+                        Buka Aplikasi <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </div>
+                </a>
+
+                <!-- 2. Manajemen Ujian -->
+                <a href="Admin Ujian.html" target="_blank" id="card-ujian" class="group app-card glass-card p-6 rounded-3xl hover:shadow-xl border-t-4 border-t-indigo-500 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd" /></svg>
+                    </div>
+                    <div class="app-icon-box w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4 shadow-sm">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                    </div>
+                    <h4 class="text-lg font-bold mb-2 group-hover:text-indigo-600 transition-colors">Manajemen Ujian</h4>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Buat paket ujian, atur jadwal, generate token, dan lihat rekapitulasi nilai siswa sederhana.</p>
+                    <div class="mt-6 flex items-center text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                        Buka Aplikasi <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </div>
+                </a>
+
+                <!-- 3. Manajemen Siswa -->
+                <a href="Manajemen Siswa.html" target="_blank" id="card-siswa" class="group app-card glass-card p-6 rounded-3xl hover:shadow-xl border-t-4 border-t-rose-500 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"></path></svg>
+                    </div>
+                    <div class="app-icon-box w-16 h-16 rounded-2xl bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 flex items-center justify-center mb-4 shadow-sm">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                    </div>
+                    <h4 class="text-lg font-bold mb-2 group-hover:text-rose-600 transition-colors">Manajemen Siswa</h4>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Kelola data siswa, input nilai rapor, dan cetak laporan hasil belajar.</p>
+                    <div class="mt-6 flex items-center text-sm font-bold text-rose-600 dark:text-rose-400">
+                        Buka Aplikasi <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </div>
+                </a>
+
+                <!-- 4. Katalog Soal -->
+                <a href="Katalog Soal.html" target="_blank" id="card-katalog" class="group app-card glass-card p-6 rounded-3xl hover:shadow-xl border-t-4 border-t-yellow-500 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    </div>
+                    <div class="app-icon-box w-16 h-16 rounded-2xl bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400 flex items-center justify-center mb-4 shadow-sm">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    </div>
+                    <h4 class="text-lg font-bold mb-2 group-hover:text-yellow-600 transition-colors">Katalog Soal</h4>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Belanja soal dari Bank Soal dan buat paket ujian.</p>
+                    <div class="mt-6 flex items-center text-sm font-bold text-yellow-600 dark:text-yellow-400">
+                        Buka Aplikasi <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </div>
+                </a>
+
+                <!-- 5. Live Monitoring -->
+                <a href="Live Monitoring.html" target="_blank" id="card-monitoring" class="group app-card glass-card p-6 rounded-3xl hover:shadow-xl border-t-4 border-t-green-500 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    </div>
+                    <div class="app-icon-box w-16 h-16 rounded-2xl bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 flex items-center justify-center mb-4 shadow-sm">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    </div>
+                    <h4 class="text-lg font-bold mb-2 group-hover:text-green-600 transition-colors">Live Monitoring</h4>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Pantau aktivitas ujian siswa secara real-time.</p>
+                    <div class="mt-6 flex items-center text-sm font-bold text-green-600 dark:text-green-400">
+                        Buka Aplikasi <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </div>
+                </a>
+
+                <!-- 6. Analisis Akademik -->
+                <a href="Analisis Akademik.html" target="_blank" id="card-analisis" class="group app-card glass-card p-6 rounded-3xl hover:shadow-xl border-t-4 border-t-purple-500 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"></path></svg>
+                    </div>
+                    <div class="app-icon-box w-16 h-16 rounded-2xl bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-4 shadow-sm">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    </div>
+                    <h4 class="text-lg font-bold mb-2 group-hover:text-purple-600 transition-colors">Analisis Akademik</h4>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Statistik performa siswa dan kualitas butir soal.</p>
+                    <div class="mt-6 flex items-center text-sm font-bold text-purple-600 dark:text-purple-400">
+                        Buka Aplikasi <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </div>
+                </a>
+
+                <!-- 7. Aplikasi Presensi -->
+                <a href="Aplikasi Presensi.html" target="_blank" id="card-presensi" class="group app-card glass-card p-6 rounded-3xl hover:shadow-xl border-t-4 border-t-pink-500 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd" /></svg>
+                    </div>
+                    <div class="app-icon-box w-16 h-16 rounded-2xl bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 flex items-center justify-center mb-4 shadow-sm">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                    </div>
+                    <h4 class="text-lg font-bold mb-2 group-hover:text-pink-600 transition-colors">Aplikasi Presensi</h4>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Presensi harian siswa dan agenda guru.</p>
+                    <div class="mt-6 flex items-center text-sm font-bold text-pink-600 dark:text-pink-400">
+                        Buka Aplikasi <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </div>
+                </a>
+
+                <!-- 8. Pengolahan Nilai -->
+                <a href="Pengolahan Nilai.html" target="_blank" id="card-nilai" class="group app-card glass-card p-6 rounded-3xl hover:shadow-xl border-t-4 border-t-teal-500 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M3 3a1 1 0 000 2h11a1 1 0 100-2H3zM3 7a1 1 0 000 2h7a1 1 0 100-2H3zM3 11a1 1 0 100 2h4a1 1 0 100-2H3zM15 8a1 1 0 10-2 0v5.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L15 13.586V8z"></path></svg>
+                    </div>
+                    <div class="app-icon-box w-16 h-16 rounded-2xl bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 flex items-center justify-center mb-4 shadow-sm">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    </div>
+                    <h4 class="text-lg font-bold mb-2 group-hover:text-teal-600 transition-colors">Pengolahan Nilai</h4>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Rekap nilai ujian dan download laporan.</p>
+                    <div class="mt-6 flex items-center text-sm font-bold text-teal-600 dark:text-teal-400">
+                        Buka Aplikasi <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </div>
+                </a>
+
+                <!-- 9. Setup Sekolah -->
+                <a href="Setup Sekolah.html" target="_blank" id="card-setup" class="group app-card glass-card p-6 rounded-3xl hover:shadow-xl border-t-4 border-t-gray-500 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+                    </div>
+                    <div class="app-icon-box w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 flex items-center justify-center mb-4 shadow-sm">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    </div>
+                    <h4 class="text-lg font-bold mb-2 group-hover:text-gray-600 transition-colors">Setup Sekolah</h4>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Pusat Data Master: Guru, Mapel, & Kelas.</p>
+                    <div class="mt-6 flex items-center text-sm font-bold text-gray-600 dark:text-gray-400">
+                        Buka Aplikasi <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </div>
+                </a>
+
+                <!-- 10. Pusat Kendali Asesmen -->
+                <a href="Pusat Kendali Asesmen.html" target="_blank" id="card-pka" class="group app-card glass-card p-6 rounded-3xl hover:shadow-xl border-t-4 border-t-amber-500 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                         <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"></path><path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"></path></svg>
+                    </div>
+                    <div class="app-icon-box w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4 shadow-sm">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
+                    </div>
+                    <h4 class="text-lg font-bold mb-2 group-hover:text-amber-600 transition-colors">Pusat Kendali Asesmen</h4>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Kelola event ujian (PAS/PAT/PSAJ), distribusi soal, dan monitoring kurikulum.</p>
+                    <div class="mt-6 flex items-center text-sm font-bold text-amber-600 dark:text-amber-400">
+                        Buka Aplikasi <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </div>
+                </a>
+
+                <!-- 11. Aplikasi Wali Kelas (BARU) -->
+                <a href="Aplikasi Wali Kelas.html" target="_blank" id="card-wali" class="group app-card glass-card p-6 rounded-3xl hover:shadow-xl border-t-4 border-t-orange-500 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"></path></svg>
+                    </div>
+                    <div class="app-icon-box w-16 h-16 rounded-2xl bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 flex items-center justify-center mb-4 shadow-sm">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    </div>
+                    <h4 class="text-lg font-bold mb-2 group-hover:text-orange-600 transition-colors">Aplikasi Wali Kelas</h4>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Dashboard detektif presensi, leger nilai mini, dan catatan karakter siswa.</p>
+                    <div class="mt-6 flex items-center text-sm font-bold text-orange-600 dark:text-orange-400">
+                        Buka Aplikasi <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </div>
+                </a>
+
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white dark:bg-cyber-900 border-t border-gray-200 dark:border-gray-800 py-8 mt-auto hidden opacity-0 transition-opacity duration-700" id="main-footer">
+        <div class="max-w-7xl mx-auto px-4 text-center text-sm text-gray-500 dark:text-gray-400">
+            <p>&copy; 2026 SAKTI - Sistem Asesmen Komprehensif Terintegrasi. Hak Cipta Dilindungi.</p>
+        </div>
+    </footer>
+
+    <!-- Firebase Logic -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAwIwimlyrE4qQqYa2gA8Pfygd59USsveQ",
+            authDomain: "aplikasi-ulangan-01.firebaseapp.com",
+            projectId: "aplikasi-ulangan-01",
+            storageBucket: "aplikasi-ulangan-01.firebasestorage.app",
+            messagingSenderId: "409085062439",
+            appId: "1:409085062439:web:280589d1a3e12e7b980d02",
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // --- GLOBAL STATE ---
+        let currentGuru = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const sessionID = localStorage.getItem('cbt_user_id');
+            const sessionMapel = localStorage.getItem('cbt_user_mapel');
+            
+            if (sessionID && sessionMapel) {
+                updateUIForLoggedInUser(
+                    localStorage.getItem('cbt_user_name'),
+                    sessionMapel
+                );
+                initFirebase(sessionMapel);
+            } else {
+                document.getElementById('dashboard-login-overlay').classList.remove('hidden');
+            }
+
+            const btn = document.getElementById('theme-toggle');
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+            btn.addEventListener('click', () => {
+                document.documentElement.classList.toggle('dark');
+                localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+            });
+        });
+
+        // --- LOGIN LOGIC GURU ---
+        document.getElementById('dashboard-login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('login-id').value.toLowerCase().trim();
+            const pin = document.getElementById('login-pin').value.trim();
+            const errBox = document.getElementById('login-error-msg');
+
+            errBox.classList.add('hidden');
+            errBox.textContent = "Memverifikasi...";
+            errBox.classList.remove('hidden');
+            
+            try {
+                await auth.signInAnonymously();
+                const docRef = db.collection('users_guru').doc(id);
+                const docSnap = await docRef.get();
+
+                if (!docSnap.exists) { throw new Error("ID Pengguna tidak ditemukan!"); }
+                const data = docSnap.data();
+                if (data.pin !== pin) { throw new Error("PIN Salah! Silakan coba lagi."); }
+
+                currentGuru = { id: id, ...data };
+                errBox.classList.add('hidden');
+                handleSuccessfulLogin(currentGuru);
+
+            } catch (err) {
+                errBox.textContent = err.message;
+                errBox.classList.remove('hidden');
+            }
+        });
+
+        function handleSuccessfulLogin(guruData) {
+            const mapelList = guruData.mapel || [];
+            if (mapelList.length === 0) { alert("Akun Anda belum memiliki Mapel Ampuan."); return; }
+            if (mapelList.length === 1) { finalizeSession(guruData, mapelList[0]); } 
+            else { showMapelSelector(guruData, mapelList); }
+        }
+
+        function showMapelSelector(guruData, mapelList) {
+            const modal = document.getElementById('mapel-selector-modal');
+            const container = document.getElementById('mapel-options-container');
+            container.innerHTML = mapelList.map(m => `
+                <button onclick="window.selectMapel('${m}')" class="w-full py-3 px-4 bg-gray-50 hover:bg-blue-50 text-gray-800 hover:text-blue-600 font-bold rounded-xl border border-gray-200 hover:border-blue-300 transition-all text-left flex justify-between items-center group">
+                    ${m} <span class="text-blue-400 group-hover:text-blue-600">➔</span>
+                </button>
+            `).join('');
+            document.getElementById('dashboard-login-overlay').classList.add('hidden');
+            modal.classList.remove('hidden');
+        }
+
+        window.selectMapel = (selectedMapel) => {
+            document.getElementById('mapel-selector-modal').classList.add('hidden');
+            finalizeSession(currentGuru, selectedMapel);
+        }
+
+        function finalizeSession(guruData, activeMapel) {
+            localStorage.setItem('cbt_user_id', guruData.id);
+            localStorage.setItem('cbt_user_name', guruData.fullName);
+            localStorage.setItem('cbt_user_mapel', activeMapel);
+            localStorage.setItem('cbt_user_kelas', JSON.stringify(guruData.kelas || []));
+            localStorage.setItem('cbt_wali_kelas', guruData.waliKelas || ''); 
+
+            updateUIForLoggedInUser(guruData.fullName, activeMapel);
+            initFirebase(activeMapel);
+        }
+
+        function updateUIForLoggedInUser(name, mapel) {
+            document.getElementById('dashboard-login-overlay').classList.add('hidden');
+            const main = document.getElementById('main-content');
+            const footer = document.getElementById('main-footer');
+            main.classList.remove('hidden');
+            footer.classList.remove('hidden');
+            setTimeout(() => { main.classList.remove('opacity-0'); footer.classList.remove('opacity-0'); }, 50);
+
+            document.getElementById('user-display-name').textContent = name;
+            document.getElementById('user-display-mapel').textContent = mapel;
+            document.getElementById('welcome-name').textContent = name;
+            document.getElementById('welcome-mapel').textContent = mapel;
+            const initial = name.substring(0, 2).toUpperCase();
+            document.getElementById('user-avatar').src = `https://ui-avatars.com/api/?name=${initial}&background=6366f1&color=fff`;
+
+            // --- ROLE BASED ACCESS CONTROL (RBAC) ---
+            const userId = localStorage.getItem('cbt_user_id'); 
+            const userWaliKelas = localStorage.getItem('cbt_wali_kelas');
+            applyAccessControl(userId, mapel, userWaliKelas);
+        }
+
+        // --- FUNGSI PENGATUR HAK AKSES ---
+        function applyAccessControl(userId, userMapel, userWaliKelas) {
+            const apps = {
+                editor: document.getElementById('card-editor'),
+                ujian: document.getElementById('card-ujian'),
+                siswa: document.getElementById('card-siswa'),
+                katalog: document.getElementById('card-katalog'),
+                monitoring: document.getElementById('card-monitoring'),
+                analisis: document.getElementById('card-analisis'),
+                presensi: document.getElementById('card-presensi'),
+                nilai: document.getElementById('card-nilai'),
+                setup: document.getElementById('card-setup'),
+                pka: document.getElementById('card-pka'),
+                wali: document.getElementById('card-wali')
+            };
+
+            Object.values(apps).forEach(el => {
+                if(el) {
+                    el.classList.remove('hidden', 'app-locked');
+                    const badge = el.querySelector('.lock-badge');
+                    if(badge) badge.remove();
+                    if (el.dataset.originalHref) el.href = el.dataset.originalHref;
+                    const infoBadge = el.querySelector('.wali-info-badge');
+                    if(infoBadge) infoBadge.remove();
+                }
+            });
+
+            if (userId === 'admin_master' || userMapel === 'ADMIN PUSAT') {
+                return; 
+            }
+
+            if (userMapel && userMapel.toUpperCase().includes('KURIKULUM')) {
+                if(apps.setup) apps.setup.classList.add('hidden');
+                const guruApps = ['editor', 'ujian', 'siswa', 'katalog', 'monitoring', 'analisis', 'presensi', 'nilai', 'wali'];
+                guruApps.forEach(key => lockApp(apps[key]));
+                return;
+            }
+
+            if(apps.setup) apps.setup.classList.add('hidden');
+            if(apps.pka) apps.pka.classList.add('hidden');
+            
+            if (!userWaliKelas) {
+                lockApp(apps.wali);
+            } else {
+                if (apps.wali) {
+                    const badgeInfo = document.createElement('div');
+                    badgeInfo.className = 'wali-info-badge absolute top-4 right-4 bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 px-3 py-1 rounded-full text-[10px] font-bold border border-orange-200 dark:border-orange-800 shadow-sm';
+                    badgeInfo.innerHTML = `<i class="fa-solid fa-star mr-1"></i> Kelas ${userWaliKelas}`;
+                    apps.wali.appendChild(badgeInfo);
+                }
+            }
+        }
+
+        function lockApp(element) {
+            if(!element) return;
+            if (!element.dataset.originalHref) element.dataset.originalHref = element.href;
+            
+            element.classList.add('app-locked');
+            element.removeAttribute('href'); 
+            element.removeAttribute('target');
+            
+            const badge = document.createElement('div');
+            badge.className = 'lock-badge';
+            badge.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg> Akses Dibatasi';
+            element.appendChild(badge);
+        }
+
+        window.loginAsAdminPusat = () => {
+            document.getElementById('admin-pin-modal').classList.remove('hidden');
+            const input = document.getElementById('input-admin-pin');
+            input.value = '';
+            setTimeout(() => input.focus(), 100);
+        };
+
+        window.closeAdminModal = () => {
+             document.getElementById('admin-pin-modal').classList.add('hidden');
+        };
+
+        // --- LOGIN LOGIC ADMIN PUSAT (BARU & AMAN) ---
+        window.handleAdminPinSubmit = async (e) => {
+            e.preventDefault();
+            const passInput = document.getElementById('input-admin-pin').value;
+            const btnSubmit = e.target.querySelector('button[type="submit"]');
+            const originalText = btnSubmit.innerHTML;
+            
+            btnSubmit.innerHTML = "Memproses...";
+            btnSubmit.disabled = true;
+
+            try {
+                // Mengirimkan password ke server Google untuk dicek!
+                await auth.signInWithEmailAndPassword("admin.pusat@sekolah.com", passInput);
+                
+                // Jika berhasil melewati pengecekan server:
+                const adminData = {
+                    id: 'admin_master',
+                    fullName: 'Administrator Pusat',
+                    kelas: ['SEMUA'],
+                    mapel: ['ADMIN PUSAT'] 
+                };
+                
+                finalizeSession(adminData, "ADMIN PUSAT");
+                closeAdminModal();
+                
+            } catch (error) {
+                console.error("Login Admin Gagal:", error);
+                alert("Kata Sandi/PIN Salah! Akses Ditolak.");
+                document.getElementById('input-admin-pin').value = '';
+                document.getElementById('input-admin-pin').focus();
+            } finally {
+                btnSubmit.innerHTML = originalText;
+                btnSubmit.disabled = false;
+            }
+        };
+
+        window.logout = function() {
+            if(confirm('Keluar dari dashboard?')) {
+                localStorage.clear();
+                auth.signOut(); // Tambahan: Pastikan sesi server juga ditutup
+                location.reload();
+            }
+        };
+
+        async function initFirebase(currentUserMapel) {
+            try {
+                // Jangan panggil signInAnonymously lagi jika sudah login pakai email (Admin)
+                if (!auth.currentUser) await auth.signInAnonymously();
+                
+                let totalSoal = 0;
+                const snapSoal = await db.collection('bank_soal').get();
+                if (currentUserMapel === 'ADMIN PUSAT') {
+                    totalSoal = snapSoal.size;
+                } else {
+                    snapSoal.forEach(doc => {
+                        const d = doc.data();
+                        if (d.metadata?.mapel === currentUserMapel) totalSoal++;
+                    });
+                }
+                updateStat('stat-bank-soal', totalSoal);
+
+                let totalUjian = 0;
+                const snapUjian = await db.collection('ujian_terjadwal').get();
+                if (currentUserMapel === 'ADMIN PUSAT') {
+                    totalUjian = snapUjian.size;
+                } else {
+                    snapUjian.forEach(doc => {
+                        const d = doc.data();
+                        if (d.mapel === currentUserMapel) totalUjian++;
+                    });
+                }
+                updateStat('stat-ujian-aktif', totalUjian);
+            } catch (e) { console.error("Firebase Error:", e); }
+        }
+
+        function updateStat(id, val) {
+            const el = document.getElementById(id);
+            if(el) el.innerHTML = val.toLocaleString('id-ID');
+        }
+    </script>
+
+    <!-- MODAL KHUSUS LOGIN ADMIN -->
+    <div id="admin-pin-modal" class="fixed inset-0 z-[120] hidden flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div class="bg-white dark:bg-cyber-800 w-full max-w-xs rounded-2xl p-6 shadow-2xl border border-gray-200 dark:border-gray-700 transform transition-all scale-100">
+            <div class="text-center mb-4">
+                <div class="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-2 text-2xl">🛡️</div>
+                <h3 class="text-lg font-bold text-gray-800 dark:text-white">Admin Pusat</h3>
+                <p class="text-[10px] text-gray-500">Masukkan Kata Sandi/PIN Master.</p>
+            </div>
+            <form onsubmit="handleAdminPinSubmit(event)">
+                <input type="password" id="input-admin-pin" class="w-full p-3 rounded-xl border bg-gray-50 dark:bg-cyber-900 dark:border-gray-700 text-center font-bold text-lg tracking-widest mb-4 outline-none focus:ring-2 focus:ring-red-500 dark:text-white" placeholder="••••••••" required autocomplete="off">
+                <div class="flex gap-2">
+                    <button type="button" onclick="closeAdminModal()" class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-300 transition-colors">Batal</button>
+                    <button type="submit" class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-500/30 transition-colors">Masuk</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

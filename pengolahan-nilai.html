@@ -1,0 +1,1539 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengolahan Nilai - Comfort & Glow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { 
+                        'deep': '#0f172a',
+                        'surface': '#1e293b',
+                        'primary': '#0ea5e9',
+                        'cyber': { 800: '#1e293b' }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; transition: background 0.3s, color 0.3s; }
+        body { background-color: #f8fafc; color: #000000; }
+        .card { background: #ffffff; border: 1px solid #e2e8f0; }
+        .dark body { background-color: #0f172a; color: #ffffff; }
+        .dark .card { background: #1e293b; border: 1px solid #334155; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        
+        .zoomable-image { cursor: zoom-in; transition: transform 0.2s; }
+        .zoomable-image:hover { transform: scale(1.02); }
+
+        #image-viewer-content { transform-origin: center center; transition: transform 0.1s ease-out; cursor: grab; }
+        #image-viewer-content:active { cursor: grabbing; }
+
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+        .paste-receiver { transition: all 0.2s; }
+        .paste-receiver:focus { transform: scale(1.05); z-index: 10; box-shadow: 0 0 15px rgba(14, 165, 233, 0.4); }
+        .paste-highlight { animation: flashGreen 1s ease-out; }
+        
+        @keyframes flashGreen {
+            0% { background-color: rgba(16, 185, 129, 0.5); }
+            100% { background-color: transparent; }
+        }
+
+        @media print {
+            body * { visibility: hidden; }
+            #report-card-print, #report-card-print * { visibility: visible; }
+            #report-card-print {
+                display: block !important;
+                position: absolute; left: 0; top: 0; width: 100%;
+                background: white; color: black; z-index: 9999;
+            }
+            nav, main, #correction-modal, #login-overlay, #image-viewer-modal, #weight-modal, #custom-col-modal { display: none !important; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <div id="login-overlay" class="fixed inset-0 z-[100] bg-gray-100 dark:bg-deep flex items-center justify-center p-4">
+        <div class="card p-8 rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-gray-700">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl text-primary">📊</div>
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Akses Nilai</h2>
+                <p class="text-sm opacity-70">Sistem Pengolahan Terpadu</p>
+            </div>
+            
+            <div id="login-loading" class="text-center hidden">
+                <svg class="animate-spin h-8 w-8 text-indigo-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <p class="text-indigo-600 font-bold animate-pulse">Menghubungkan ke Portal...</p>
+            </div>
+
+            <form id="admin-login-form" class="space-y-4 hidden">
+                <p class="text-center text-red-500 text-sm font-bold bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
+                    Akses Ditolak: Tidak ada sesi Portal Akademik.
+                </p>
+                <button type="button" onclick="window.location.href='Portal Akademik.html'" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-all shadow-lg">
+                    Buka Portal Akademik
+                </button>
+            </form>
+            <p id="login-error-msg" class="text-red-500 text-center text-sm mt-4 hidden"></p>
+        </div>
+    </div>
+
+    <div id="image-viewer-modal" class="fixed inset-0 z-[200] hidden bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center overflow-hidden">
+        <div class="absolute top-4 left-1/2 transform -translate-x-1/2 flex gap-4 z-50 bg-black/50 px-6 py-2 rounded-full border border-white/20 backdrop-blur-md">
+            <button onclick="zoomOut()" class="text-white hover:text-primary transition-colors text-xl font-bold p-2" title="Zoom Out (-)">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+            </button>
+            <span id="zoom-level" class="text-white font-mono text-sm flex items-center w-12 justify-center">100%</span>
+            <button onclick="zoomIn()" class="text-white hover:text-primary transition-colors text-xl font-bold p-2" title="Zoom In (+)">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            </button>
+            <div class="w-px bg-white/20 mx-2"></div>
+            <button onclick="rotateImage()" class="text-white hover:text-primary transition-colors text-sm font-bold flex items-center gap-1 p-2" title="Putar Gambar">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Putar
+            </button>
+            <div class="w-px bg-white/20 mx-2"></div>
+            <button onclick="resetZoom()" class="text-white hover:text-primary transition-colors text-sm font-bold flex items-center gap-1 p-2" title="Kembalikan ke awal">Reset</button>
+        </div>
+        <button onclick="closeImageViewer()" class="absolute top-4 right-4 text-white/70 hover:text-red-500 z-50 p-2 bg-black/20 rounded-full transition-all">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        <div id="image-container" class="w-full h-full flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing" 
+             onmousedown="startDrag(event)" onmousemove="drag(event)" onmouseup="endDrag()" onmouseleave="endDrag()" onwheel="handleWheel(event)">
+            <img id="image-viewer-content" class="max-w-[90%] max-h-[90%] object-contain shadow-2xl pointer-events-none select-none">
+        </div>
+    </div>
+
+    <div id="weight-modal" class="fixed inset-0 z-[60] hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="card w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-surface flex justify-between items-center">
+                <h3 class="font-bold text-lg text-gray-800 dark:text-white">Pengaturan Bobot (Ujian CBT)</h3>
+                <button onclick="closeWeightModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto bg-white dark:bg-deep space-y-4">
+                <div id="weight-list-container" class="space-y-3"></div>
+            </div>
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-surface flex justify-end gap-3">
+                <button onclick="closeWeightModal()" class="px-4 py-2 rounded-lg border hover:bg-gray-200 dark:hover:bg-gray-700 font-bold text-sm">Batal</button>
+                <button id="btn-save-weights" onclick="saveWeights()" class="px-6 py-2 rounded-lg bg-primary hover:bg-sky-600 text-white font-bold shadow-lg text-sm">Simpan Perubahan</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="custom-col-modal" class="fixed inset-0 z-[60] hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="card w-full max-w-3xl rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-surface flex justify-between items-center">
+                <h3 class="font-bold text-lg text-gray-800 dark:text-white flex items-center gap-2">
+                    <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                    Kelola Kolom Kustom (Tugas/Praktek)
+                </h3>
+                <button onclick="closeCustomColModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto bg-white dark:bg-deep space-y-4">
+                <div class="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl text-sm text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 mb-4">
+                    <p class="font-bold">Info Fitur Kustom:</p>
+                    <p>Tambahkan kolom penilaian manual seperti Tugas, Praktek, atau Sikap. Kolom ini akan ikut dihitung ke dalam <b>Rata-rata Sistem</b> berdasarkan bobot yang Anda tentukan.</p>
+                </div>
+                
+                <div class="flex gap-2 items-end bg-gray-50 dark:bg-black/20 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div class="flex-1">
+                        <label class="text-xs font-bold text-gray-500 block mb-1">Nama Kolom (Contoh: Tugas 1)</label>
+                        <input type="text" id="new-col-name" class="w-full p-2 rounded-lg border outline-none focus:ring-2 ring-indigo-500 bg-white dark:bg-surface dark:text-white dark:border-gray-600" placeholder="Ketik nama...">
+                    </div>
+                    <div class="w-24">
+                        <label class="text-xs font-bold text-gray-500 block mb-1">Bobot</label>
+                        <input type="number" id="new-col-weight" value="1" min="0.1" step="0.1" class="w-full p-2 rounded-lg border text-center outline-none focus:ring-2 ring-indigo-500 bg-white dark:bg-surface dark:text-white dark:border-gray-600">
+                    </div>
+                    <button onclick="addCustomCol()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg h-[42px] transition-colors shadow-md">
+                        Tambah
+                    </button>
+                </div>
+
+                <div id="custom-col-list" class="space-y-2 mt-4">
+                    </div>
+            </div>
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-surface flex justify-end gap-3">
+                <button onclick="closeCustomColModal()" class="px-4 py-2 rounded-lg border hover:bg-gray-200 dark:hover:bg-gray-700 font-bold text-sm">Tutup</button>
+                <button id="btn-save-custom-cols" onclick="saveCustomCols()" class="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-lg text-sm">Simpan Kolom</button>
+            </div>
+        </div>
+    </div>
+
+    <nav class="sticky top-0 z-40 bg-white/90 dark:bg-surface/90 backdrop-blur shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-primary rounded-lg shadow-lg text-white">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold tracking-tight text-gray-800 dark:text-white">Pengolahan <span class="text-primary">Nilai</span></h1>
+                        <p class="text-[13px] text-gray-500 dark:text-gray-400 italic">User: <span id="header-user-id" class="font-bold">-</span></p>
+                    </div>
+                </div>
+                <div class="flex gap-2 items-center flex-wrap justify-end">
+                    <div id="user-badge" class="hidden md:flex items-center gap-2 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full border border-gray-200 dark:border-gray-700 mr-2">
+                        <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                        <span id="current-user-mapel" class="text-xs font-bold text-gray-600 dark:text-gray-300">Guest</span>
+                    </div>
+                    
+                    <button id="btn-submit-rapor" onclick="submitFinalGrades()" class="hidden sm:flex bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-bold items-center gap-1 shadow-sm transition-all border border-blue-500">
+                        🚀 Setor Wali Kelas
+                    </button>
+
+                    <button onclick="openCustomColModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm transition-all">
+                        + Kolom Kustom
+                    </button>
+
+                    <button onclick="openWeightModal()" class="bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm transition-all">
+                        Atur Bobot Ujian
+                    </button>
+
+                    <button id="btn-export-excel" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm transition-all">
+                        Export Excel
+                    </button>
+                    <button id="logout-btn" class="bg-red-100 text-red-600 px-3 py-2 rounded-lg text-sm font-bold hover:bg-red-200 transition-colors hidden">Tutup</button>
+                    <button id="theme-toggle" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">🌙</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-1 max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+        <div class="card p-4 rounded-2xl shadow-sm flex flex-wrap gap-4 items-center justify-between bg-white dark:bg-surface">
+            <div class="flex gap-3 flex-1 min-w-[300px]">
+                <div class="relative flex-1 max-w-sm">
+                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none opacity-50"><svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></div>
+                    <input type="text" id="search-input" class="w-full pl-10 p-2.5 bg-transparent border dark:border-gray-600 rounded-xl text-sm outline-none focus:ring-2 ring-primary dark:text-white" placeholder="Cari Siswa...">
+                </div>
+                <select id="filter-kelas" class="p-2.5 bg-transparent border dark:border-gray-600 rounded-xl text-sm outline-none focus:ring-2 ring-primary cursor-pointer w-40 dark:text-white dark:bg-surface">
+                    <option value="" disabled selected>-- Pilih Kelas --</option>
+                </select>
+                <select id="sort-by" class="p-2.5 bg-transparent border dark:border-gray-600 rounded-xl text-sm outline-none focus:ring-2 ring-primary cursor-pointer w-40 dark:text-white dark:bg-surface">
+                    <option value="name_asc">Nama (A-Z)</option>
+                    <option value="name_desc">Nama (Z-A)</option>
+                    <option value="avg_desc">Nilai Tertinggi</option>
+                    <option value="avg_asc">Nilai Terendah</option>
+                </select>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <div class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg text-xs text-yellow-700 dark:text-yellow-400">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Pilih kotak input nilai lalu tekan <b class="mx-1">Ctrl + V</b> untuk Paste data dari Excel.
+                </div>
+                <button id="btn-refresh" class="text-gray-500 hover:text-primary p-2 border dark:border-gray-600 rounded-lg flex items-center gap-2 transition-colors">
+                    <span class="text-xs font-bold hidden sm:inline">Refresh Data</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="card rounded-2xl shadow-sm overflow-hidden bg-white dark:bg-surface relative">
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-sm text-left" id="grades-table">
+                    <thead class="bg-gray-100 dark:bg-gray-800 text-xs font-bold uppercase border-b dark:border-gray-700 text-gray-600 dark:text-gray-300">
+                        <tr id="table-header-row">
+                            </tr>
+                    </thead>
+                    <tbody id="grades-body" class="divide-y divide-gray-200 dark:divide-gray-700 text-gray-700 dark:text-gray-300">
+                        <tr><td colspan="100%" class="text-center py-10 opacity-50 italic">Memuat struktur kelas...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700 text-xs opacity-70 flex justify-between text-gray-600 dark:text-gray-400">
+                <span>Total Siswa: <span id="total-students">0</span></span>
+                <span>Nilai Akhir tersimpan otomatis. Tekan "Setor" untuk membagikan ke Wali Kelas.</span>
+            </div>
+            
+            <div id="toast-paste" class="absolute bottom-16 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl transition-all duration-300 opacity-0 pointer-events-none flex items-center gap-2 font-bold text-sm z-50">
+                <span class="text-success">✓</span> <span id="toast-msg">Paste Berhasil!</span>
+            </div>
+        </div>
+
+    </main>
+
+    <div id="correction-modal" class="fixed inset-0 z-[60] hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="card w-full max-w-4xl h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden bg-white dark:bg-surface">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-amber-50 dark:bg-amber-900/10">
+                <div>
+                    <h3 class="font-bold text-lg flex items-center gap-2 text-gray-800 dark:text-white">
+                        <span class="bg-amber-500 text-white text-xs px-2 py-1 rounded">KOREKSI</span>
+                        <span id="modal-student-name">Nama Siswa</span>
+                    </h3>
+                    <p class="text-xs opacity-70 text-gray-600 dark:text-gray-400" id="modal-exam-name">Nama Ujian</p>
+                </div>
+                <button onclick="closeCorrectionModal()" class="p-2 rounded-full hover:bg-black/10 text-gray-500 dark:text-gray-400">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div id="correction-content" class="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50 dark:bg-deep custom-scrollbar"></div>
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-surface flex justify-end gap-3">
+                <button onclick="closeCorrectionModal()" class="px-4 py-2 rounded-lg border hover:bg-gray-100 dark:hover:bg-gray-700 font-bold text-gray-600 dark:text-gray-300">Batal</button>
+                <button onclick="saveCorrection()" class="px-6 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    Simpan Koreksi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="report-card-print" class="hidden bg-white text-black p-10 font-serif">
+        <div class="border-b-2 border-black pb-4 mb-6">
+            <h1 class="text-2xl font-bold text-center uppercase tracking-widest">Laporan Hasil Belajar</h1>
+            <p class="text-center text-sm mt-1">Comfort & Glow Education System</p>
+        </div>
+        <table class="w-full mb-6 text-sm">
+            <tr><td class="w-32 font-bold">Nama Siswa</td><td>: <span id="print-name">-</span></td></tr>
+            <tr><td class="font-bold">Kelas</td><td>: <span id="print-class">-</span></td></tr>
+            <tr><td class="font-bold">NIS</td><td>: <span id="print-nis">-</span></td></tr>
+            <tr><td class="font-bold">Tanggal Cetak</td><td>: <span id="print-date">-</span></td></tr>
+        </table>
+        
+        <table class="w-full border-collapse border border-black mb-8 text-sm">
+            <thead>
+                <tr class="bg-gray-200">
+                    <th class="border border-black p-2 w-10 text-center">No</th>
+                    <th class="border border-black p-2 text-left">Mata Ujian / Kegiatan</th>
+                    <th class="border border-black p-2 w-24 text-center">Bobot</th>
+                    <th class="border border-black p-2 w-24 text-center">Nilai</th>
+                    <th class="border border-black p-2 w-32 text-center">Keterangan</th>
+                </tr>
+            </thead>
+            <tbody id="print-body"></tbody>
+            <tfoot>
+                <tr class="bg-gray-100 font-bold">
+                    <td colspan="3" class="border border-black p-2 text-right">Rata-rata Sistem</td>
+                    <td class="border border-black p-2 text-center" id="print-avg">-</td>
+                    <td class="border border-black p-2"></td>
+                </tr>
+                <tr class="bg-blue-100 font-bold">
+                    <td colspan="3" class="border border-black p-2 text-right text-blue-900">NILAI AKHIR (MATANG)</td>
+                    <td class="border border-black p-2 text-center text-blue-900 text-lg" id="print-final">-</td>
+                    <td class="border border-black p-2"></td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div class="mt-12 flex justify-end text-center">
+            <div>
+                <p class="mb-16">Mengetahui,<br>Guru Pengampu</p>
+                <p class="font-bold border-b border-black inline-block min-w-[150px]" id="print-teacher-name"></p>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, setDoc, deleteDoc, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAwIwimlyrE4qQqYa2gA8Pfygd59USsveQ",
+            authDomain: "aplikasi-ulangan-01.firebaseapp.com",
+            projectId: "aplikasi-ulangan-01",
+            storageBucket: "aplikasi-ulangan-01.firebasestorage.app",
+            messagingSenderId: "409085062439",
+            appId: "1:409085062439:web:280589d1a3e12e7b980d02",
+        };
+
+        let db, auth;
+        let currentGuruId = null;
+        let currentGuruMapel = null;
+
+        let students = []; 
+        let exams = []; 
+        let scores = {}; 
+        
+        let customColumns = []; 
+        let customScores = {};  
+        let editedFinalGrades = {}; 
+        let saveTimeout = null;
+
+        let existingRapor = {}; 
+        let currentCorrectionData = null; 
+
+        // MEMORI CACHE UNTUK KECEPATAN (FIX 1)
+        let fetchedClasses = new Set(); 
+
+        // Zoom & Rotate Variables
+        let currentScale = 1; let currentRotation = 0; let isDragging = false;
+        let startX, startY, translateX = 0, translateY = 0;
+
+        window.deleteExamPermanently = deleteExamPermanently;
+        window.openCorrection = openCorrection;
+        window.printReportCard = printReportCard;
+        window.saveCorrection = saveCorrection;
+        window.closeCorrectionModal = closeCorrectionModal;
+        window.exportToExcel = exportToExcel;
+        window.openWeightModal = openWeightModal;
+        window.closeWeightModal = closeWeightModal;
+        window.saveWeights = saveWeights;
+        window.openImageViewer = openImageViewer;
+        window.closeImageViewer = closeImageViewer;
+        window.zoomIn = zoomIn; window.zoomOut = zoomOut; window.resetZoom = resetZoom;
+        window.rotateImage = rotateImage; window.handleWheel = handleWheel;
+        window.startDrag = startDrag; window.drag = drag; window.endDrag = endDrag;
+        window.submitFinalGrades = submitFinalGrades;
+        
+        window.openCustomColModal = openCustomColModal;
+        window.closeCustomColModal = closeCustomColModal;
+        window.addCustomCol = addCustomCol;
+        window.removeCustomCol = removeCustomCol;
+        window.saveCustomCols = saveCustomCols;
+        window.updateCustomColWeight = updateCustomColWeight;
+        window.deleteCustomColumn = deleteCustomColumn;
+        window.handleExcelPaste = handleExcelPaste;
+
+        function triggerAutoSave() {
+            if (saveTimeout) clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(async () => {
+                const promises = [];
+                for (const nis in editedFinalGrades) {
+                    const finalVal = editedFinalGrades[nis];
+                    const customVals = customScores[nis] || {};
+                    
+                    const docRef = doc(db, 'laporan_siswa', nis);
+                    promises.push(setDoc(docRef, {
+                        nilai_akhir: { [currentGuruMapel]: finalVal },
+                        nilai_kustom: { [currentGuruMapel]: customVals },
+                        last_updated: serverTimestamp()
+                    }, { merge: true }));
+                }
+                
+                if (promises.length > 0) {
+                    try { await Promise.all(promises); } catch(e) {}
+                }
+            }, 1500); 
+        }
+
+        function handleExcelPaste(e, inputElem, colId) {
+            e.preventDefault();
+            const pasteData = (e.clipboardData || window.clipboardData).getData('text');
+            const values = pasteData.split(/\r?\n/).filter(val => val.trim() !== '');
+            const allInputs = Array.from(document.querySelectorAll(`.paste-${colId}`));
+            const startIndex = allInputs.indexOf(inputElem);
+
+            if (startIndex === -1) return;
+
+            let valsPasted = 0;
+            for (let i = 0; i < values.length; i++) {
+                if (startIndex + i < allInputs.length) {
+                    const targetInput = allInputs[startIndex + i];
+                    let num = parseFloat(values[i].replace(',', '.')); 
+                    
+                    if (!isNaN(num)) {
+                        targetInput.value = num;
+                        const nis = targetInput.dataset.nis;
+                        
+                        targetInput.classList.remove('paste-highlight');
+                        void targetInput.offsetWidth; 
+                        targetInput.classList.add('paste-highlight');
+
+                        if (colId === 'nilai_akhir') {
+                            editedFinalGrades[nis] = num;
+                        } else {
+                            if (!customScores[nis]) customScores[nis] = {};
+                            customScores[nis][colId] = num;
+                        }
+                        valsPasted++;
+                    }
+                }
+            }
+            
+            triggerAutoSave();
+            renderTable(); 
+            
+            const toast = document.getElementById('toast-paste');
+            document.getElementById('toast-msg').innerText = `Berhasil menyalin ${valsPasted} baris nilai!`;
+            toast.style.opacity = '1';
+            toast.style.transform = 'translate(-50%, -20px)';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translate(-50%, 0)';
+            }, 3000);
+        }
+
+        // FITUR UNLOCK NILAI AKHIR (FIX 5)
+        window.handleManualInput = (e, nis, colId) => {
+            let raw = e.target.value;
+            
+            if (raw === "") {
+                if (colId === 'nilai_akhir') delete editedFinalGrades[nis];
+                else if (customScores[nis]) delete customScores[nis][colId];
+            } else {
+                let val = parseFloat(raw.replace(',', '.'));
+                if (isNaN(val)) val = 0;
+                
+                if (colId === 'nilai_akhir') editedFinalGrades[nis] = val;
+                else {
+                    if (!customScores[nis]) customScores[nis] = {};
+                    customScores[nis][colId] = val;
+                }
+            }
+            triggerAutoSave();
+            renderTable(); 
+        };
+
+        async function submitFinalGrades() {
+            if(!currentGuruMapel || currentGuruMapel === 'ADMIN PUSAT') {
+                return alert("Fitur Setor Nilai hanya berlaku untuk Guru Mata Pelajaran.");
+            }
+            
+            const filterK = document.getElementById('filter-kelas').value;
+            const targetMsg = filterK ? `Hanya Kelas ${filterK}` : "Semua Kelas yang terlihat";
+            
+            if(!confirm(`Yakin ingin menyetor nilai ke Kotak Masuk Wali Kelas?\n\nTarget Setor: ${targetMsg}\n\nCatatan: Data asli Anda tetap aman, dan Wali Kelas dapat melihat salinan yang Anda kirimkan.`)) return;
+
+            const btn = document.getElementById('btn-submit-rapor');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = 'Mengirim...'; 
+            btn.disabled = true;
+
+            try {
+                if (saveTimeout) { clearTimeout(saveTimeout); triggerAutoSave(); }
+
+                const dataPerKelas = {};
+                
+                students.forEach(s => {
+                    if (filterK && s.kelas !== filterK) return;
+                    if(!dataPerKelas[s.kelas]) dataPerKelas[s.kelas] = {};
+                    
+                    let baseVal = editedFinalGrades[s.id];
+                    if (baseVal === undefined) baseVal = Math.round(s.avg || 0);
+                    
+                    dataPerKelas[s.kelas][s.id] = baseVal;
+                });
+
+                const timestamp = new Date().toISOString();
+                const promises = [];
+                for (const [kelasName, nilaiObj] of Object.entries(dataPerKelas)) {
+                    const docId = `${currentGuruMapel}_${kelasName}`.replace(/\s+/g, '_');
+                    const docRef = doc(db, 'leger_terkirim', docId);
+                    
+                    promises.push(setDoc(docRef, {
+                        kelas: kelasName,
+                        mapel: currentGuruMapel,
+                        guru: currentGuruId || "Guru",
+                        nilai: nilaiObj,
+                        last_updated: timestamp
+                    }));
+                }
+
+                await Promise.all(promises);
+                alert(`Luar Biasa! Salinan nilai ${currentGuruMapel} berhasil mendarat di meja Wali Kelas.`);
+                
+            } catch (e) {
+                alert("Gagal menyetor nilai: " + e.message);
+            } finally {
+                btn.innerHTML = originalText; 
+                btn.disabled = false;
+            }
+        }
+
+        function openCustomColModal() {
+            renderCustomColList();
+            document.getElementById('custom-col-modal').classList.remove('hidden');
+            document.getElementById('custom-col-modal').classList.add('flex');
+        }
+
+        function closeCustomColModal() {
+            document.getElementById('custom-col-modal').classList.add('hidden');
+            document.getElementById('custom-col-modal').classList.remove('flex');
+        }
+
+        function renderCustomColList() {
+            const list = document.getElementById('custom-col-list');
+            list.innerHTML = '';
+            
+            if(customColumns.length === 0) {
+                list.innerHTML = '<p class="text-center text-sm text-gray-400 py-4 italic">Belum ada kolom kustom.</p>';
+                return;
+            }
+
+            customColumns.forEach((col, idx) => {
+                list.innerHTML += `
+                <div class="flex items-center justify-between p-3 bg-white dark:bg-surface border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <div class="flex-1">
+                        <p class="font-bold text-sm text-gray-800 dark:text-white">${col.name}</p>
+                        <div class="flex items-center gap-2 mt-1">
+                            <label class="text-xs text-gray-500">Bobot:</label>
+                            <input type="number" onchange="updateCustomColWeight(${idx}, this.value)" value="${col.weight}" min="0.1" step="0.1" class="w-16 p-1 rounded border text-center outline-none focus:ring-2 ring-indigo-500 bg-gray-50 dark:bg-black dark:text-white dark:border-gray-600 text-xs">
+                        </div>
+                    </div>
+                    <button onclick="removeCustomCol(${idx})" class="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                </div>`;
+            });
+        }
+
+        function addCustomCol() {
+            const nameInput = document.getElementById('new-col-name');
+            const weightInput = document.getElementById('new-col-weight');
+            const name = nameInput.value.trim();
+            const weight = parseFloat(weightInput.value) || 1;
+
+            if(!name) return alert("Nama kolom harus diisi!");
+            
+            const id = 'col_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+            customColumns.push({ id, name, weight });
+            nameInput.value = '';
+            weightInput.value = '1';
+            renderCustomColList();
+        }
+
+        function removeCustomCol(idx) {
+            if(confirm(`Hapus kolom "${customColumns[idx].name}"?\nData nilai siswa di kolom ini tidak akan ikut terhitung lagi.`)) {
+                customColumns.splice(idx, 1);
+                renderCustomColList();
+            }
+        }
+
+        function updateCustomColWeight(idx, val) {
+            let weight = parseFloat(val);
+            if (isNaN(weight) || weight <= 0) weight = 1;
+            customColumns[idx].weight = weight;
+        }
+
+        async function deleteCustomColumn(colId, colName) {
+            if(!confirm(`HAPUS PERMANEN Kolom "${colName}"?\nSemua nilai siswa di kolom ini akan dihapus dari database secara permanen.`)) return;
+
+            const idx = customColumns.findIndex(c => c.id === colId);
+            if(idx > -1) customColumns.splice(idx, 1);
+
+            for (const nis in customScores) {
+                if (customScores[nis][colId] !== undefined) {
+                    delete customScores[nis][colId];
+                }
+            }
+
+            try {
+                const guruRef = doc(db, 'users_guru', currentGuruId);
+                const gSnap = await getDoc(guruRef);
+                if(gSnap.exists() && gSnap.data().customCols) {
+                    let currentCustomCols = gSnap.data().customCols;
+                    currentCustomCols[currentGuruMapel] = customColumns;
+                    await updateDoc(guruRef, { customCols: currentCustomCols });
+                }
+
+                const promises = [];
+                for (const nis in customScores) {
+                    const docRef = doc(db, 'laporan_siswa', nis);
+                    promises.push(setDoc(docRef, {
+                        nilai_kustom: { [currentGuruMapel]: customScores[nis] },
+                        last_updated: serverTimestamp()
+                    }, { merge: true }));
+                }
+                if (promises.length > 0) await Promise.all(promises);
+
+                alert(`Kolom ${colName} berhasil dihapus.`);
+                renderTable(); 
+            } catch (e) {
+                alert("Gagal menghapus kolom: " + e.message);
+            }
+        }
+
+        async function saveCustomCols() {
+            if(!currentGuruId || !currentGuruMapel) return;
+            
+            const btn = document.getElementById('btn-save-custom-cols');
+            const originalText = btn.innerText;
+            btn.innerText = 'Menyimpan...'; btn.disabled = true;
+
+            try {
+                const guruRef = doc(db, 'users_guru', currentGuruId);
+                const gSnap = await getDoc(guruRef);
+                
+                let currentCustomCols = {};
+                if(gSnap.exists() && gSnap.data().customCols) {
+                    currentCustomCols = gSnap.data().customCols;
+                }
+                
+                currentCustomCols[currentGuruMapel] = customColumns;
+                await updateDoc(guruRef, { customCols: currentCustomCols });
+                
+                closeCustomColModal();
+                renderTable(); 
+            } catch(e) {
+                alert("Gagal menyimpan kolom: " + e.message);
+            } finally {
+                btn.innerText = originalText; btn.disabled = false;
+            }
+        }
+
+        // FILTER BOBOT SESUAI KELAS (FIX 4)
+        function openWeightModal() {
+            const listContainer = document.getElementById('weight-list-container');
+            listContainer.innerHTML = '';
+            const filterK = document.getElementById('filter-kelas').value;
+            
+            const visibleExams = exams.filter(e => {
+                if (!filterK) return true;
+                if (e.targetSemuaKelas) return true;
+                return e.targetKelas && e.targetKelas.includes(filterK);
+            });
+            
+            if(visibleExams.length === 0) {
+                listContainer.innerHTML = '<div class="text-center text-gray-500 py-4">Belum ada ujian CBT untuk kelas ini.</div>';
+            } else {
+                visibleExams.forEach(e => {
+                    const bobot = e.bobotNilai || 1; 
+                    const div = document.createElement('div');
+                    div.className = "flex items-center justify-between p-3 border rounded-lg bg-gray-50 dark:bg-black/20 border-gray-200 dark:border-gray-700";
+                    div.innerHTML = `
+                        <div>
+                            <p class="font-bold text-sm text-gray-800 dark:text-white">${e.namaUjian}</p>
+                            <p class="text-xs text-gray-500">${e.kodeUjian}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="text-xs text-gray-500">Bobot:</label>
+                            <input type="number" class="exam-weight-input w-20 p-2 rounded border text-center font-bold outline-none focus:ring-2 ring-primary bg-white dark:bg-surface dark:text-white dark:border-gray-600" 
+                                data-id="${e.id}" value="${bobot}" min="0.1" step="0.1">
+                        </div>
+                    `;
+                    listContainer.appendChild(div);
+                });
+            }
+            document.getElementById('weight-modal').classList.remove('hidden');
+            document.getElementById('weight-modal').classList.add('flex');
+        }
+
+        function closeWeightModal() {
+            document.getElementById('weight-modal').classList.add('hidden');
+            document.getElementById('weight-modal').classList.remove('flex');
+        }
+
+        async function saveWeights() {
+            const inputs = document.querySelectorAll('.exam-weight-input');
+            const btn = document.getElementById('btn-save-weights');
+            const originalText = btn.innerText;
+            btn.innerText = 'Menyimpan...'; btn.disabled = true;
+            
+            try {
+                const promises = [];
+                inputs.forEach(inp => {
+                    const docId = inp.dataset.id;
+                    const rawVal = inp.value.replace(',', '.');
+                    const val = parseFloat(rawVal) || 1;
+                    
+                    // Update the local array instantly
+                    const ex = exams.find(e => e.id === docId);
+                    if (ex) ex.bobotNilai = val;
+
+                    promises.push(updateDoc(doc(db, 'ujian_terjadwal', docId), { bobotNilai: val }));
+                });
+                
+                await Promise.all(promises);
+                alert("Bobot berhasil disimpan!");
+                closeWeightModal();
+                renderTable(); // Update tabel secara instan
+            } catch(e) {
+                alert("Gagal: " + e.message);
+            } finally {
+                btn.innerText = originalText; btn.disabled = false;
+            }
+        }
+
+        function openImageViewer(src) {
+            const img = document.getElementById('image-viewer-content');
+            img.src = src;
+            document.getElementById('image-viewer-modal').classList.remove('hidden');
+            document.getElementById('image-viewer-modal').classList.add('flex');
+            resetZoom();
+        }
+        function closeImageViewer() {
+            document.getElementById('image-viewer-modal').classList.add('hidden');
+            document.getElementById('image-viewer-modal').classList.remove('flex');
+        }
+        function zoomIn() { updateZoom(0.2); }
+        function zoomOut() { updateZoom(-0.2); }
+        function rotateImage() { currentRotation = (currentRotation + 90) % 360; applyTransform(); }
+        function resetZoom() { currentScale = 1; translateX = 0; translateY = 0; currentRotation = 0; applyTransform(); }
+        function handleWheel(e) { e.preventDefault(); updateZoom(e.deltaY > 0 ? -0.1 : 0.1); }
+        function updateZoom(delta) {
+            currentScale = Math.min(Math.max(0.5, currentScale + delta), 5);
+            document.getElementById('zoom-level').innerText = Math.round(currentScale * 100) + '%';
+            applyTransform();
+        }
+        function applyTransform() {
+            const img = document.getElementById('image-viewer-content');
+            img.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale}) rotate(${currentRotation}deg)`;
+        }
+        function startDrag(e) {
+            if (currentScale <= 1 && currentRotation === 0) return;
+            isDragging = true; startX = e.clientX - translateX; startY = e.clientY - translateY;
+            document.getElementById('image-container').style.cursor = 'grabbing';
+        }
+        function drag(e) {
+            if (!isDragging) return; e.preventDefault();
+            translateX = e.clientX - startX; translateY = e.clientY - startY; applyTransform();
+        }
+        function endDrag() { isDragging = false; document.getElementById('image-container').style.cursor = 'grab'; }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+
+            onAuthStateChanged(auth, (user) => {
+                const overlay = document.getElementById('login-overlay');
+                const logoutBtn = document.getElementById('logout-btn');
+                const loadingDiv = document.getElementById('login-loading');
+                const formDiv = document.getElementById('admin-login-form');
+                const userBadge = document.getElementById('user-badge');
+                
+                const tokenMapel = localStorage.getItem('cbt_user_mapel');
+                currentGuruId = localStorage.getItem('cbt_user_id');
+                currentGuruMapel = tokenMapel ? tokenMapel.toUpperCase() : null;
+
+                const isLoggedIn = user !== null;
+                
+                if (isLoggedIn) {
+                    overlay.classList.add('hidden');
+                    logoutBtn.classList.remove('hidden');
+                    
+                    if(tokenMapel) {
+                        document.getElementById('current-user-mapel').textContent = tokenMapel;
+                        document.getElementById('header-user-id').textContent = currentGuruId || 'Unknown';
+                        userBadge.classList.remove('hidden');
+                        
+                        if (currentGuruMapel !== 'ADMIN PUSAT') {
+                            document.getElementById('btn-submit-rapor').classList.remove('hidden');
+                        }
+                    }
+                    loadAllData();
+
+                } else if (tokenMapel) {
+                    overlay.classList.remove('hidden');
+                    formDiv.classList.add('hidden'); 
+                    loadingDiv.classList.remove('hidden'); 
+
+                    signInAnonymously(auth).catch(e => {
+                        console.error("Auto-login gagal:", e);
+                        loadingDiv.classList.add('hidden');
+                        formDiv.classList.remove('hidden');
+                        alert("Gagal login otomatis.");
+                    });
+                } else {
+                    overlay.classList.remove('hidden');
+                    formDiv.classList.remove('hidden');
+                    loadingDiv.classList.add('hidden');
+                    logoutBtn.classList.add('hidden');
+                }
+            });
+
+            document.getElementById('logout-btn').addEventListener('click', () => {
+                if(confirm("Tutup aplikasi Pengolahan Nilai?")) {
+                    window.close();
+                    setTimeout(() => { window.location.href = 'Portal Akademik.html'; }, 500);
+                }
+            });
+
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+            document.getElementById('theme-toggle').addEventListener('click', () => {
+                document.documentElement.classList.toggle('dark');
+                localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+            });
+
+            // TOMBOL REFRESH MENGHAPUS MEMORI CACHE
+            document.getElementById('btn-refresh').addEventListener('click', () => {
+                scores = {}; customScores = {}; editedFinalGrades = {}; existingRapor = {};
+                loadAllData();
+            });
+            
+            document.getElementById('search-input').addEventListener('input', renderTable);
+            // KUNCI KECEPATAN: Dropdown kelas sekarang langsung memicu render, tidak perlu unduh data lagi!
+            document.getElementById('filter-kelas').addEventListener('change', renderTable); 
+            document.getElementById('sort-by').addEventListener('change', renderTable);
+            document.getElementById('btn-export-excel').addEventListener('click', exportToExcel);
+        });
+
+        // FUNGSI MEMUAT SEMUA DATA DI AWAL (GAYA APLIKASI 1 YANG SUPER CEPAT)
+        async function loadAllData() {
+            const tbody = document.getElementById('grades-body');
+            tbody.innerHTML = '<tr><td colspan="100%" class="text-center py-10 opacity-50 italic font-bold">Memuat data secara terpusat (Bypass Mode)...</td></tr>';
+
+            try {
+                // 1. CARI TAHU KELAS DAN KOLOM KUSTOM DARI PROFIL GURU
+                let allowedClassesForMapel = new Set();
+                customColumns = [];
+
+                if (currentGuruMapel !== 'ADMIN PUSAT' && currentGuruId) {
+                    try {
+                        const gSnap = await getDoc(doc(db, 'users_guru', currentGuruId));
+                        if (gSnap.exists()) {
+                            const gData = gSnap.data();
+                            if (gData.mengajar && Array.isArray(gData.mengajar)) {
+                                gData.mengajar.forEach(item => {
+                                    if (item.mapel === currentGuruMapel && item.kelas) {
+                                        if (Array.isArray(item.kelas)) item.kelas.forEach(k => allowedClassesForMapel.add(k));
+                                        else allowedClassesForMapel.add(item.kelas);
+                                    }
+                                });
+                            }
+                            if (gData.customCols && gData.customCols[currentGuruMapel]) {
+                                customColumns = gData.customCols[currentGuruMapel];
+                            }
+                        }
+                    } catch(e) { console.warn(e); }
+                }
+
+                // 2. AMBIL DATA UJIAN YANG BERHUBUNGAN SAJA
+                let qExams = collection(db, 'ujian_terjadwal');
+                if (currentGuruMapel !== 'ADMIN PUSAT') {
+                    qExams = query(qExams, where('mapel', '==', currentGuruMapel));
+                }
+                const eSnap = await getDocs(qExams);
+                
+                exams = [];
+                const examIds = new Set(); 
+
+                eSnap.forEach(d => {
+                    const data = d.data();
+                    if(data.status === 'aktif') {
+                        const bobot = data.bobotNilai || 1;
+                        // Kita asumsikan hasManualCorrection = true agar tidak perlu query Bank Soal di awal
+                        exams.push({ id: d.id, hasManualCorrection: true, bobotNilai: bobot, ...data });
+                        examIds.add(data.kodeUjian);
+                    }
+                });
+                exams.sort((a,b) => new Date(b.tanggal || 0) - new Date(a.tanggal || 0));
+
+                const validClassesFromExams = new Set();
+                exams.forEach(ex => {
+                    if (ex.targetSemuaKelas) validClassesFromExams.add('ALL'); 
+                    else if (ex.targetKelas && Array.isArray(ex.targetKelas)) {
+                        ex.targetKelas.forEach(cls => {
+                            if (currentGuruMapel !== 'ADMIN PUSAT' && ['X', 'XI', 'XII', 'SEMUA', 'ALL'].includes(cls.toUpperCase())) return;
+                            validClassesFromExams.add(cls);
+                        });
+                    }
+                });
+
+                // 3. TENTUKAN TARGET KELAS (MESIN TURBO)
+                let targetClasses = [];
+                if (currentGuruMapel === 'ADMIN PUSAT' || validClassesFromExams.has('ALL') || validClassesFromExams.has('SEMUA')) {
+                    targetClasses = ['ALL_FETCH']; // Mode Admin: Tarik seluruh data
+                } else {
+                    const combinedClasses = new Set([...allowedClassesForMapel, ...validClassesFromExams]);
+                    targetClasses = Array.from(combinedClasses);
+                }
+
+                students = [];
+                const classSet = new Set();
+                scores = {};
+                existingRapor = {};
+                customScores = {}; 
+
+                if (targetClasses.length > 0) {
+                    if (targetClasses[0] === 'ALL_FETCH') {
+                        // MODE ADMIN: Tarik seluruh sekolah sekaligus
+                        const [sSnap, rSnap, raporSnap] = await Promise.all([
+                            getDocs(collection(db, 'siswa')),
+                            getDocs(collection(db, 'hasil_ujian')),
+                            getDocs(collection(db, 'laporan_siswa'))
+                        ]);
+
+                        sSnap.forEach(d => { 
+                            const data = d.data();
+                            if(data.kelas) { students.push({ id: d.id, ...data }); classSet.add(data.kelas); }
+                        });
+                        rSnap.forEach(d => {
+                            const data = d.data();
+                            if(examIds.has(data.ujianId)) {
+                                if(!scores[data.nis]) scores[data.nis] = {};
+                                scores[data.nis][data.ujianId] = { docId: d.id, ...data };
+                            }
+                        });
+                        raporSnap.forEach(d => {
+                            const rData = d.data();
+                            existingRapor[d.id] = rData;
+                            if(rData.nilai_kustom && rData.nilai_kustom[currentGuruMapel]) customScores[d.id] = rData.nilai_kustom[currentGuruMapel];
+                            if(rData.nilai_akhir && rData.nilai_akhir[currentGuruMapel] !== undefined) editedFinalGrades[d.id] = rData.nilai_akhir[currentGuruMapel];
+                        });
+                    } else {
+                        // MODE GURU (TURBO): Tarik serentak hanya untuk kelas yang diajar
+                        const sPromises = targetClasses.map(cls => getDocs(query(collection(db, 'siswa'), where('kelas', '==', cls))));
+                        const rPromises = targetClasses.map(cls => getDocs(query(collection(db, 'hasil_ujian'), where('kelas', '==', cls))));
+                        
+                        const [sSnapsArray, rSnapsArray, raporSnap] = await Promise.all([
+                            Promise.all(sPromises),
+                            Promise.all(rPromises),
+                            getDocs(collection(db, 'laporan_siswa')) // Laporan direkap full karena sangat ringan
+                        ]);
+
+                        sSnapsArray.forEach(snap => snap.forEach(d => {
+                            const data = d.data();
+                            students.push({ id: d.id, ...data });
+                            classSet.add(data.kelas);
+                        }));
+
+                        rSnapsArray.forEach(snap => snap.forEach(d => {
+                            const data = d.data();
+                            if(examIds.has(data.ujianId)) {
+                                if(!scores[data.nis]) scores[data.nis] = {};
+                                scores[data.nis][data.ujianId] = { docId: d.id, ...data };
+                            }
+                        }));
+
+                        raporSnap.forEach(d => {
+                            if(students.some(s => s.id === d.id)) { // Filter ringan di lokal
+                                const rData = d.data();
+                                existingRapor[d.id] = rData;
+                                if(rData.nilai_kustom && rData.nilai_kustom[currentGuruMapel]) customScores[d.id] = rData.nilai_kustom[currentGuruMapel];
+                                if(rData.nilai_akhir && rData.nilai_akhir[currentGuruMapel] !== undefined) editedFinalGrades[d.id] = rData.nilai_akhir[currentGuruMapel];
+                            }
+                        });
+                    }
+                }
+
+                const filterKelas = document.getElementById('filter-kelas');
+                filterKelas.innerHTML = '<option value="" disabled selected>-- Pilih Kelas --</option>';
+                Array.from(classSet).sort().forEach(c => filterKelas.add(new Option(c, c)));
+                filterKelas.value = "";
+
+                renderTableHeader();
+                tbody.innerHTML = '<tr><td colspan="100%" class="text-center py-10 text-gray-500 dark:text-gray-400 italic font-bold">Data berhasil dimuat. Pilih kelas pada dropdown di atas untuk menampilkan nilai.</td></tr>';
+                document.getElementById('total-students').textContent = '0';
+
+            } catch(e) {
+                console.error(e);
+                tbody.innerHTML = `<tr><td colspan="100%" class="text-center py-10 text-red-500">Error: ${e.message}</td></tr>`;
+            }
+        }
+
+        function renderTableHeader() {
+            const filterK = document.getElementById('filter-kelas').value;
+            const headerRow = document.getElementById('table-header-row');
+            
+            headerRow.innerHTML = `
+                <th class="px-6 py-4 sticky left-0 bg-gray-100 dark:bg-gray-800 z-20 w-10 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">#</th>
+                <th class="px-6 py-4 sticky left-10 bg-gray-100 dark:bg-gray-800 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Nama Siswa</th>
+                <th class="px-6 py-4 text-center whitespace-nowrap">Kelas</th>
+            `;
+
+            const visibleExams = exams.filter(e => {
+                if (!filterK) return true; 
+                if (e.targetSemuaKelas) return true;
+                return e.targetKelas && e.targetKelas.includes(filterK);
+            });
+
+            if (visibleExams.length === 0 && customColumns.length === 0) {
+                headerRow.innerHTML += `<th class="px-6 py-4 text-center text-gray-400 italic font-normal">Belum ada data nilai</th>`;
+            } else {
+                visibleExams.forEach(e => {
+                    const eyeIcon = e.settingTampilNilai ? '👁️' : '🙈'; 
+                    const eyeTitle = e.settingTampilNilai ? 'Nilai Tampil ke Siswa' : 'Nilai Disembunyikan';
+                    const weightBadge = e.bobotNilai > 1 ? `<div class="bg-primary/20 text-primary px-1 rounded text-[9px] inline-block mt-1">x${e.bobotNilai}</div>` : '';
+                    
+                    headerRow.innerHTML += `
+                        <th class="px-2 py-4 text-center relative group hover:bg-black/5 dark:hover:bg-white/5 transition-colors align-bottom min-w-[80px] max-w-[100px]">
+                            <div class="flex flex-col items-center justify-end h-full">
+                                <span class="text-[9px] opacity-50 font-normal mb-1 block w-full truncate" title="${e.kodeUjian}">${e.kodeUjian} <span title="${eyeTitle}" class="cursor-help">${eyeIcon}</span></span>
+                                <span class="text-xs font-bold leading-tight break-words w-full text-primary">${e.namaUjian}</span>
+                                ${weightBadge}
+                                <button onclick="window.deleteExamPermanently('${e.id}', '${e.namaUjian}', '${e.kodeUjian}')" class="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all shadow-md z-20 cursor-pointer" title="Hapus Permanen">
+                                    <svg class="w-3 h-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                </button>
+                            </div>
+                        </th>`;
+                });
+            }
+
+            customColumns.forEach(col => {
+                headerRow.innerHTML += `
+                <th class="px-2 py-4 text-center relative group align-bottom min-w-[80px] bg-indigo-50/50 dark:bg-indigo-900/10 border-l border-indigo-100 dark:border-indigo-800">
+                    <div class="flex flex-col items-center justify-end h-full">
+                        <span class="text-[9px] text-indigo-500 font-bold mb-1"><i class="fa-solid fa-clipboard-list"></i> Kustom</span>
+                        <span class="text-xs font-bold leading-tight break-words w-full text-indigo-700 dark:text-indigo-300" title="Bisa Paste (Ctrl+V) menurun ke bawah">${col.name}</span>
+                        ${col.weight !== 1 ? `<div class="bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400 px-1 rounded text-[9px] inline-block mt-1">x${col.weight}</div>` : ''}
+                        
+                        <button onclick="window.deleteCustomColumn('${col.id}', '${col.name}')" class="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all shadow-md z-20 cursor-pointer" title="Hapus Kolom Permanen">
+                            <svg class="w-3 h-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                </th>`;
+            });
+
+            headerRow.innerHTML += `
+                <th class="px-4 py-4 text-center bg-gray-200 dark:bg-gray-700 font-extrabold border-l dark:border-gray-600 w-24 leading-tight shadow-inner">
+                    Rata-rata<br><span class="text-[9px] font-normal italic">(Sistem)</span>
+                </th>
+                <th class="px-4 py-4 text-center bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 font-extrabold border-l border-blue-200 dark:border-blue-800 w-32 leading-tight shadow-inner" title="Bisa Paste (Ctrl+V) menurun ke bawah">
+                    Nilai Akhir<br><span class="text-[9px] font-normal italic text-blue-600 dark:text-blue-400">✏️ Paste/Manual</span>
+                </th>
+                <th class="px-6 py-4 text-center w-24">Rapor</th>
+            `;
+        }
+
+        function renderTable() {
+            renderTableHeader();
+
+            const tbody = document.getElementById('grades-body');
+            const filterK = document.getElementById('filter-kelas').value;
+
+            if (!filterK) {
+                tbody.innerHTML = '<tr><td colspan="100%" class="text-center py-10 text-gray-500 dark:text-gray-400 italic font-bold">Pilih kelas pada dropdown di atas untuk menampilkan daftar nilai.</td></tr>';
+                document.getElementById('total-students').textContent = '0';
+                return; 
+            }
+
+            const search = document.getElementById('search-input').value.toLowerCase();
+            const sortMode = document.getElementById('sort-by').value;
+
+            let filteredStudents = students.filter(s => {
+                const matchName = s.nama.toLowerCase().includes(search) || s.id.toLowerCase().includes(search);
+                const matchClass = s.kelas === filterK;
+                return matchName && matchClass;
+            });
+
+            const visibleExams = exams.filter(e => {
+                if (e.targetSemuaKelas) return true;
+                return e.targetKelas && e.targetKelas.includes(filterK);
+            });
+
+            filteredStudents.forEach(s => {
+                let totalWeightedScore = 0;
+                let totalWeight = 0;
+                
+                visibleExams.forEach(e => {
+                    const sc = scores[s.id]?.[e.kodeUjian];
+                    if(sc && sc.skor !== undefined) {
+                        const weight = parseFloat(e.bobotNilai) || 1;
+                        totalWeightedScore += parseFloat(sc.skor) * weight;
+                        totalWeight += weight;
+                    }
+                });
+
+                customColumns.forEach(col => {
+                    const cScore = customScores[s.id] && customScores[s.id][col.id] !== undefined ? customScores[s.id][col.id] : null;
+                    if(cScore !== null && cScore !== "") {
+                        const weight = parseFloat(col.weight) || 1;
+                        totalWeightedScore += parseFloat(cScore) * weight;
+                        totalWeight += weight;
+                    }
+                });
+
+                s.avg = totalWeight > 0 ? (totalWeightedScore / totalWeight) : 0;
+                s.finalGrade = editedFinalGrades[s.id] !== undefined ? editedFinalGrades[s.id] : Math.round(s.avg);
+            });
+
+            filteredStudents.sort((a, b) => {
+                if (sortMode === 'name_asc') return a.nama.localeCompare(b.nama);
+                if (sortMode === 'name_desc') return b.nama.localeCompare(a.nama);
+                if (sortMode === 'avg_desc') return b.avg - a.avg;
+                if (sortMode === 'avg_asc') return a.avg - b.avg;
+                return 0;
+            });
+
+            document.getElementById('total-students').textContent = filteredStudents.length;
+            tbody.innerHTML = '';
+
+            if (filteredStudents.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="100%" class="text-center py-10 opacity-50 italic">Tidak ada siswa ditemukan.</td></tr>`;
+                return;
+            }
+
+            filteredStudents.forEach((s, i) => {
+                const tr = document.createElement('tr');
+                tr.className = "bg-card border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors group";
+                
+                let rowHtml = `
+                    <td class="px-6 py-4 sticky left-0 bg-card group-hover:bg-gray-50 dark:group-hover:bg-gray-800 text-center font-mono opacity-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">${i + 1}</td>
+                    <td class="px-6 py-4 sticky left-10 bg-card group-hover:bg-gray-50 dark:group-hover:bg-gray-800 font-bold whitespace-nowrap text-gray-800 dark:text-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">${s.nama}<br><span class="text-[10px] font-normal opacity-50 text-gray-500">${s.id}</span></td>
+                    <td class="px-6 py-4 text-center"><span class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs font-bold text-gray-600 dark:text-gray-300 whitespace-nowrap">${s.kelas}</span></td>
+                `;
+
+                if (visibleExams.length === 0 && customColumns.length === 0) {
+                     rowHtml += `<td class="px-6 py-4 text-center text-gray-300">-</td>`;
+                } else {
+                    visibleExams.forEach(e => {
+                        const record = scores[s.id]?.[e.kodeUjian];
+                        let cellContent = '-';
+                        let cellClass = "opacity-30";
+
+                        if (record) {
+                            let correctionBtn = '';
+                            if (e.hasManualCorrection) {
+                                const isGraded = record.manualScores && Object.keys(record.manualScores).length > 0;
+                                const btnColor = isGraded ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 animate-pulse';
+                                correctionBtn = `<button onclick="window.openCorrection('${s.id}', '${e.kodeUjian}')" class="ml-2 text-[10px] ${btnColor} px-1 rounded hover:brightness-90" title="Koreksi Manual">✎</button>`;
+                            } 
+                            cellContent = Math.round(record.skor) + correctionBtn;
+                            cellClass = "font-bold text-gray-800 dark:text-white";
+                            if (record.skor < 70) cellClass = "font-bold text-red-500";
+                        } 
+                        rowHtml += `<td class="px-2 py-4 text-center ${cellClass}">${cellContent}</td>`;
+                    });
+                }
+
+                customColumns.forEach(col => {
+                    const cVal = customScores[s.id] && customScores[s.id][col.id] !== undefined ? customScores[s.id][col.id] : '';
+                    rowHtml += `
+                    <td class="px-2 py-3 text-center border-l border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-900/5">
+                        <input type="number" data-nis="${s.id}" value="${cVal}" 
+                            onpaste="handleExcelPaste(event, this, '${col.id}')"
+                            oninput="handleManualInput(event, '${s.id}', '${col.id}')"
+                            class="paste-receiver paste-${col.id} w-14 p-1.5 text-center font-bold text-indigo-900 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-700 rounded bg-white dark:bg-cyber-800 focus:ring-2 ring-indigo-500 outline-none text-sm" placeholder="-">
+                    </td>`;
+                });
+
+                const avgClass = s.avg >= 75 ? "text-gray-900 dark:text-white" : "text-red-500";
+                const isEdited = editedFinalGrades[s.id] !== undefined && editedFinalGrades[s.id] !== Math.round(s.avg);
+                const finalBorder = isEdited ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-100 dark:bg-blue-900/80' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-cyber-800';
+
+                rowHtml += `
+                    <td class="px-4 py-4 text-center border-l dark:border-gray-600 font-bold text-lg ${avgClass} bg-gray-50 dark:bg-gray-800/80">${s.avg.toFixed(1)}</td>
+                    <td class="px-4 py-4 text-center border-l border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10">
+                        <input type="number" data-nis="${s.id}" value="${s.finalGrade}"
+                            onpaste="handleExcelPaste(event, this, 'nilai_akhir')"
+                            oninput="handleManualInput(event, '${s.id}', 'nilai_akhir')"
+                            class="paste-receiver paste-nilai_akhir w-16 p-2 text-center font-bold text-blue-900 dark:text-blue-100 border rounded-lg outline-none focus:ring-2 ring-blue-500 ${finalBorder}">
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <button onclick="window.printReportCard('${s.id}')" class="text-blue-500 bg-blue-50 dark:bg-blue-900/20 p-2 rounded-lg hover:shadow-md transition-all" title="Cetak Rapor Personal">
+                            <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                        </button>
+                    </td>
+                `;
+                
+                tr.innerHTML = rowHtml;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function openCorrection(nis, examCode) {
+            const student = students.find(s => s.id === nis);
+            const exam = exams.find(e => e.kodeUjian === examCode);
+            const record = scores[nis]?.[examCode];
+
+            if(!record) return alert("Siswa belum mengerjakan.");
+
+            document.getElementById('modal-student-name').textContent = student.nama;
+            document.getElementById('modal-exam-name').textContent = exam.namaUjian;
+            
+            const container = document.getElementById('correction-content');
+            container.innerHTML = '<div class="text-center py-10">Memuat soal dan kunci...</div>';
+            document.getElementById('correction-modal').classList.remove('hidden');
+
+            try {
+                const qPromises = exam.daftarIdSoal.map(id => getDoc(doc(db, 'bank_soal', id)));
+                const qSnaps = await Promise.all(qPromises);
+
+                const kPromises = exam.daftarIdSoal.map(id => getDoc(doc(db, 'bank_soal_privat', id)));
+                const kSnaps = await Promise.all(kPromises);
+                
+                const questions = qSnaps.map((s, i) => {
+                    const kData = kSnaps[i].exists() ? kSnaps[i].data() : { kunci: 'N/A' };
+                    const publicData = s.data();
+                    return { id: s.id, ...publicData, kunciAsli: kData.kunci };
+                });
+                
+                const answerMap = {};
+                if(record.jawabanDetail) {
+                    record.jawabanDetail.forEach(item => {
+                        if(item.id) answerMap[item.id] = item.answer;
+                    });
+                } else if(record.jawabanSiswa) {
+                    questions.forEach((q, i) => answerMap[q.id] = record.jawabanSiswa[i]);
+                }
+
+                const mergedManualScores = { ...record.manualScores };
+                
+                questions.forEach(q => {
+                    if (mergedManualScores[q.id] === undefined) {
+                        const bobot = (exam.kustomisasiBobot && exam.kustomisasiBobot[q.id]) ? parseInt(exam.kustomisasiBobot[q.id]) : (parseInt(q.skor) || 1);
+                        const ansObj = answerMap[q.id] || { val: '-', image: null };
+                        const studentAns = ansObj.val;
+                        
+                        let autoScore = 0;
+                        if (q.type === 'pg' && studentAns == q.kunciAsli) autoScore = bobot;
+                        else if (q.type === 'esai-singkat' && String(studentAns).trim().toLowerCase() === String(q.kunciAsli).trim().toLowerCase()) autoScore = bobot;
+                        else if (q.type === 'pgk') {
+                             if (Array.isArray(studentAns) && Array.isArray(q.kunciAsli) && [...studentAns].sort().toString() === [...q.kunciAsli].sort().toString()) autoScore = bobot;
+                        } else if (q.type === 'bs') {
+                            let kArr = Array.isArray(q.kunciAsli) ? q.kunciAsli : [];
+                            let matchCount = 0;
+                            if (kArr.length > 0) {
+                                kArr.forEach((k, kIdx) => {
+                                    if (studentAns && String(studentAns[kIdx]) === String(k)) matchCount++;
+                                });
+                                autoScore = parseFloat(((matchCount / kArr.length) * bobot).toFixed(1));
+                            }
+                        }
+                        
+                        mergedManualScores[q.id] = autoScore;
+                    }
+                });
+
+                currentCorrectionData = { 
+                    docId: record.docId, 
+                    questions: questions, 
+                    answerMap: answerMap,
+                    manualScores: mergedManualScores, 
+                    examData: exam
+                };
+
+                renderCorrectionForm();
+
+            } catch(e) {
+                alert("Gagal memuat: " + e.message);
+                closeCorrectionModal();
+            }
+        }
+
+        function renderCorrectionForm() {
+            const container = document.getElementById('correction-content');
+            container.innerHTML = '';
+            const { questions, answerMap, manualScores, examData } = currentCorrectionData;
+
+            const manualQuestions = questions.filter(q => q.type === 'esai-kompleks' || q.type === 'esai-singkat');
+            
+            if (manualQuestions.length === 0) {
+                container.innerHTML = '<div class="text-center p-10 opacity-50">Tidak ada soal Esai (Kompleks/Singkat) untuk dikoreksi.<br>Semua soal lain sudah dinilai otomatis.</div>';
+                return;
+            }
+
+            manualQuestions.forEach((q, idx) => {
+                const bobot = (examData.kustomisasiBobot && examData.kustomisasiBobot[q.id]) ? parseInt(examData.kustomisasiBobot[q.id]) : (parseInt(q.skor) || 1);
+                
+                const ansObj = answerMap[q.id] || { val: '-', image: null };
+                const studentAns = ansObj.val;
+                const studentImg = ansObj.image;
+                const currentScore = manualScores[q.id] !== undefined ? manualScores[q.id] : 0;
+
+                const div = document.createElement('div');
+                div.className = "card p-4 rounded-xl border bg-white dark:bg-surface border-gray-200 dark:border-gray-700";
+                
+                let ansDisplay = studentAns;
+                if(typeof studentAns === 'object' && studentAns !== null) ansDisplay = JSON.stringify(studentAns);
+                
+                if(studentImg) {
+                    const imgHtml = `
+                        <div class="relative group mt-2 inline-block w-full">
+                            <div class="bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden cursor-zoom-in" onclick="window.openImageViewer('${studentImg}')">
+                                <img src="${studentImg}" class="max-h-60 mx-auto object-contain hover:scale-105 transition-transform duration-300">
+                                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/40 pointer-events-none">
+                                    <span class="text-white text-sm font-bold bg-black/60 px-3 py-1 rounded-full shadow-lg">🔍 Klik untuk Zoom Detail</span>
+                                </div>
+                            </div>
+                        </div>`;
+                    
+                    if(!studentAns || studentAns === '-') ansDisplay = imgHtml;
+                    else ansDisplay = `<div>${studentAns}</div>${imgHtml}`;
+                }
+
+                let keyDisplay = '';
+                if(q.type === 'esai-singkat') {
+                    keyDisplay = `<div class="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
+                        <span class="text-xs font-bold text-green-700 dark:text-green-400 block mb-1">Kunci Jawaban:</span>
+                        <span class="font-mono text-sm text-gray-800 dark:text-gray-200">${q.kunciAsli}</span>
+                    </div>`;
+                }
+
+                div.innerHTML = `
+                    <div class="mb-3">
+                        <div class="flex justify-between items-start">
+                            <span class="text-xs font-bold opacity-50 mb-1 block text-gray-600 dark:text-gray-400">Soal ${q.type === 'esai-kompleks' ? 'Uraian' : 'Isian Singkat'}</span>
+                            <span class="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded text-gray-800 dark:text-gray-200">Bobot Max: ${bobot}</span>
+                        </div>
+                        <div class="text-sm font-medium mb-2 text-gray-800 dark:text-white">${q.naskah}</div>
+                        ${q.naskahImage ? `<img src="${q.naskahImage}" class="max-h-40 rounded border my-2">` : ''}
+                    </div>
+                    
+                    <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800 mb-3">
+                        <p class="text-xs opacity-50 uppercase font-bold mb-2 text-blue-800 dark:text-blue-300">Jawaban Siswa:</p>
+                        <div class="font-mono text-sm break-words text-gray-800 dark:text-gray-200">${ansDisplay}</div>
+                        ${keyDisplay}
+                    </div>
+
+                    <div class="flex items-center justify-end gap-3 bg-gray-50 dark:bg-black/20 p-2 rounded-lg">
+                        <label class="text-xs font-bold text-gray-700 dark:text-gray-300">Beri Nilai:</label>
+                        <input type="number" class="manual-score-input w-24 p-2 text-center font-bold text-lg border rounded outline-none focus:ring-2 ring-primary bg-white dark:bg-black text-gray-800 dark:text-white border-gray-300 dark:border-gray-700" 
+                            data-qid="${q.id}" data-max="${bobot}" value="${currentScore}" min="0" max="${bobot}">
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        async function saveCorrection() {
+            if(!currentCorrectionData) return;
+            
+            const inputs = document.querySelectorAll('.manual-score-input');
+            const finalScores = { ...currentCorrectionData.manualScores }; 
+
+            inputs.forEach(inp => {
+                let val = parseFloat(inp.value);
+                const max = parseFloat(inp.dataset.max);
+                const qid = inp.dataset.qid;
+                if(isNaN(val)) val = 0;
+                if(val > max) val = max;
+                finalScores[qid] = val; 
+            });
+
+            let totalScore = 0;
+            let maxScore = 0;
+
+            currentCorrectionData.questions.forEach(q => {
+                const bobot = (currentCorrectionData.examData.kustomisasiBobot && currentCorrectionData.examData.kustomisasiBobot[q.id]) ? parseInt(currentCorrectionData.examData.kustomisasiBobot[q.id]) : (parseInt(q.skor) || 1);
+                maxScore += bobot;
+                
+                if (finalScores[q.id] !== undefined) {
+                    totalScore += finalScores[q.id];
+                }
+            });
+
+            const finalPercent = maxScore > 0 ? ((totalScore / maxScore) * 100).toFixed(2) : 0;
+
+            try {
+                await updateDoc(doc(db, 'hasil_ujian', currentCorrectionData.docId), {
+                    skor: parseFloat(finalPercent),
+                    manualScores: finalScores, 
+                    dikoreksiOleh: auth.currentUser?.uid || 'system',
+                    dikoreksiPada: new Date().toISOString()
+                });
+                alert(`Tersimpan. Nilai Akhir Ujian Ini: ${finalPercent}`);
+                closeCorrectionModal();
+                
+                const filterK = document.getElementById('filter-kelas').value;
+                if (filterK) window.loadClassGrades();
+                else loadAllData(); 
+            } catch(e) {
+                alert("Gagal simpan: " + e.message);
+            }
+        }
+
+        function closeCorrectionModal() {
+            document.getElementById('correction-modal').classList.add('hidden');
+            currentCorrectionData = null;
+        }
+
+        // HAPUS UJIAN INSTAN (FIX 3)
+        async function deleteExamPermanently(docId, namaUjian, kodeUjian) {
+            if(!confirm(`HAPUS PERMANEN Ujian "${namaUjian}"?\nJadwal dan semua nilai siswa untuk ujian ini akan hilang selamanya.`)) return;
+            const code = prompt(`Ketik "${kodeUjian}" untuk konfirmasi penghapusan:`);
+            if (code !== kodeUjian) return alert("Penghapusan dibatalkan. Kode salah.");
+
+            try {
+                await deleteDoc(doc(db, 'ujian_terjadwal', docId));
+                const q = query(collection(db, 'hasil_ujian'), where('ujianId', '==', kodeUjian));
+                const snap = await getDocs(q);
+                const promises = [];
+                snap.forEach(d => promises.push(deleteDoc(d.ref)));
+                await Promise.all(promises);
+                
+                exams = exams.filter(e => e.id !== docId);
+                const filterK = document.getElementById('filter-kelas').value;
+                if (filterK) renderTable(); else loadAllData(); 
+                
+            } catch (e) { alert("Gagal menghapus: " + e.message); }
+        }
+
+        function exportToExcel() {
+            const table = document.getElementById('grades-table');
+            const wb = XLSX.utils.table_to_book(table, { sheet: "Nilai Siswa" });
+            XLSX.writeFile(wb, `Rekap_Nilai_${currentGuruMapel}.xlsx`);
+        }
+
+        function printReportCard(nis) {
+            const s = students.find(x => x.id === nis);
+            if(!s) return alert("Data siswa tidak ditemukan.");
+
+            document.getElementById('print-name').textContent = s.nama;
+            document.getElementById('print-class').textContent = s.kelas;
+            document.getElementById('print-nis').textContent = s.id;
+            document.getElementById('print-date').textContent = new Date().toLocaleDateString('id-ID');
+            document.getElementById('print-teacher-name').textContent = currentGuruId || ".........................";
+            
+            const tbody = document.getElementById('print-body');
+            tbody.innerHTML = '';
+            
+            const filterK = document.getElementById('filter-kelas').value;
+            const studentExams = exams.filter(e => {
+                if (e.targetSemuaKelas) return true;
+                return e.targetKelas && e.targetKelas.includes(s.kelas);
+            });
+
+            let totalWeightedScore = 0;
+            let totalWeight = 0;
+            let displayedCount = 0;
+
+            studentExams.forEach((e) => {
+                const record = scores[s.id]?.[e.kodeUjian];
+                const val = record ? Math.round(record.skor) : 0;
+                const bobot = parseFloat(e.bobotNilai) || 1;
+                
+                if (record && record.skor !== undefined) {
+                    totalWeightedScore += parseFloat(record.skor) * bobot;
+                    totalWeight += bobot;
+                }
+
+                let predikat = "D";
+                if(val >= 90) predikat = "A"; else if(val >= 80) predikat = "B"; else if(val >= 70) predikat = "C";
+
+                tbody.innerHTML += `<tr>
+                    <td class="border border-black p-2 text-center">${++displayedCount}</td>
+                    <td class="border border-black p-2">[CBT] ${e.namaUjian}</td>
+                    <td class="border border-black p-2 text-center">${bobot}</td>
+                    <td class="border border-black p-2 text-center font-bold">${val}</td>
+                    <td class="border border-black p-2 text-center">${predikat}</td>
+                </tr>`;
+            });
+
+            customColumns.forEach((col) => {
+                const cScore = customScores[s.id] && customScores[s.id][col.id] !== undefined ? parseFloat(customScores[s.id][col.id]) : 0;
+                const bobot = parseFloat(col.weight) || 1;
+                
+                totalWeightedScore += cScore * bobot;
+                totalWeight += bobot;
+
+                let predikat = "D";
+                if(cScore >= 90) predikat = "A"; else if(cScore >= 80) predikat = "B"; else if(cScore >= 70) predikat = "C";
+
+                tbody.innerHTML += `<tr>
+                    <td class="border border-black p-2 text-center">${++displayedCount}</td>
+                    <td class="border border-black p-2 text-indigo-800">[Manual] ${col.name}</td>
+                    <td class="border border-black p-2 text-center">${bobot}</td>
+                    <td class="border border-black p-2 text-center font-bold">${cScore}</td>
+                    <td class="border border-black p-2 text-center">${predikat}</td>
+                </tr>`;
+            });
+
+            if (displayedCount === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="border border-black p-2 text-center italic">Tidak ada data ujian/tugas untuk siswa ini.</td></tr>';
+                document.getElementById('print-avg').textContent = '0.00';
+                document.getElementById('print-final').textContent = '0';
+            } else {
+                const finalAvg = totalWeight > 0 ? (totalWeightedScore / totalWeight) : 0;
+                document.getElementById('print-avg').textContent = finalAvg.toFixed(2);
+                
+                const finalGrade = editedFinalGrades[s.id] !== undefined ? editedFinalGrades[s.id] : Math.round(finalAvg);
+                document.getElementById('print-final').textContent = finalGrade;
+            }
+
+            setTimeout(() => window.print(), 500);
+        }
+    </script>
+</body>
+</html>

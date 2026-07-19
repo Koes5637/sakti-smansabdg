@@ -171,7 +171,7 @@
                             <input type="text" id="input-kelas" placeholder="Kelas" class="w-full p-3 bg-gray-50 dark:bg-cyber-900 border rounded-lg text-sm outline-none dark:text-white dark:border-gray-600">
                         </div>
                         <input type="text" id="input-nama" placeholder="Nama Lengkap" class="w-full p-3 bg-gray-50 dark:bg-cyber-900 border rounded-lg text-sm outline-none dark:text-white dark:border-gray-600">
-                        <button id="btn-add-single" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-lg shadow">Simpan Siswa</button>
+                        <button id="btn-add-single" onclick="window.addSingleStudent()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-lg shadow">Simpan Siswa</button>
                     </div>
                 </div>
 
@@ -447,7 +447,7 @@
             document.getElementById('btn-refresh').addEventListener('click', loadStudents);
             document.getElementById('search-filter').addEventListener('input', renderTable);
             document.getElementById('class-filter').addEventListener('change', renderTable);
-            document.getElementById('btn-add-single').addEventListener('click', addSingleStudent);
+            document.getElementById('btn-add-single').addEventListener('click', window.addSingleStudent);
             document.getElementById('btn-import').addEventListener('click', importBulkStudents);
             document.getElementById('btn-delete-all').addEventListener('click', deleteAllStudents);
         });
@@ -762,19 +762,38 @@
             });
         }
 
-        async function addSingleStudent() {
+        window.addSingleStudent = async function() {
             const nis = document.getElementById('input-nis').value.trim();
             const nama = document.getElementById('input-nama').value.trim();
             const kelas = document.getElementById('input-kelas').value.trim();
-            const foto = document.getElementById('input-foto').value.trim();
-            if(!nis || !nama || !kelas) return alert("Lengkapi data!");
-            const btn = document.getElementById('btn-add-single'); btn.textContent = 'Menyimpan...'; btn.disabled = true;
+            if(!nis || !nama || !kelas) return alert("Lengkapi semua data (NIS, Nama, dan Kelas)!");
+            
+            const btn = document.getElementById('btn-add-single'); 
+            btn.textContent = 'Menyimpan...'; 
+            btn.disabled = true;
+            
             try {
-                await setDoc(doc(db, 'siswa', nis), { nama: nama, kelas: kelas, foto: foto, updated: serverTimestamp() });
-                document.getElementById('input-nis').value = ''; document.getElementById('input-nama').value = '';
-                loadStudents(); alert(`Siswa ${nama} tersimpan.`);
-            } catch(e) { alert("Gagal: " + e.message); } finally { btn.textContent = 'Simpan Siswa'; btn.disabled = false; }
-        }
+                // Gunakan merge: true agar data lama (jika NIS sudah ada) tidak terhapus total
+                await setDoc(doc(db, 'siswa', nis), { 
+                    nama: nama, 
+                    kelas: kelas, 
+                    foto: "", 
+                    updated: serverTimestamp() 
+                }, { merge: true });
+                
+                document.getElementById('input-nis').value = ''; 
+                document.getElementById('input-nama').value = '';
+                // Kelas tidak dikosongkan agar mudah menginput siswa lain di kelas yang sama
+                
+                loadStudents(); 
+                alert(`Siswa ${nama} berhasil ditambahkan!`);
+            } catch(e) { 
+                alert("Gagal menyimpan: " + e.message); 
+            } finally { 
+                btn.textContent = 'Simpan Siswa'; 
+                btn.disabled = false; 
+            }
+        };
 
         async function importBulkStudents() {
             const text = document.getElementById('input-bulk').value.trim();

@@ -61,7 +61,7 @@
             font-size: 1em !important; /* Samakan 100% dengan teks soal */
         }
         table:not(.bs-table) th, table:not(.bs-table) td { 
-            border: 2px solid #64748b !important; 
+            border: 1px solid #cbd5e1 !important; 
             padding: 0.75rem; 
             text-align: left; 
             font-size: 1em !important; /* Paksa sel tabel berukuran normal */
@@ -73,7 +73,7 @@
             line-height: 1.6 !important;
         }
         html.dark table:not(.bs-table) th, html.dark table:not(.bs-table) td { 
-            border-color: #94a3b8 !important; 
+            border-color: #475569 !important; 
         }
         table:not(.bs-table) th { 
             background-color: #f1f5f9 !important; 
@@ -390,9 +390,17 @@
         import { getAuth, signInWithEmailAndPassword, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, runTransaction, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
-        const firebaseConfig = { apiKey: "AIzaSyAwIwimlyrE4qQqYa2gA8Pfygd59USsveQ", authDomain: "aplikasi-ulangan-01.firebaseapp.com", projectId: "aplikasi-ulangan-01", storageBucket: "aplikasi-ulangan-01.firebasestorage.app", messagingSenderId: "409085062439", appId: "1:409085062439:web:280589d1a3e12e7b980d02" };
 
-        const app = initializeApp(firebaseConfig);
+        // --- JALAN PINTAS NINJA: AMBIL CONFIG DINAMIS DARI MEMORI BROWSER ---
+        const savedConfigStr = localStorage.getItem('sakti_school_config');
+        if (!savedConfigStr) {
+            alert("Akses ditolak! Silakan login terlebih dahulu melalui Portal Utama SAKTI.");
+            window.location.href = 'index.html'; 
+            throw new Error("Sesi tidak valid"); // Menghentikan eksekusi script
+        }
+        
+        const dynamicFirebaseConfig = JSON.parse(savedConfigStr);
+        const app = initializeApp(dynamicFirebaseConfig);
         const db = getFirestore(app);
 		const storage = getStorage(app);
         const auth = getAuth(app);
@@ -897,9 +905,8 @@
                         const keyVal = Array.isArray(keyData) ? keyData[i] : null; 
                         const isTrue = String(keyVal) === 'true';
                         
-                        const markB = showKey && isTrue ? '<div class="w-3 h-3 bg-green-500 rounded-full mx-auto ring-4 ring-green-200 dark:ring-green-900/60"></div>' : '<div class="w-3 h-3 border-2 border-gray-500 dark:border-gray-400 rounded-full mx-auto"></div>';
-						const markS = showKey && !isTrue && keyVal !== null ? '<div class="w-3 h-3 bg-red-500 rounded-full mx-auto ring-4 ring-red-200 dark:ring-red-900/60"></div>' : '<div class="w-3 h-3 border-2 border-gray-500 dark:border-gray-400 rounded-full mx-auto"></div>';
-
+                        const markB = showKey && isTrue ? '<div class="w-3 h-3 bg-green-500 rounded-full mx-auto"></div>' : '<div class="w-3 h-3 border border-gray-300 dark:border-gray-600 rounded-full mx-auto"></div>';
+                        const markS = showKey && !isTrue && keyVal !== null ? '<div class="w-3 h-3 bg-red-500 rounded-full mx-auto"></div>' : '<div class="w-3 h-3 border border-gray-300 dark:border-gray-600 rounded-full mx-auto"></div>';
                         const rowClass = showKey ? (isTrue ? 'bg-green-50/30 dark:bg-green-900/20' : 'bg-red-50/30 dark:bg-red-900/20') : '';
                         
                         // Gunakan Filter Cerdas untuk Opsi B/S

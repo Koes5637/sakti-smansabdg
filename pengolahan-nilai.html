@@ -347,15 +347,6 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, setDoc, deleteDoc, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAwIwimlyrE4qQqYa2gA8Pfygd59USsveQ",
-            authDomain: "aplikasi-ulangan-01.firebaseapp.com",
-            projectId: "aplikasi-ulangan-01",
-            storageBucket: "aplikasi-ulangan-01.firebasestorage.app",
-            messagingSenderId: "409085062439",
-            appId: "1:409085062439:web:280589d1a3e12e7b980d02",
-        };
-
         let db, auth;
         let currentGuruId = null;
         let currentGuruMapel = null;
@@ -791,7 +782,16 @@
         function endDrag() { isDragging = false; document.getElementById('image-container').style.cursor = 'grab'; }
 
         document.addEventListener('DOMContentLoaded', async () => {
-            const app = initializeApp(firebaseConfig);
+            // --- JALAN PINTAS NINJA: AMBIL CONFIG DINAMIS DARI MEMORI BROWSER ---
+			const savedConfigStr = localStorage.getItem('sakti_school_config');
+			if (!savedConfigStr) {
+				alert("Akses ditolak! Silakan login terlebih dahulu melalui Portal Utama SAKTI.");
+				window.location.href = 'index.html'; 
+				throw new Error("Sesi tidak valid"); // Menghentikan eksekusi script
+			}
+			
+			const dynamicFirebaseConfig = JSON.parse(savedConfigStr);
+			const app = initializeApp(dynamicFirebaseConfig);
             db = getFirestore(app);
             auth = getAuth(app);
 
@@ -1173,13 +1173,15 @@
                         let cellClass = "opacity-30";
 
                         if (record) {
-                            let correctionBtn = '';
-                            if (e.hasManualCorrection) {
-                                const isGraded = record.manualScores && Object.keys(record.manualScores).length > 0;
-                                const btnColor = isGraded ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 animate-pulse';
-                                correctionBtn = `<button onclick="window.openCorrection('${s.id}', '${e.kodeUjian}')" class="ml-2 text-[10px] ${btnColor} px-1 rounded hover:brightness-90" title="Koreksi Manual">✎</button>`;
-                            } 
-                            cellContent = Math.round(record.skor) + correctionBtn;
+                            // Tampilkan tombol detail untuk SEMUA ujian (Review Jawaban Lengkap)
+                            const isGraded = record.manualScores && Object.keys(record.manualScores).length > 0;
+                            const btnColor = e.hasManualCorrection && !isGraded ? 'bg-amber-100 text-amber-700 animate-pulse' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200';
+                            const iconBtn = e.hasManualCorrection && !isGraded ? '✎' : '👁️';
+                            const titleBtn = e.hasManualCorrection && !isGraded ? 'Ada Esai Belum Dikoreksi' : 'Lihat Lembar Jawaban Siswa';
+                            
+                            let tombolDetail = `<button onclick="window.openCorrection('${s.id}', '${e.kodeUjian}')" class="ml-2 text-[10px] ${btnColor} dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded transition-all" title="${titleBtn}">${iconBtn}</button>`;
+                            
+                            cellContent = Math.round(record.skor) + tombolDetail;
                             cellClass = "font-bold text-gray-800 dark:text-white";
                             if (record.skor < 70) cellClass = "font-bold text-red-500";
                         } 
@@ -1267,16 +1269,61 @@
                         const studentAns = ansObj.val;
                         
                         let autoScore = 0;
-                        if (q.type === 'pg' && studentAns == q.kunciAsli) autoScore = bobot;
-                        else if (q.type === 'esai-singkat' && String(studentAns).trim().toLowerCase() === String(q.kunciAsli).trim().toLowerCase()) autoScore = bobot;
+                        if (q.type === 'pg' && studentAns == q.kunciAsli) {
+                            autoScore = bobot;
+                        } 
+                        else if (q.type === 'esai-singkat') {
+                            // FITUR PENOLERANSI HURUF: Ubah semua jadi huruf kecil dan hapus spasi berlebih
+                            let safeStudentAns = String(studentAns).trim().toLowerCase();
+                            let safeKunciAsli = String(q.kunciAsli).trim().toLowerCase();
+                            if (safeStudentAns === safeKunciAsli) autoScore = bobot;
+                        } 
                         else if (q.type === 'pgk') {
-                             if (Array.isArray(studentAns) && Array.isArray(q.kunciAsli) && [...studentAns].sort().toString() === [...q.kunciAsli].sort().toString()) autoScore = bobot;
-                        } else if (q.type === 'bs') {
+                            let safeStudentArray = Array.isArray(studentAns) ? studentAns.map(String) : [];
+                            let safeKunciArray = Array.isArray(q.kunciAsli) ? q.kunciAsli.map(String) : [];
+                            
+                            // Mendapatkan nilai n (Jumlah Opsi) dari database soal
+                            let n = Array.isArray(q.opsi) ? q.opsi.length : 0; 
+                            let SK = bobot; // Skor Maksimal Soal
+                            let JB = safeKunciArray.length; // Jumlah Kunci Benar
+                            
+                            if (JB > 0 && n > 0) {
+                                let SB = SK / JB;     // Skor Opsi Benar
+                                let SS = SB / -2;     // Skor Opsi Salah (Minus setengah dari Opsi Benar)
+                                
+                                let B = 0; // Jawaban Benar
+                                let S = 0; // Jawaban Salah
+                                
+                                // Memeriksa centangan siswa satu per satu
+                                safeStudentArray.forEach(ans => {
+                                    if (safeKunciArray.includes(ans)) {
+                                        B++;
+                                    } else {
+                                        S++;
+                                    }
+                                });
+                                
+                                // Peraturan Anulir: Jika semua opsi dicentang, maka nol
+                                if (safeStudentArray.length === n) {
+                                    autoScore = 0;
+                                } else {
+                                    // Eksekusi Rumus Utama
+                                    let SA = (B * SB) + (S * SS);
+                                    
+                                    // Memastikan skor akhir (SA) tidak negatif, dirapikan 1 angka di belakang koma
+                                    autoScore = SA < 0 ? 0 : parseFloat(SA.toFixed(1));
+                                }
+                            }
+                        } 
+                        else if (q.type === 'bs') {
                             let kArr = Array.isArray(q.kunciAsli) ? q.kunciAsli : [];
                             let matchCount = 0;
                             if (kArr.length > 0) {
                                 kArr.forEach((k, kIdx) => {
-                                    if (studentAns && String(studentAns[kIdx]) === String(k)) matchCount++;
+                                    // Toleransi pembacaan 'true'/'false' vs boolean murni
+                                    let safeStudentBS = studentAns && studentAns[kIdx] !== undefined ? String(studentAns[kIdx]).toLowerCase() : "null";
+                                    let safeKunciBS = String(k).toLowerCase();
+                                    if (safeStudentBS === safeKunciBS) matchCount++;
                                 });
                                 autoScore = parseFloat(((matchCount / kArr.length) * bobot).toFixed(1));
                             }
@@ -1307,29 +1354,124 @@
             container.innerHTML = '';
             const { questions, answerMap, manualScores, examData } = currentCorrectionData;
 
-            const manualQuestions = questions.filter(q => q.type === 'esai-kompleks' || q.type === 'esai-singkat');
+            // 1. Mesin Hitung Total Nilai Akhir
+            let totalDidapat = 0;
+            let totalMaksimal = 0;
+            questions.forEach((q) => {
+                const bobot = (examData.kustomisasiBobot && examData.kustomisasiBobot[q.id]) ? parseInt(examData.kustomisasiBobot[q.id]) : (parseInt(q.skor) || 1);
+                totalMaksimal += bobot;
+                totalDidapat += manualScores[q.id] !== undefined ? parseFloat(manualScores[q.id]) : 0;
+            });
+            const nilaiAkhir = totalMaksimal > 0 ? ((totalDidapat / totalMaksimal) * 100).toFixed(1) : 0;
+
+            // 2. Mengubah Judul & Memunculkan Total Nilai di Kanan
+            const badgeJudul = document.querySelector('#correction-modal h3 span');
+            if (badgeJudul) {
+                badgeJudul.textContent = "DETAIL JAWABAN";
+                badgeJudul.className = "bg-indigo-600 shadow text-white text-xs px-2 py-1 rounded";
+            }
             
-            if (manualQuestions.length === 0) {
-                container.innerHTML = '<div class="text-center p-10 opacity-50">Tidak ada soal Esai (Kompleks/Singkat) untuk dikoreksi.<br>Semua soal lain sudah dinilai otomatis.</div>';
-                return;
+            const modalHeader = document.querySelector('#correction-modal .border-b');
+            if (modalHeader) {
+                // Hapus badge lama jika ada agar tidak dobel
+                const oldScore = document.getElementById('dynamic-score-badge');
+                if (oldScore) oldScore.remove(); 
+                
+                const scoreBadge = document.createElement('div');
+                scoreBadge.id = 'dynamic-score-badge';
+                // Memberikan margin auto (ml-auto) agar terdorong mentok ke kanan
+                scoreBadge.className = "ml-auto mr-6 pr-6 border-r-2 border-indigo-200 dark:border-indigo-800 text-right";
+                scoreBadge.innerHTML = `
+                    <span class="text-[10px] font-bold text-gray-500 uppercase tracking-wider block leading-none mb-1">Nilai Ulangan</span>
+                    <span class="text-3xl font-black text-indigo-600 dark:text-indigo-400 leading-none">${parseFloat(nilaiAkhir)}</span>
+                `;
+                
+                // Menyisipkan skor tepat di sebelah kiri tombol silang (Tutup)
+                modalHeader.insertBefore(scoreBadge, modalHeader.querySelector('button'));
             }
 
-            manualQuestions.forEach((q, idx) => {
+            questions.forEach((q, idx) => {
                 const bobot = (examData.kustomisasiBobot && examData.kustomisasiBobot[q.id]) ? parseInt(examData.kustomisasiBobot[q.id]) : (parseInt(q.skor) || 1);
-                
                 const ansObj = answerMap[q.id] || { val: '-', image: null };
                 const studentAns = ansObj.val;
                 const studentImg = ansObj.image;
+                
+                // Ambil nilai yang tersimpan (hasil hitung otomatis aplikasi / manual guru)
                 const currentScore = manualScores[q.id] !== undefined ? manualScores[q.id] : 0;
+                
+                // Status Benar/Salah Visual (Badge Kanan Atas)
+                let statusBadge = '';
+                if (q.type !== 'esai-kompleks') {
+                    if (currentScore >= bobot) {
+                        statusBadge = `<span class="bg-green-100 text-green-700 text-[10px] px-2 py-1 rounded font-bold border border-green-200">BENAR (${currentScore} pt)</span>`;
+                    } else if (currentScore > 0) {
+                        statusBadge = `<span class="bg-yellow-100 text-yellow-700 text-[10px] px-2 py-1 rounded font-bold border border-yellow-200">SEBAGIAN (${currentScore} pt)</span>`;
+                    } else {
+                        statusBadge = `<span class="bg-red-100 text-red-700 text-[10px] px-2 py-1 rounded font-bold border border-red-200">SALAH (0 pt)</span>`;
+                    }
+                } else {
+                    statusBadge = `<span class="bg-blue-100 text-blue-700 text-[10px] px-2 py-1 rounded font-bold border border-blue-200">ESAI MANUAL</span>`;
+                }
 
                 const div = document.createElement('div');
-                div.className = "card p-4 rounded-xl border bg-white dark:bg-surface border-gray-200 dark:border-gray-700";
+                div.className = "card p-4 rounded-xl border bg-white dark:bg-surface border-gray-200 dark:border-gray-700 mb-4";
+                
+                // Visualisasi Opsi dan Pilihan Siswa (Khusus PG, PGK, BS)
+                let opsiHtml = '';
+                if (q.type === 'pg' || q.type === 'pgk') {
+                    opsiHtml = '<div class="mt-4 space-y-1.5">';
+                    let safeStudentArray = Array.isArray(studentAns) ? studentAns.map(String) : [String(studentAns)];
+                    let safeKunciArray = Array.isArray(q.kunciAsli) ? q.kunciAsli.map(String) : [String(q.kunciAsli)];
+                    
+                    if (q.opsi && Array.isArray(q.opsi)) {
+                        q.opsi.forEach((opt, i) => {
+                            const isKunci = safeKunciArray.includes(String(i));
+                            const isDijawab = safeStudentArray.includes(String(i));
+                            
+                            let optClass = "p-2.5 border rounded-lg text-sm flex gap-3 items-start text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800/50";
+                            let icon = "⭕"; // Opsi tidak dipilih
+                            
+                            if (isKunci && isDijawab) {
+                                optClass = "p-2.5 border rounded-lg text-sm flex gap-3 items-start bg-green-50 border-green-300 text-green-800 font-bold dark:bg-green-900/30";
+                                icon = "✅"; // Benar dipilih
+                            } else if (isKunci && !isDijawab) {
+                                optClass = "p-2.5 border border-dashed rounded-lg text-sm flex gap-3 items-start bg-blue-50 border-blue-300 text-blue-800 dark:bg-blue-900/20";
+                                icon = "🔑"; // Kunci yang terlewat oleh siswa
+                            } else if (!isKunci && isDijawab) {
+                                optClass = "p-2.5 border rounded-lg text-sm flex gap-3 items-start bg-red-50 border-red-300 text-red-800 font-bold dark:bg-red-900/30";
+                                icon = "❌"; // Salah pilih (Jebakan)
+                            }
+
+                            const textOpt = typeof opt === 'object' ? opt.text : opt;
+                            opsiHtml += `<div class="${optClass}"><span class="mt-0.5">${icon}</span> <div class="whitespace-pre-wrap">${textOpt}</div></div>`;
+                        });
+                    }
+                    opsiHtml += '</div>';
+                } else if (q.type === 'bs') {
+                    opsiHtml = '<div class="mt-4 overflow-x-auto"><table class="w-full text-sm border-collapse"><thead class="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300"><tr><th class="border dark:border-gray-600 p-2 text-left rounded-tl-lg">Pernyataan</th><th class="border dark:border-gray-600 p-2 w-16 text-center">Kunci</th><th class="border dark:border-gray-600 p-2 w-20 text-center rounded-tr-lg">Jawab</th></tr></thead><tbody>';
+                    
+                    let kArr = Array.isArray(q.kunciAsli) ? q.kunciAsli : [];
+                    if (q.opsi && Array.isArray(q.opsi)) {
+                        q.opsi.forEach((opt, i) => {
+                            const textOpt = typeof opt === 'object' ? opt.text : opt;
+                            let safeStudentBS = studentAns && studentAns[i] !== undefined ? String(studentAns[i]).toLowerCase() : "-";
+                            let safeKunciBS = String(kArr[i]).toLowerCase();
+                            
+                            let bgClass = (safeStudentBS === safeKunciBS) ? 'bg-green-50 text-green-700 font-bold dark:bg-green-900/20' : 'bg-red-50 text-red-700 font-bold dark:bg-red-900/20';
+                            
+                            opsiHtml += `<tr class="${bgClass}"><td class="border dark:border-gray-600 p-2">${textOpt}</td><td class="border dark:border-gray-600 p-2 text-center text-gray-500 font-normal uppercase">${safeKunciBS === 'true' ? 'B' : 'S'}</td><td class="border dark:border-gray-600 p-2 text-center uppercase">${safeStudentBS === 'true' ? 'B' : (safeStudentBS === 'false' ? 'S' : '-')}</td></tr>`;
+                        });
+                    }
+                    opsiHtml += '</tbody></table></div>';
+                }
                 
                 let ansDisplay = studentAns;
-                if(typeof studentAns === 'object' && studentAns !== null) ansDisplay = JSON.stringify(studentAns);
-                
+                if(typeof studentAns === 'object' && studentAns !== null) ansDisplay = "[Lihat Tabel/Opsi di Atas]";
+                if(q.type === 'pg' || q.type === 'pgk' || q.type === 'bs') ansDisplay = ""; // Sembunyikan text JSON mentah untuk pilihan ganda
+
+                let imgHtml = "";
                 if(studentImg) {
-                    const imgHtml = `
+                    imgHtml = `
                         <div class="relative group mt-2 inline-block w-full">
                             <div class="bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 overflow-hidden cursor-zoom-in" onclick="window.openImageViewer('${studentImg}')">
                                 <img src="${studentImg}" class="max-h-60 mx-auto object-contain hover:scale-105 transition-transform duration-300">
@@ -1338,39 +1480,41 @@
                                 </div>
                             </div>
                         </div>`;
-                    
-                    if(!studentAns || studentAns === '-') ansDisplay = imgHtml;
-                    else ansDisplay = `<div>${studentAns}</div>${imgHtml}`;
                 }
 
                 let keyDisplay = '';
                 if(q.type === 'esai-singkat') {
                     keyDisplay = `<div class="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
-                        <span class="text-xs font-bold text-green-700 dark:text-green-400 block mb-1">Kunci Jawaban:</span>
+                        <span class="text-[10px] font-bold text-green-700 dark:text-green-400 block mb-1 uppercase tracking-wider">Kunci Jawaban Tepat:</span>
                         <span class="font-mono text-sm text-gray-800 dark:text-gray-200">${q.kunciAsli}</span>
                     </div>`;
+                    ansDisplay = `<div class="text-gray-800 dark:text-gray-200">${studentAns}</div>`;
                 }
 
                 div.innerHTML = `
-                    <div class="mb-3">
-                        <div class="flex justify-between items-start">
-                            <span class="text-xs font-bold opacity-50 mb-1 block text-gray-600 dark:text-gray-400">Soal ${q.type === 'esai-kompleks' ? 'Uraian' : 'Isian Singkat'}</span>
-                            <span class="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded text-gray-800 dark:text-gray-200">Bobot Max: ${bobot}</span>
+                    <div>
+                        <div class="flex justify-between items-start mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">
+                            <span class="text-[10px] font-bold bg-gray-100 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 px-2 py-1 rounded text-gray-600 dark:text-gray-300 tracking-wider">NO. ${idx + 1} | ${q.type.toUpperCase()}</span>
+                            ${statusBadge}
                         </div>
-                        <div class="text-sm font-medium mb-2 text-gray-800 dark:text-white">${q.naskah}</div>
-                        ${q.naskahImage ? `<img src="${q.naskahImage}" class="max-h-40 rounded border my-2">` : ''}
+                        <div class="text-sm font-medium mb-2 text-gray-800 dark:text-white leading-relaxed whitespace-pre-wrap">${q.naskah}</div>
+                        ${q.naskahImage ? `<div class="my-3"><img src="${q.naskahImage}" class="max-h-48 rounded border border-gray-200 dark:border-gray-600 shadow-sm"></div>` : ''}
+                        ${opsiHtml}
                     </div>
                     
-                    <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800 mb-3">
-                        <p class="text-xs opacity-50 uppercase font-bold mb-2 text-blue-800 dark:text-blue-300">Jawaban Siswa:</p>
-                        <div class="font-mono text-sm break-words text-gray-800 dark:text-gray-200">${ansDisplay}</div>
+                    ${(q.type === 'esai-singkat' || q.type === 'esai-kompleks') ? `
+                    <div class="p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-800 mt-4">
+                        <p class="text-[10px] opacity-70 uppercase font-bold mb-1.5 text-blue-800 dark:text-blue-300 tracking-wider">Jawaban Ketikan Siswa:</p>
+                        <div class="font-mono text-sm break-words">${ansDisplay}</div>
+                        ${imgHtml}
                         ${keyDisplay}
                     </div>
+                    ` : ''}
 
-                    <div class="flex items-center justify-end gap-3 bg-gray-50 dark:bg-black/20 p-2 rounded-lg">
-                        <label class="text-xs font-bold text-gray-700 dark:text-gray-300">Beri Nilai:</label>
-                        <input type="number" class="manual-score-input w-24 p-2 text-center font-bold text-lg border rounded outline-none focus:ring-2 ring-primary bg-white dark:bg-black text-gray-800 dark:text-white border-gray-300 dark:border-gray-700" 
-                            data-qid="${q.id}" data-max="${bobot}" value="${currentScore}" min="0" max="${bobot}">
+                    <div class="flex items-center justify-end gap-3 bg-gray-50 dark:bg-black/20 p-2 rounded-lg mt-4 border border-gray-100 dark:border-gray-700">
+                        <label class="text-xs font-bold text-gray-500 dark:text-gray-400">Poin Didapat (Maksimal ${bobot}):</label>
+                        <input type="number" class="manual-score-input w-20 p-1.5 text-center font-bold text-sm border rounded outline-none focus:ring-2 ring-primary bg-white dark:bg-black text-gray-800 dark:text-white border-gray-300 dark:border-gray-700" 
+                            data-qid="${q.id}" data-max="${bobot}" value="${currentScore}" min="0" max="${bobot}" step="0.1">
                     </div>
                 `;
                 container.appendChild(div);
@@ -1408,17 +1552,29 @@
 
             try {
                 await updateDoc(doc(db, 'hasil_ujian', currentCorrectionData.docId), {
-                    skor: parseFloat(finalPercent),
-                    manualScores: finalScores, 
-                    dikoreksiOleh: auth.currentUser?.uid || 'system',
-                    dikoreksiPada: new Date().toISOString()
-                });
-                alert(`Tersimpan. Nilai Akhir Ujian Ini: ${finalPercent}`);
-                closeCorrectionModal();
-                
-                const filterK = document.getElementById('filter-kelas').value;
-                if (filterK) window.loadClassGrades();
-                else loadAllData(); 
+                        skor: parseFloat(finalPercent),
+                        manualScores: finalScores, 
+                        dikoreksiOleh: auth.currentUser?.uid || 'system',
+                        dikoreksiPada: new Date().toISOString()
+                    });
+                    
+                    alert(`Tersimpan. Nilai Akhir Ujian Ini: ${finalPercent}`);
+                    
+                    // 1. Jalankan update memori lokal dulu selagi datanya masih ada
+                    for (const nis in scores) {
+                        for (const kUjian in scores[nis]) {
+                            if (scores[nis][kUjian] && scores[nis][kUjian].docId === currentCorrectionData.docId) {
+                                scores[nis][kUjian].skor = parseFloat(finalPercent);
+                                scores[nis][kUjian].manualScores = finalScores;
+                            }
+                        }
+                    }
+                    
+                    // 2. Gambar ulang tabelnya
+                    renderTable(); 
+                    
+                    // 3. BARU TUTUP MODALNYA DI PALING AKHIR
+                    closeCorrectionModal(); 
             } catch(e) {
                 alert("Gagal simpan: " + e.message);
             }

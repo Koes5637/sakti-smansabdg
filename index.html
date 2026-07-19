@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SAKTI - Sistem Asesmen Komprehensif Terintegrasi</title>
+    <title>SAKTI - Portal Gerbang Utama</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -84,32 +84,42 @@
 
     <!-- LOGIN OVERLAY -->
     <div id="dashboard-login-overlay" class="fixed inset-0 z-[100] bg-gray-100 dark:bg-cyber-900 flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-cyber-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-emerald-900 relative overflow-hidden">
+        <div class="bg-white dark:bg-cyber-800 p-8 rounded-3xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-emerald-900 relative overflow-hidden">
             <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
             
             <div class="text-center mb-8">
-                <div class="w-20 h-20 bg-indigo-50 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl shadow-sm border border-indigo-100 dark:border-emerald-800">🔐</div>
-                <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Portal Guru</h2>
-                <p class="text-gray-500 dark:text-gray-400 text-sm mt-2">Masuk dengan ID & PIN Anda</p>
+                <div class="w-20 h-20 bg-indigo-50 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl shadow-sm border border-indigo-100 dark:border-emerald-800">🏫</div>
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-white">Portal SAKTI</h2>
+                <p class="text-gray-500 dark:text-gray-400 text-sm mt-2">Masuk untuk mengakses sistem sekolah Anda</p>
             </div>
 
             <form id="dashboard-login-form" class="space-y-5">
                 <div>
-                    <label class="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">ID Pengguna (Username)</label>
-                    <input type="text" id="login-id" class="w-full p-3 pl-4 rounded-xl border bg-gray-50 dark:bg-cyber-900 dark:border-gray-700 text-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-mono text-center text-lg placeholder-gray-400" placeholder="Contoh: budi123" required autocomplete="off">
+                    <label class="block text-xs font-bold uppercase text-indigo-500 dark:text-indigo-400 mb-1">Kode Sekolah</label>
+                    <input type="text" id="login-kode" class="w-full p-3 rounded-xl border bg-indigo-50 dark:bg-cyber-900/50 border-indigo-200 dark:border-indigo-500/30 text-indigo-800 dark:text-indigo-200 outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-mono text-center text-lg placeholder-indigo-300 dark:placeholder-gray-600 uppercase font-bold tracking-wider" placeholder="Cth: SMAN1BDG" required autocomplete="off">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">ID Pengguna / Username Guru</label>
+                    <input type="text" id="login-id" class="w-full p-3 rounded-xl border bg-gray-50 dark:bg-cyber-900 dark:border-gray-700 text-gray-700 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-mono text-center text-lg placeholder-gray-400" placeholder="Contoh: budi123" required autocomplete="off">
                 </div>
                 
                 <div>
-                    <label class="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">PIN Akses</label>
-                    <input type="password" id="login-pin" class="w-full p-3 rounded-xl border bg-gray-50 dark:bg-cyber-900 dark:border-gray-700 text-gray-800 dark:text-white text-center tracking-[0.5em] font-bold text-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder-gray-300" required placeholder="••••" maxlength="6" inputmode="numeric">
+                    <label class="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-1">PIN Akses Rahasia</label>
+                    <input type="password" id="login-pin" class="w-full p-3 rounded-xl border bg-gray-50 dark:bg-cyber-900 dark:border-gray-700 text-gray-800 dark:text-white text-center tracking-[0.5em] font-bold text-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder-gray-300" required placeholder="Sandi / PIN">
                 </div>
 
                 <button type="submit" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-indigo-500/30 transform active:scale-[0.98]">
-                    BUKA DASHBOARD
+                    MASUK SISTEM
                 </button>
 
-                <div class="text-center mt-2">
-                    <button type="button" onclick="loginAsAdminPusat()" class="text-[10px] text-gray-400 hover:text-indigo-500 underline">Login Admin Pusat</button>
+                <!-- Tautan Admin Sekolah -->
+                <div class="text-center mt-6 pt-5 border-t border-gray-100 dark:border-gray-700/50">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Pusat kontrol pengaturan data Master Sekolah</p>
+                    <a href="setup-sekolah.html" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 transition-colors uppercase tracking-wider bg-emerald-50 dark:bg-emerald-900/30 px-4 py-2 rounded-lg border border-emerald-100 dark:border-emerald-800/50">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+                        Pengaturan Admin Sekolah
+                    </a>
                 </div>
             </form>
             
@@ -133,10 +143,12 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16 items-center">
                 <div class="flex items-center gap-4">
-                    <img src="Logo.png" alt="Logo Sekolah" class="w-11 h-11 object-contain drop-shadow-sm">
+                    <!-- Logo Dinamis -->
+                    <img id="nav-logo" src="Logo.png" onerror="this.src='https://ui-avatars.com/api/?name=S&background=6366f1&color=fff'" alt="Logo Sekolah" class="w-11 h-11 object-contain drop-shadow-sm rounded-full">
                     <div>
-                        <h1 class="text-xl font-extrabold leading-tight tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">SAKTI</h1>
-                        <p class="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold">Sistem Asesmen Komprehensif Terintegrasi</p>
+                        <!-- Nama Sekolah Dinamis -->
+                        <h1 id="nav-school-name" class="text-xl font-extrabold leading-tight tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">Portal SAKTI</h1>
+                        <p class="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold">Sistem Asesmen Komprehensif & Terintegrasi (SAKTI)</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-4">
@@ -148,6 +160,7 @@
                             <p id="user-display-name" class="text-sm font-bold">Guest</p>
                             <p id="user-display-mapel" class="text-xs text-green-600 dark:text-green-400">Online</p>
                         </div>
+						<button onclick="window.bukaModalPin()" id="btn-ganti-pin" class="hidden text-xs bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-3 py-1.5 rounded-lg font-bold border border-indigo-200 transition-colors mr-2">🔑 Ganti PIN</button>
                         <img id="user-avatar" src="https://ui-avatars.com/api/?name=Guest&background=6366f1&color=fff" class="w-10 h-10 rounded-full ring-2 ring-white dark:ring-gray-800 shadow-sm cursor-pointer" onclick="logout()" title="Klik untuk Logout">
                     </div>
                 </div>
@@ -164,18 +177,22 @@
             <div class="absolute bottom-0 left-0 -mb-10 -ml-10 w-64 h-64 bg-purple-400 opacity-20 rounded-full blur-3xl"></div>
             
             <div class="relative z-10 text-white flex flex-col md:flex-row items-center md:items-start gap-6">
-                <!-- Tempat Logo Sekolah di Banner -->
-                <img src="Logo.png" alt="Logo Sekolah" class="w-28 h-28 md:w-48 md:h-48 object-contain drop-shadow-lg bg-white/10 p-3 rounded-2xl backdrop-blur-sm border border-white/20">
+                <!-- Logo Banner Dinamis -->
+                <img id="welcome-logo" src="Logo.png" onerror="this.src='https://ui-avatars.com/api/?name=S&background=6366f1&color=fff'" alt="Logo Sekolah" class="w-28 h-28 md:w-48 md:h-48 object-contain drop-shadow-lg bg-white/10 p-3 rounded-2xl backdrop-blur-sm border border-white/20">
                 
                 <div class="text-center md:text-left">
-                    <h2 class="text-2xl md:text-3xl font-extrabold mb-1">Selamat datang di ruang kendali SAKTI, <span id="welcome-name" class="text-yellow-300">Guru</span>! 🎓</h2>
+                    <h2 class="text-2xl md:text-3xl font-extrabold mb-2 leading-tight">
+                        Selamat datang di ruang kendali SAKTI,<br>
+                        <span id="welcome-name" class="text-yellow-300">Guru</span>! 🎓
+                    </h2>
                     <p class="text-indigo-100 text-sm md:text-base font-semibold tracking-wide mb-3">(Sistem Asesmen Komprehensif dan Terintegrasi)</p>
-                    <p class="text-white text-base md:text-lg max-w-3xl leading-relaxed mb-5 italic font-medium">"Ciptakan ekosistem asesmen digital sekolah yang lengkap, praktis, aman, berkualitas, dan terpadu."</p>
+                    <p class="text-white text-base md:text-lg w-full max-w-none leading-relaxed mb-5 italic font-medium">"Ciptakan ekosistem asesmen digital sekolah yang lengkap, praktis, aman, berkualitas, dan terpadu."</p>
                     
                     <div class="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-2 rounded-xl border border-white/30 shadow-sm">
-                        <svg class="w-5 h-5 text-yellow-300" fill="currentColor" viewBox="0 0 20 20"><path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29-3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z"></path></svg>
+                        <svg class="w-5 h-5 text-yellow-300" fill="currentColor" viewBox="0 0 20 20"><path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z"></path></svg>
                         <p class="text-sm font-medium">Sesi Aktif Mapel: <strong id="welcome-mapel" class="text-yellow-300 ml-1">-</strong></p>
                     </div>
+                                        
                 </div>
             </div>
         </div>
@@ -185,7 +202,7 @@
             <div class="glass-card p-6 rounded-2xl shadow-sm flex items-center gap-4">
                 <div class="w-14 h-14 rounded-2xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-2xl">📝</div>
                 <div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Total Bank Soal</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Bank Soal Mapel Ini</p>
                     <h3 id="stat-bank-soal" class="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
                         ... <span class="text-xs font-normal px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500">Loading</span>
                     </h3>
@@ -194,7 +211,7 @@
             <div class="glass-card p-6 rounded-2xl shadow-sm flex items-center gap-4">
                 <div class="w-14 h-14 rounded-2xl bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center text-2xl">🗓️</div>
                 <div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Ujian Terjadwal</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Ujian Terjadwal (Mapel Ini)</p>
                     <h3 id="stat-ujian-aktif" class="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
                         ... <span class="text-xs font-normal px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-500">Loading</span>
                     </h3>
@@ -331,22 +348,7 @@
                     </div>
                 </a>
 
-                <!-- 9. Setup Sekolah -->
-                <a href="setup-sekolah.html" target="_blank" id="card-setup" class="group app-card glass-card p-6 rounded-3xl hover:shadow-xl border-t-4 border-t-gray-500 relative overflow-hidden">
-                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
-                    </div>
-                    <div class="app-icon-box w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 flex items-center justify-center mb-4 shadow-sm">
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                    </div>
-                    <h4 class="text-lg font-bold mb-2 group-hover:text-gray-600 transition-colors">Setup Sekolah</h4>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Pusat Data Master: Guru, Mapel, & Kelas.</p>
-                    <div class="mt-6 flex items-center text-sm font-bold text-gray-600 dark:text-gray-400">
-                        Buka Aplikasi <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
-                    </div>
-                </a>
-
-                <!-- 10. Pusat Kendali Asesmen -->
+                <!-- 9. Pusat Kendali Asesmen -->
                 <a href="pusat-kendali-asesmen.html" target="_blank" id="card-pka" class="group app-card glass-card p-6 rounded-3xl hover:shadow-xl border-t-4 border-t-amber-500 relative overflow-hidden">
                     <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                          <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"></path><path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"></path></svg>
@@ -361,10 +363,10 @@
                     </div>
                 </a>
 
-                <!-- 11. Aplikasi Wali Kelas (BARU) -->
+                <!-- 10. Aplikasi Wali Kelas (BARU) -->
                 <a href="aplikasi-wali-kelas.html" target="_blank" id="card-wali" class="group app-card glass-card p-6 rounded-3xl hover:shadow-xl border-t-4 border-t-orange-500 relative overflow-hidden">
                     <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"></path></svg>
+                        <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"></path>
                     </div>
                     <div class="app-icon-box w-16 h-16 rounded-2xl bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 flex items-center justify-center mb-4 shadow-sm">
                         <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
@@ -378,7 +380,30 @@
 
             </div>
         </div>
-
+		<!-- TOMBOL ARSIP MANDIRI (Pindahan ke Bawah) -->
+        <div class="mt-12 pt-8 border-t border-gray-200 dark:border-gray-800 flex justify-center">
+            <button onclick="window.downloadArsipPribadi()" id="btn-arsip-pribadi" class="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-3 rounded-xl text-sm font-bold shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                Unduh Arsip Tahunan Saya (Excel)
+            </button>
+        </div>
+		<div id="modal-ganti-pin" class="fixed inset-0 z-[120] hidden bg-gray-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white dark:bg-cyber-800 w-full max-w-sm rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col">
+                <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-cyber-900/50 rounded-t-2xl">
+                    <h3 class="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">🔑 Ganti PIN</h3>
+                    <button onclick="window.tutupModalPin()" class="text-gray-400 hover:text-red-500 text-2xl font-bold transition-colors">&times;</button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">PIN Baru</label>
+                        <input type="text" id="input-new-pin" class="w-full p-3 border rounded-lg bg-white dark:bg-cyber-900 dark:border-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-center font-mono tracking-widest text-lg" placeholder="Masukkan Sandi Baru">
+                    </div>
+                </div>
+                <div class="p-5 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-cyber-900 rounded-b-2xl flex justify-end">
+                    <button onclick="window.simpanPinBaru()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm shadow-lg transition-colors">Simpan PIN Baru</button>
+                </div>
+            </div>
+        </div>
     </main>
 
     <!-- Footer -->
@@ -390,7 +415,8 @@
 
     <!-- Firebase Logic -->
     <script>
-        const firebaseConfig = {
+        // CONFIG BUKU INDUK SUPER ADMIN PUSAT
+        const masterConfig = {
             apiKey: "AIzaSyAwIwimlyrE4qQqYa2gA8Pfygd59USsveQ",
             authDomain: "aplikasi-ulangan-01.firebaseapp.com",
             projectId: "aplikasi-ulangan-01",
@@ -399,9 +425,12 @@
             appId: "1:409085062439:web:280589d1a3e12e7b980d02",
         };
 
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
+        // Inisialisasi Aplikasi Induk
+        if (!firebase.apps.length) {
+            firebase.initializeApp(masterConfig);
+        }
+        const masterDb = firebase.firestore();
+        const masterAuth = firebase.auth();
 
         // --- GLOBAL STATE ---
         let currentGuru = null;
@@ -409,17 +438,21 @@
         document.addEventListener('DOMContentLoaded', async () => {
             const sessionID = localStorage.getItem('cbt_user_id');
             const sessionMapel = localStorage.getItem('cbt_user_mapel');
+            const savedSchoolName = localStorage.getItem('sakti_school_nama');
+            const savedSchoolLogo = localStorage.getItem('sakti_school_logo');
+            
+            if (savedSchoolName) {
+                applySchoolBranding(savedSchoolName, savedSchoolLogo);
+            }
             
             if (sessionID && sessionMapel) {
-                updateUIForLoggedInUser(
-                    localStorage.getItem('cbt_user_name'),
-                    sessionMapel
-                );
-                initFirebase(sessionMapel);
+                updateUIForLoggedInUser(localStorage.getItem('cbt_user_name'), sessionMapel);
+                initFirebaseDashboardStats(sessionMapel);
             } else {
                 document.getElementById('dashboard-login-overlay').classList.remove('hidden');
             }
 
+            // Theme Toggle
             const btn = document.getElementById('theme-toggle');
             if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.documentElement.classList.add('dark');
@@ -430,23 +463,91 @@
             });
         });
 
-        // --- LOGIN LOGIC GURU ---
+        // Terapkan Tema dan Identitas Sekolah (Logo & Nama)
+        function applySchoolBranding(namaSekolah, urlLogo) {
+            if (namaSekolah) {
+                const navTitle = document.getElementById('nav-school-name');
+                const welcomeTitle = document.getElementById('welcome-school-name');
+                if (navTitle) navTitle.textContent = namaSekolah;
+                if (welcomeTitle) welcomeTitle.textContent = namaSekolah;
+            }
+            if (urlLogo) {
+                const navLogo = document.getElementById('nav-logo');
+                const welcomeLogo = document.getElementById('welcome-logo');
+                if (navLogo) navLogo.src = urlLogo;
+                if (welcomeLogo) welcomeLogo.src = urlLogo;
+            }
+        }
+
+        // --- LOGIN LOGIC GURU (MULTI-SEKOLAH) ---
         document.getElementById('dashboard-login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const kode = document.getElementById('login-kode').value.toUpperCase().trim();
             const id = document.getElementById('login-id').value.toLowerCase().trim();
             const pin = document.getElementById('login-pin').value.trim();
             const errBox = document.getElementById('login-error-msg');
+            const btnSubmit = e.target.querySelector('button[type="submit"]');
+            const originalText = btnSubmit.innerHTML;
 
             errBox.classList.add('hidden');
-            errBox.textContent = "Memverifikasi...";
-            errBox.classList.remove('hidden');
+            btnSubmit.innerHTML = "Menyambungkan Pipa Data...";
+            btnSubmit.disabled = true;
             
             try {
-                await auth.signInAnonymously();
-                const docRef = db.collection('users_guru').doc(id);
+                // 1. Ketuk Pintu Database Induk Bapak secara Anonim
+                await masterAuth.signInAnonymously();
+                const schoolSnap = await masterDb.collection('daftar_sekolah').doc(kode).get();
+                
+                if (!schoolSnap.exists) { throw new Error("Kode Sekolah tidak terdaftar!"); }
+                const schoolData = schoolSnap.data();
+                if (schoolData.status !== "Aktif") { throw new Error("Akses sekolah ini sedang ditangguhkan!"); }
+
+                errBox.textContent = "Memverifikasi Guru...";
+                errBox.classList.remove('hidden');
+                
+                // Siapkan URL Logo (Gunakan default jika admin belum mengisi di Dashboard Super Admin)
+                const logoUrl = schoolData.logo_url || 'Logo.png';
+
+                // 2. SIMPAN CONFIG KE SAKU MEMORI BROWSER (Untuk dipakai 11 aplikasi lainnya)
+                localStorage.setItem('sakti_school_config', JSON.stringify(schoolData.config));
+                localStorage.setItem('sakti_school_kode', kode);
+                localStorage.setItem('sakti_school_nama', schoolData.nama);
+                localStorage.setItem('sakti_school_logo', logoUrl);
+
+                // Ganti UI seketika
+                applySchoolBranding(schoolData.nama, logoUrl);
+
+                // 3. Buka Database Khusus Sekolah Target
+                let schoolApp;
+                if (firebase.apps.filter(app => app.name === 'AppSekolah').length === 0) {
+                    schoolApp = firebase.initializeApp(schoolData.config, 'AppSekolah');
+                } else {
+                    schoolApp = firebase.app('AppSekolah');
+                }
+                
+                // Ketuk Pintu (Anonim) di database sekolah target agar tidak diblokir Rules
+                await schoolApp.auth().signInAnonymously(); 
+                const schoolDb = schoolApp.firestore();
+
+                // [TAMBAL SULAM 1: LOGIN ADMIN SEKOLAH]
+                if (id === 'admin') {
+                    if (schoolData.password && pin !== schoolData.password) {
+                        throw new Error("Sandi Admin Salah!");
+                    } else if (!schoolData.password && pin !== 'admin123' && pin !== '762672') {
+                        throw new Error("Sandi Admin Salah!");
+                    }
+                    currentGuru = { id: 'admin', fullName: 'Admin Sekolah', mapel: ['ADMIN PUSAT'], kelas: ['SEMUA'], waliKelas: 'SEMUA' };
+                    errBox.classList.add('hidden');
+                    handleSuccessfulLogin(currentGuru);
+                    return; // Berhenti di sini, biarkan Admin masuk!
+                }
+                // [AKHIR TAMBAL SULAM 1]
+
+                // 4. Verifikasi ID dan PIN Guru di Database Sekolah Target
+                const docRef = schoolDb.collection('users_guru').doc(id);
                 const docSnap = await docRef.get();
 
-                if (!docSnap.exists) { throw new Error("ID Pengguna tidak ditemukan!"); }
+                if (!docSnap.exists) { throw new Error("ID Guru tidak ditemukan di sekolah ini!"); }
                 const data = docSnap.data();
                 if (data.pin !== pin) { throw new Error("PIN Salah! Silakan coba lagi."); }
 
@@ -455,8 +556,12 @@
                 handleSuccessfulLogin(currentGuru);
 
             } catch (err) {
-                errBox.textContent = err.message;
+                console.error(err);
+                errBox.textContent = err.message || "Terjadi kesalahan jaringan.";
                 errBox.classList.remove('hidden');
+            } finally {
+                btnSubmit.innerHTML = originalText;
+                btnSubmit.disabled = false;
             }
         });
 
@@ -471,8 +576,8 @@
             const modal = document.getElementById('mapel-selector-modal');
             const container = document.getElementById('mapel-options-container');
             container.innerHTML = mapelList.map(m => `
-                <button onclick="window.selectMapel('${m}')" class="w-full py-3 px-4 bg-gray-50 hover:bg-blue-50 text-gray-800 hover:text-blue-600 font-bold rounded-xl border border-gray-200 hover:border-blue-300 transition-all text-left flex justify-between items-center group">
-                    ${m} <span class="text-blue-400 group-hover:text-blue-600">➔</span>
+                <button onclick="window.selectMapel('${m}')" class="w-full py-3 px-4 bg-gray-50 hover:bg-indigo-50 text-gray-800 hover:text-indigo-600 font-bold rounded-xl border border-gray-200 hover:border-indigo-300 transition-all text-left flex justify-between items-center group">
+                    ${m} <span class="text-indigo-400 group-hover:text-indigo-600">➔</span>
                 </button>
             `).join('');
             document.getElementById('dashboard-login-overlay').classList.add('hidden');
@@ -492,7 +597,7 @@
             localStorage.setItem('cbt_wali_kelas', guruData.waliKelas || ''); 
 
             updateUIForLoggedInUser(guruData.fullName, activeMapel);
-            initFirebase(activeMapel);
+            initFirebaseDashboardStats(activeMapel);
         }
 
         function updateUIForLoggedInUser(name, mapel) {
@@ -505,6 +610,11 @@
 
             document.getElementById('user-display-name').textContent = name;
             document.getElementById('user-display-mapel').textContent = mapel;
+			const btnPin = document.getElementById('btn-ganti-pin');
+            if (btnPin) {
+                if (mapel === 'ADMIN PUSAT') btnPin.classList.add('hidden'); // Admin tidak perlu ganti PIN guru
+                else btnPin.classList.remove('hidden');
+            }
             document.getElementById('welcome-name').textContent = name;
             document.getElementById('welcome-mapel').textContent = mapel;
             const initial = name.substring(0, 2).toUpperCase();
@@ -516,7 +626,6 @@
             applyAccessControl(userId, mapel, userWaliKelas);
         }
 
-        // --- FUNGSI PENGATUR HAK AKSES ---
         function applyAccessControl(userId, userMapel, userWaliKelas) {
             const apps = {
                 editor: document.getElementById('card-editor'),
@@ -532,6 +641,7 @@
                 wali: document.getElementById('card-wali')
             };
 
+            // Reset Kuncian
             Object.values(apps).forEach(el => {
                 if(el) {
                     el.classList.remove('hidden', 'app-locked');
@@ -542,11 +652,14 @@
                     if(infoBadge) infoBadge.remove();
                 }
             });
-
-            if (userId === 'admin_master' || userMapel === 'ADMIN PUSAT') {
-                return; 
+			
+			// [TAMBAL SULAM 2: BUKA SEMUA AKSES ADMIN]
+            if (userMapel && userMapel.toUpperCase() === 'ADMIN PUSAT') {
+                if(apps.setup) apps.setup.classList.remove('hidden');
+                return; // Langsung keluar, biarkan semua aplikasi TERBUKA penuh!
             }
 
+            // Guru Mapel Kurikulum
             if (userMapel && userMapel.toUpperCase().includes('KURIKULUM')) {
                 if(apps.setup) apps.setup.classList.add('hidden');
                 const guruApps = ['editor', 'ujian', 'siswa', 'katalog', 'monitoring', 'analisis', 'presensi', 'nilai', 'wali'];
@@ -554,7 +667,8 @@
                 return;
             }
 
-            if(apps.setup) apps.setup.classList.add('hidden');
+            // Guru Biasa
+            if(apps.setup) apps.setup.classList.add('hidden'); // Selalu sembunyikan setup dari guru
             if(apps.pka) apps.pka.classList.add('hidden');
             
             if (!userWaliKelas) {
@@ -583,114 +697,139 @@
             element.appendChild(badge);
         }
 
-        window.loginAsAdminPusat = () => {
-            document.getElementById('admin-pin-modal').classList.remove('hidden');
-            const input = document.getElementById('input-admin-pin');
-            input.value = '';
-            setTimeout(() => input.focus(), 100);
-        };
-
-        window.closeAdminModal = () => {
-             document.getElementById('admin-pin-modal').classList.add('hidden');
-        };
-
-        // --- LOGIN LOGIC ADMIN PUSAT (BARU & AMAN) ---
-        window.handleAdminPinSubmit = async (e) => {
-            e.preventDefault();
-            const passInput = document.getElementById('input-admin-pin').value;
-            const btnSubmit = e.target.querySelector('button[type="submit"]');
-            const originalText = btnSubmit.innerHTML;
-            
-            btnSubmit.innerHTML = "Memproses...";
-            btnSubmit.disabled = true;
-
-            try {
-                // Mengirimkan password ke server Google untuk dicek!
-                await auth.signInWithEmailAndPassword("admin.pusat@sekolah.com", passInput);
-                
-                // Jika berhasil melewati pengecekan server:
-                const adminData = {
-                    id: 'admin_master',
-                    fullName: 'Administrator Pusat',
-                    kelas: ['SEMUA'],
-                    mapel: ['ADMIN PUSAT'] 
-                };
-                
-                finalizeSession(adminData, "ADMIN PUSAT");
-                closeAdminModal();
-                
-            } catch (error) {
-                console.error("Login Admin Gagal:", error);
-                alert("Kata Sandi/PIN Salah! Akses Ditolak.");
-                document.getElementById('input-admin-pin').value = '';
-                document.getElementById('input-admin-pin').focus();
-            } finally {
-                btnSubmit.innerHTML = originalText;
-                btnSubmit.disabled = false;
-            }
-        };
-
         window.logout = function() {
-            if(confirm('Keluar dari dashboard?')) {
+            if(confirm('Keluar dari sistem SAKTI?')) {
                 localStorage.clear();
-                auth.signOut(); // Tambahan: Pastikan sesi server juga ditutup
+                // Logout dari semua instansi firebase yang ada
+                firebase.apps.forEach(app => app.auth().signOut());
                 location.reload();
             }
         };
 
-        async function initFirebase(currentUserMapel) {
+        // --- FETCH STATISTIK DASHBOARD (MULTI-SEKOLAH) ---
+        async function initFirebaseDashboardStats(currentUserMapel) {
             try {
-                // Jangan panggil signInAnonymously lagi jika sudah login pakai email (Admin)
-                if (!auth.currentUser) await auth.signInAnonymously();
+                let currentDb = null;
                 
-                let totalSoal = 0;
-                const snapSoal = await db.collection('bank_soal').get();
-                if (currentUserMapel === 'ADMIN PUSAT') {
-                    totalSoal = snapSoal.size;
+                // Ambil config sekolah dari memori browser yang sudah disimpan saat login
+                const savedConfig = localStorage.getItem('sakti_school_config');
+                
+                if (savedConfig) {
+                    const configObj = JSON.parse(savedConfig);
+                    let schoolApp;
+                    if (firebase.apps.filter(app => app.name === 'AppSekolah').length === 0) {
+                        schoolApp = firebase.initializeApp(configObj, 'AppSekolah');
+                    } else {
+                        schoolApp = firebase.app('AppSekolah');
+                    }
+                    await schoolApp.auth().signInAnonymously();
+                    currentDb = schoolApp.firestore();
                 } else {
-                    snapSoal.forEach(doc => {
-                        const d = doc.data();
-                        if (d.metadata?.mapel === currentUserMapel) totalSoal++;
-                    });
+                    return; // Sesi tidak valid
                 }
+                
+                // Hitung Statistik Soal & Ujian milik sekolah tersebut
+                let totalSoal = 0;
+                const snapSoal = await currentDb.collection('bank_soal').get();
+                snapSoal.forEach(doc => {
+                    const d = doc.data();
+                    const mapelSoal = d.mapel || (d.metadata && d.metadata.mapel) || "";
+                    if (mapelSoal.toUpperCase() === currentUserMapel.toUpperCase()) {
+                        totalSoal++;
+                    }
+                });
                 updateStat('stat-bank-soal', totalSoal);
 
                 let totalUjian = 0;
-                const snapUjian = await db.collection('ujian_terjadwal').get();
-                if (currentUserMapel === 'ADMIN PUSAT') {
-                    totalUjian = snapUjian.size;
-                } else {
-                    snapUjian.forEach(doc => {
-                        const d = doc.data();
-                        if (d.mapel === currentUserMapel) totalUjian++;
-                    });
-                }
+                const snapUjian = await currentDb.collection('ujian_terjadwal').get();
+                snapUjian.forEach(doc => {
+                    const d = doc.data();
+                    if (d.mapel === currentUserMapel) totalUjian++;
+                });
                 updateStat('stat-ujian-aktif', totalUjian);
-            } catch (e) { console.error("Firebase Error:", e); }
+                
+            } catch (e) { console.error("Firebase Error (Dashboard Stats):", e); }
         }
 
         function updateStat(id, val) {
             const el = document.getElementById(id);
             if(el) el.innerHTML = val.toLocaleString('id-ID');
         }
-    </script>
+		// PENTING: Tambahkan library SheetJS agar fitur Unduh Excel bekerja
+        const script = document.createElement('script');
+        script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+        document.head.appendChild(script);
 
-    <!-- MODAL KHUSUS LOGIN ADMIN -->
-    <div id="admin-pin-modal" class="fixed inset-0 z-[120] hidden flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-        <div class="bg-white dark:bg-cyber-800 w-full max-w-xs rounded-2xl p-6 shadow-2xl border border-gray-200 dark:border-gray-700 transform transition-all scale-100">
-            <div class="text-center mb-4">
-                <div class="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-2 text-2xl">🛡️</div>
-                <h3 class="text-lg font-bold text-gray-800 dark:text-white">Admin Pusat</h3>
-                <p class="text-[10px] text-gray-500">Masukkan Kata Sandi/PIN Master.</p>
-            </div>
-            <form onsubmit="handleAdminPinSubmit(event)">
-                <input type="password" id="input-admin-pin" class="w-full p-3 rounded-xl border bg-gray-50 dark:bg-cyber-900 dark:border-gray-700 text-center font-bold text-lg tracking-widest mb-4 outline-none focus:ring-2 focus:ring-red-500 dark:text-white" placeholder="••••••••" required autocomplete="off">
-                <div class="flex gap-2">
-                    <button type="button" onclick="closeAdminModal()" class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-300 transition-colors">Batal</button>
-                    <button type="submit" class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-500/30 transition-colors">Masuk</button>
-                </div>
-            </form>
-        </div>
-    </div>
+        window.downloadArsipPribadi = async () => {
+            const btn = document.getElementById('btn-arsip-pribadi');
+            btn.disabled = true;
+            btn.innerHTML = "Menyusun Arsip...";
+            
+            try {
+                const mapel = localStorage.getItem('cbt_user_mapel');
+                const guruId = localStorage.getItem('cbt_user_id');
+                const wb = XLSX.utils.book_new();
+
+                // 1. Ambil Presensi Guru Ini
+                const snapPresensi = await firebase.app('AppSekolah').firestore().collection('presensi')
+                    .where('guru_id', '==', guruId)
+                    .where('mapel', '==', mapel).get();
+                
+                let dataPresensi = [];
+                snapPresensi.forEach(doc => dataPresensi.push({ ID: doc.id, ...doc.data() }));
+                if(dataPresensi.length > 0) {
+                    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataPresensi), "Arsip Presensi");
+                }
+
+                // 2. Ambil Nilai/Ujian Guru Ini
+                const snapUjian = await firebase.app('AppSekolah').firestore().collection('hasil_ujian')
+                    .where('mapel', '==', mapel).get();
+                
+                let dataUjian = [];
+                snapUjian.forEach(doc => dataUjian.push({ ID: doc.id, ...doc.data() }));
+                if(dataUjian.length > 0) {
+                    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataUjian), "Arsip Nilai Ujian");
+                }
+
+                XLSX.writeFile(wb, `Arsip_${mapel}_${guruId}_2026.xlsx`);
+                alert("Arsip berhasil diunduh!");
+            } catch(e) {
+                alert("Gagal membuat arsip: " + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = "Unduh Arsip Tahunan Saya (Excel)";
+            }
+        };
+		window.bukaModalPin = () => {
+            document.getElementById('input-new-pin').value = '';
+            document.getElementById('modal-ganti-pin').classList.remove('hidden');
+        };
+
+        window.tutupModalPin = () => {
+            document.getElementById('modal-ganti-pin').classList.add('hidden');
+        };
+
+        window.simpanPinBaru = async () => {
+            const newPin = document.getElementById('input-new-pin').value.trim();
+            const guruId = localStorage.getItem('cbt_user_id');
+
+            if (!newPin || newPin.length < 4) {
+                return alert("PIN baru minimal 4 karakter!");
+            }
+
+            try {
+                const schoolDb = firebase.app('AppSekolah').firestore();
+                await schoolDb.collection('users_guru').doc(guruId).update({
+                    pin: newPin,
+                    updatedAt: new Date().toISOString()
+                });
+
+                alert("PIN Berhasil Diperbarui!\nAdmin Sekolah sekarang dapat melihat PIN baru Anda di menu Setup.");
+                window.tutupModalPin();
+            } catch (error) {
+                alert("Gagal merubah PIN: " + error.message);
+            }
+        };
+    </script>
 </body>
 </html>

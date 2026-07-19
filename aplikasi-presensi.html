@@ -253,10 +253,14 @@
                         </div>
                     </div>
                     <button onclick="window.fetchAgendaHistory()" class="self-end bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded shadow transition-colors">Tampilkan Riwayat</button>
-                    <!-- Tombol Export Excel (CSV) Baru -->
                     <button onclick="window.exportAgendaExcel()" class="self-end bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded shadow transition-colors flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                         Excel
+                    </button>
+                    <!-- TAMBAHAN: Tombol Kosongkan Agenda -->
+                    <button onclick="window.deleteAgendaHistory()" class="self-end bg-red-100 text-red-600 hover:bg-red-200 border border-red-200 font-bold py-2 px-4 rounded shadow transition-colors flex items-center gap-2" title="Kosongkan Agenda Rentang Ini">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        Hapus
                     </button>
                 </div>
 
@@ -382,16 +386,16 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, getDocs, doc, onSnapshot, setDoc, query, where, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAwIwimlyrE4qQqYa2gA8Pfygd59USsveQ",
-            authDomain: "aplikasi-ulangan-01.firebaseapp.com",
-            projectId: "aplikasi-ulangan-01",
-            storageBucket: "aplikasi-ulangan-01.firebasestorage.app",
-            messagingSenderId: "409085062439",
-            appId: "1:409085062439:web:280589d1a3e12e7b980d02",
-        };
-
-        const app = initializeApp(firebaseConfig);
+        // --- JALAN PINTAS NINJA: AMBIL CONFIG DINAMIS DARI MEMORI BROWSER ---
+        const savedConfigStr = localStorage.getItem('sakti_school_config');
+        if (!savedConfigStr) {
+            alert("Akses ditolak! Silakan login terlebih dahulu melalui Portal Utama SAKTI.");
+            window.location.href = 'index.html'; 
+            throw new Error("Sesi tidak valid"); // Menghentikan eksekusi script
+        }
+        
+        const dynamicFirebaseConfig = JSON.parse(savedConfigStr);
+        const app = initializeApp(dynamicFirebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
 
@@ -400,19 +404,19 @@
         const PATH_ATTENDANCE_GLOBAL = 'artifacts/presensi-sekolah-terintegrasi/public/data/attendance';
 
         let currentUnsubscribe = null;
-        let globalIzinUnsubscribe = null; 
-        let globalAttUnsubscribe = null;
+        let globalUnsubscribe = null; 
+        let globalAttUnsubscribe = null; 
+
+        // --- DATA STORAGE ---
+        let currentLocalData = {}; // Menyimpan data presensi mapel
+        let currentGlobalData = {}; // Menyimpan data dari piket (izin global)
+        let currentGlobalAttData = {}; // Menyimpan data dari piket (hadir global)
         let studentsInClass = [];
         let currentClass = '';
         let currentDate = '';
         let currentReportData = null; 
         let currentAgendaData = []; 
         let currentLegacyData = null; 
-        
-        // --- DATA STORAGE ---
-        let currentLocalData = {}; // Menyimpan data presensi mapel
-        let currentGlobalIzinData = {}; // Menyimpan Izin/Sakit dari piket
-        let currentGlobalAttData = {}; // Menyimpan Hadir/Telat dari piket
         
         let currentScale = 1;
         let startX, startY, translateX=0, translateY=0;
@@ -621,18 +625,17 @@
 
         // --- FUNGSI UTAMA YANG DIMODIFIKASI ---
         function setupRealtimeListener(kelas, tanggal) {
+            // Bersihkan listener lama agar tidak dobel
             if(currentUnsubscribe) currentUnsubscribe();
-            if(globalIzinUnsubscribe) globalIzinUnsubscribe();
-            if(globalAttUnsubscribe) globalAttUnsubscribe();
+            if(globalUnsubscribe) globalUnsubscribe();
             
             const docId = `${kelas}_${currentGuruMapel}_${tanggal}`;
             const docRef = doc(db, 'presensi', docId);
             
             document.getElementById('agenda-activity').value = "";
             currentLegacyData = null; 
-            currentLocalData = {}; 
-            currentGlobalIzinData = {}; 
-            currentGlobalAttData = {}; 
+            currentLocalData = {}; // Reset lokal
+            currentGlobalData = {}; // Reset global
 
             // 1. LISTENER DATA LOKAL (Presensi Mapel Ini)
             currentUnsubscribe = onSnapshot(docRef, async (docSnap) => {
@@ -640,6 +643,7 @@
                     currentLocalData = docSnap.data();
                     currentLegacyData = null; 
                 } else {
+                    // Fallback cek legacy data
                     const legacyId = `${kelas}_${tanggal}`;
                     try {
                         const legacySnap = await getDoc(doc(db, 'presensi', legacyId));
@@ -647,8 +651,10 @@
                             currentLocalData = legacySnap.data();
                             currentLegacyData = currentLocalData; 
                         }
-                    } catch(e) {}
+                    } catch(e) { console.log("No legacy data found"); }
                 }
+
+                // Render tabel gabungan
                 renderTable();     
                 updateSummary();   
                 
@@ -659,26 +665,38 @@
                 }
             });
 
-            // 2. LISTENER DATA GLOBAL (Piket - Izin & Sakit)
-            const qIzin = query(collection(db, PATH_IZIN_GLOBAL), where('kelas', '==', kelas));
-            globalIzinUnsubscribe = onSnapshot(qIzin, (snap) => {
-                currentGlobalIzinData = {};
+            // 2. LISTENER DATA GLOBAL (Piket - Izin Global)
+            const qGlobal = query(
+                collection(db, PATH_IZIN_GLOBAL),
+                where('kelas', '==', kelas)
+            );
+
+            globalUnsubscribe = onSnapshot(qGlobal, (snap) => {
+                currentGlobalData = {};
                 snap.forEach(d => {
-                    if(d.id.startsWith(tanggal)) currentGlobalIzinData[d.data().nis] = d.data();
+                    if(d.id.startsWith(tanggal)) {
+                        const data = d.data();
+                        currentGlobalData[data.nis] = data; 
+                    }
                 });
                 renderTable(); 
-                updateSummary();
             });
 
-            // 3. LISTENER DATA GLOBAL (Piket - Hadir & Telat)
-            const qAtt = query(collection(db, PATH_ATTENDANCE_GLOBAL), where('kelas', '==', kelas));
-            globalAttUnsubscribe = onSnapshot(qAtt, (snap) => {
+            // 3. LISTENER DATA GLOBAL (Piket - Kehadiran)
+            const qGlobalAtt = query(
+                collection(db, PATH_ATTENDANCE_GLOBAL),
+                where('kelas', '==', kelas)
+            );
+
+            globalAttUnsubscribe = onSnapshot(qGlobalAtt, (snap) => {
                 currentGlobalAttData = {};
                 snap.forEach(d => {
-                    if(d.id.startsWith(tanggal)) currentGlobalAttData[d.data().nis] = d.data();
+                    if(d.id.startsWith(tanggal)) {
+                        const data = d.data();
+                        currentGlobalAttData[data.nis] = data; 
+                    }
                 });
                 renderTable(); 
-                updateSummary();
             });
         }
 
@@ -695,81 +713,63 @@
             }
 
             studentsInClass.forEach((s, idx) => {
-                let localRecord = currentLocalData[s.id];
+                // Ambil data lokal dulu
+                let record = currentLocalData[s.id] || { status: '', time: '' };
                 let isFromPiket = false;
-                let piketBadge = '';
-                let finalStatus = '';
-                let finalTime = '';
-                let buktiAda = false;
 
-                // Cek status dari Piket terlebih dahulu
-                const izinData = currentGlobalIzinData[s.id];
-                const attData = currentGlobalAttData[s.id];
+                // LOGIKA INFO PIKET (HANYA SEBAGAI TANDA / HINT):
+                const status = (record.status || '').toLowerCase(); // KITA AMBIL STATUS DULUAN
+                
+                const globalIzinRec = currentGlobalData[s.id];
+                const globalAttRec = currentGlobalAttData[s.id];
+                let infoPiketBadge = '';
 
-                let piketStatusRaw = null;
-                if (izinData) {
-                    piketStatusRaw = izinData.tipe; // 's' atau 'i'
-                    buktiAda = !!izinData.foto;
-                } else if (attData) {
-                    piketStatusRaw = attData.status; // 'Terlambat', 'Tepat Waktu', atau 'Hadir'
-                }
-
-                // Logika Penentuan Status Akhir
-                if (localRecord && localRecord.status !== undefined && localRecord.status !== '') {
-                    // Guru sudah menekan tombol (H/S/I/A) -> Prioritaskan pilihan guru
-                    finalStatus = localRecord.status;
-                    finalTime = localRecord.time || '';
-                    if (localRecord.buktiAda) buktiAda = true;
-                } else {
-                    // Guru belum mengisi apa-apa -> Otomatisasi dari Piket
-                    if (piketStatusRaw === 's' || piketStatusRaw === 'i') {
-                        finalStatus = piketStatusRaw;
-                        finalTime = 'Piket';
-                        isFromPiket = true;
-                    } else if (piketStatusRaw === 'Terlambat') {
-                        // Jika terlambat di piket, status kelas dikosongkan agar guru bisa isi manual
-                        finalStatus = '';
-                        isFromPiket = true;
-                        piketBadge = '<span class="text-[9px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded border border-orange-200 ml-2 font-bold whitespace-nowrap">PIKET: TELAT</span>';
-                    } else if (piketStatusRaw === 'Tepat Waktu' || piketStatusRaw === 'Hadir') {
-                        finalStatus = '';
-                        isFromPiket = true;
-                        piketBadge = '<span class="text-[9px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-200 ml-2 font-bold whitespace-nowrap">PIKET: HADIR</span>';
+                // HANYA TAMPILKAN TANDA PIKET JIKA GURU BELUM MENGABSEN (status masih kosong)
+                if (!status) {
+                    if (globalIzinRec) {
+                        if (globalIzinRec.tipe === 's') {
+                            infoPiketBadge = '<span class="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200 ml-2 font-bold uppercase">PIKET: SAKIT</span>';
+                        } else {
+                            infoPiketBadge = '<span class="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded border border-yellow-200 ml-2 font-bold uppercase">PIKET: IZIN</span>';
+                        }
+                    } else if (globalAttRec) {
+                        // Jika hadir di piket, kosongkan (tidak ada tanda) sesuai permintaan
+                        infoPiketBadge = '';
                     } else {
-                        // Tidak ada data sama sekali di Piket -> Otomatis Alpha
-                        finalStatus = 'a';
-                        isFromPiket = true;
-                        piketBadge = '<span class="text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded border border-red-200 ml-2 font-bold whitespace-nowrap">PIKET: ALPHA</span>';
+                        // Belum ada data di piket
+                        infoPiketBadge = '<span class="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded border border-red-200 ml-2 font-bold uppercase">PIKET: ALPHA</span>';
                     }
                 }
 
-                const status = (finalStatus || '').toLowerCase();
                 let rowClass = "border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors";
+                
+                // Warnai baris tabel HANYA jika guru sudah klik "Hadir"
                 if(status === 'h') rowClass += " bg-green-50 dark:bg-green-900/10";
-                if(isFromPiket && (status === 's' || status === 'i' || status === 'a')) rowClass += " bg-indigo-50 dark:bg-indigo-900/10";
+                // Catatan: Warna latar belakang merah/biru/kuning dari piket sudah DIHAPUS agar kembali bersih seperti awal.
 
                 let proofBtn = '';
-                if ((status === 's' || status === 'i') && buktiAda) {
-                     const isGlobalStr = isFromPiket ? 'true' : 'false';
-                     proofBtn = `<button onclick="window.viewProof('${s.id}', '${s.nama}', '${status}', ${isGlobalStr})" class="ml-2 text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full flex items-center gap-1 hover:bg-blue-200 transition"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>Bukti</button>`;
+                // Tombol bukti: Muncul jika guru klik sakit/izin dan ada bukti lokal, ATAU ada bukti foto dari piket
+                if ((status === 's' || status === 'i') && record.buktiAda) {
+                     proofBtn = `<button onclick="window.viewProof('${s.id}', '${s.nama}', '${status}', false)" class="ml-2 text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full flex items-center gap-1 hover:bg-blue-200 transition font-bold"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>Lihat Bukti</button>`;
+                } else if (globalIzinRec && globalIzinRec.foto) {
+                     proofBtn = `<button onclick="window.viewProof('${s.id}', '${s.nama}', '${globalIzinRec.tipe}', true)" class="ml-2 text-[10px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full flex items-center gap-1 hover:bg-indigo-200 transition font-bold"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>Bukti Piket</button>`;
                 }
                 
                 let waBtn = '';
+                // Tombol WhatsApp akan muncul jika Guru sudah menekan tombol Sakit, Izin, atau Alpha
                 if (['s', 'i', 'a'].includes(status)) {
-                    waBtn = `<button onclick="window.sendWA('${s.id}', '${status}')" class="ml-auto mr-2 text-xs bg-green-500 hover:bg-green-600 text-white p-1.5 rounded-full flex items-center shadow transition" title="Lapor WA ke Ortu">
+                    waBtn = `<button onclick="window.sendWA('${s.id}', '${status}')" class="ml-2 text-xs bg-green-500 hover:bg-green-600 text-white p-1 rounded-full flex items-center gap-1 shadow transition" title="Lapor WA ke Ortu">
                         <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                     </button>`;
                 }
 
-                const qrBadge = (status === 'h' && localRecord && localRecord.method === 'qr') ? '<span class="text-[9px] bg-pink-100 text-pink-600 px-1 rounded border border-pink-200 ml-1 font-bold">QR</span>' : '';
+                const sourceBadge = infoPiketBadge;
 
                 const html = `
                 <div class="grid grid-cols-12 gap-2 px-4 py-3 items-center ${rowClass}">
                     <div class="col-span-1 text-center text-gray-500 text-sm">${idx + 1}</div>
-                    <div class="col-span-5 font-medium text-gray-800 dark:text-white flex items-center flex-wrap">
-                        ${s.nama} ${qrBadge} ${piketBadge} ${proofBtn} ${waBtn}
-                    </div>
-                    <div class="col-span-2 text-center text-xs text-gray-500 font-mono">${finalTime || '-'}</div>
+                    <div class="col-span-5 font-medium text-gray-800 dark:text-white flex items-center gap-2 flex-wrap">${s.nama} ${status === 'h' && record.method === 'qr' ? '<span class="text-[10px] bg-pink-100 text-pink-600 px-1 rounded border border-pink-200">QR</span>' : ''} ${sourceBadge} ${proofBtn} ${waBtn}</div>
+                    <div class="col-span-2 text-center text-xs text-gray-500 font-mono">${record.time || '-'}</div>
                     <div class="col-span-4 flex justify-center gap-1">
                         <button onclick="window.setStatus('${s.id}', 'h')" class="status-btn btn-h w-8 h-8 rounded border flex items-center justify-center text-sm ${status==='h'?'active':''}">H</button>
                         <button onclick="window.setStatus('${s.id}', 's')" class="status-btn btn-s w-8 h-8 rounded border flex items-center justify-center text-sm ${status==='s'?'active':''}">S</button>
@@ -779,38 +779,6 @@
                 </div>`;
                 container.insertAdjacentHTML('beforeend', html);
             });
-        }
-
-        function updateSummary() {
-            let counts = { h: 0, s: 0, i: 0, a: 0 };
-            
-            studentsInClass.forEach(s => {
-                let localRecord = currentLocalData[s.id];
-                let piketStatusRaw = null;
-                if (currentGlobalIzinData[s.id]) {
-                    piketStatusRaw = currentGlobalIzinData[s.id].tipe; 
-                } else if (currentGlobalAttData[s.id]) {
-                    piketStatusRaw = currentGlobalAttData[s.id].status;
-                }
-
-                let finalStatus = '';
-                if (localRecord && localRecord.status !== undefined && localRecord.status !== '') {
-                    finalStatus = localRecord.status;
-                } else {
-                    if (piketStatusRaw === 's' || piketStatusRaw === 'i') finalStatus = piketStatusRaw;
-                    else if (piketStatusRaw === 'Terlambat' || piketStatusRaw === 'Tepat Waktu' || piketStatusRaw === 'Hadir') finalStatus = '';
-                    else finalStatus = 'a';
-                }
-                
-                if(finalStatus && counts[finalStatus] !== undefined) counts[finalStatus]++;
-            });
-
-            const totalFilled = counts.h + counts.s + counts.i + counts.a;
-            const notFilled = studentsInClass.length - totalFilled;
-            document.getElementById('count-h').textContent = counts.h;
-            document.getElementById('count-s').textContent = counts.s;
-            document.getElementById('count-i').textContent = counts.i;
-            document.getElementById('count-a').textContent = counts.a + notFilled; 
         }
 
         window.saveAgenda = async () => {
@@ -958,6 +926,53 @@
             document.body.removeChild(link);
         };
 
+        // --- FUNGSI HAPUS AGENDA MASSAL ---
+        window.deleteAgendaHistory = async () => {
+            const startVal = document.getElementById('agenda-start-date').value;
+            const endVal = document.getElementById('agenda-end-date').value;
+            const kelas = currentClass;
+
+            if(!kelas) return alert("Pilih KELAS terlebih dahulu di menu utama.");
+            if(!startVal || !endVal) return alert("Pilih rentang tanggal terlebih dahulu!");
+
+            const konfirmasi = prompt(`PERINGATAN!\nAnda akan MENGHAPUS TEKS AGENDA untuk mapel ${currentGuruMapel} kelas ${kelas} dari tanggal ${startVal} s/d ${endVal}.\n\n(Data Presensi/Kehadiran siswa TIDAK akan ikut terhapus).\n\nKetik 'HAPUS' untuk melanjutkan:`);
+            
+            if (konfirmasi !== "HAPUS") {
+                if (konfirmasi !== null) alert("Dibatalkan. Kata kunci salah.");
+                return;
+            }
+
+            const startDate = new Date(startVal + 'T00:00:00');
+            const endDate = new Date(endVal + 'T00:00:00');
+            if(startDate > endDate) return alert("Tanggal mulai tidak boleh melebihi tanggal akhir!");
+
+            const batchPromises = [];
+            let currDate = new Date(startDate);
+            
+            while(currDate <= endDate) {
+                const y = currDate.getFullYear();
+                const m = String(currDate.getMonth() + 1).padStart(2, '0');
+                const d = String(currDate.getDate()).padStart(2, '0');
+                const dateStr = `${y}-${m}-${d}`;
+                
+                const docId = `${kelas}_${currentGuruMapel}_${dateStr}`;
+                const docRef = doc(db, 'presensi', docId);
+                
+                // Hanya mengosongkan teks agendanya saja, presensi aman.
+                batchPromises.push(setDoc(docRef, { agenda_kegiatan: "" }, { merge: true }));
+                
+                currDate.setDate(currDate.getDate() + 1);
+            }
+
+            try {
+                await Promise.all(batchPromises);
+                alert("Riwayat Agenda pada rentang tersebut berhasil dikosongkan!");
+                window.fetchAgendaHistory(); // Refresh tampilan tabel
+            } catch(e) {
+                alert("Gagal menghapus: " + e.message);
+            }
+        };
+
         window.editAgenda = (dateStr) => {
             document.getElementById('agenda-history-modal').classList.add('hidden');
             const picker = document.getElementById('date-picker');
@@ -993,6 +1008,30 @@
             window.open(url, '_blank');
         };
 
+        function updateSummary() {
+            // Hitung statistik dari tabel yang sudah dirender (gabungan)
+            let counts = { h: 0, s: 0, i: 0, a: 0 };
+            
+            studentsInClass.forEach(s => {
+                let status = '';
+                const local = currentLocalData[s.id];
+                
+                // Murni mengambil data yang di-klik oleh Guru Mapel
+                if (local && local.status) {
+                    status = local.status.toLowerCase();
+                } 
+                
+                if(status && counts[status] !== undefined) counts[status]++;
+            });
+
+            const totalFilled = counts.h + counts.s + counts.i + counts.a;
+            const notFilled = studentsInClass.length - totalFilled;
+            document.getElementById('count-h').textContent = counts.h;
+            document.getElementById('count-s').textContent = counts.s;
+            document.getElementById('count-i').textContent = counts.i;
+            document.getElementById('count-a').textContent = counts.a + notFilled;
+        }
+
         window.viewProof = async (studentId, studentName, status, isGlobal = false) => {
             const modal = document.getElementById('proof-modal');
             const img = document.getElementById('proof-image');
@@ -1006,7 +1045,7 @@
             try {
                 if (isGlobal) {
                     // AMBIL DARI MEMORI PIKET (Lebih Cepat)
-                    const globalData = currentGlobalIzinData[studentId];
+                    const globalData = currentGlobalData[studentId];
                     if (globalData) {
                         img.src = globalData.foto || 'https://via.placeholder.com/400x300?text=Foto+Tidak+Ada';
                         document.getElementById('proof-reason').textContent = (globalData.alasan || '-') + " (Verifikasi Piket)";

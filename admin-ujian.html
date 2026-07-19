@@ -430,15 +430,6 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, setDoc, doc, getDoc, deleteDoc, getDocs, query, where, serverTimestamp, updateDoc, runTransaction, deleteField } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAwIwimlyrE4qQqYa2gA8Pfygd59USsveQ",
-            authDomain: "aplikasi-ulangan-01.firebaseapp.com",
-            projectId: "aplikasi-ulangan-01",
-            storageBucket: "aplikasi-ulangan-01.firebasestorage.app",
-            messagingSenderId: "409085062439",
-            appId: "1:409085062439:web:280589d1a3e12e7b980d02",
-        };
-
         let db, auth;
         let currentGuruId = null;
         let currentGuruMapel = null;
@@ -792,7 +783,16 @@
 
         document.addEventListener('DOMContentLoaded', async () => {
             try {
-                const app = initializeApp(firebaseConfig);
+                // --- JALAN PINTAS NINJA: AMBIL CONFIG DINAMIS DARI MEMORI BROWSER ---
+				const savedConfigStr = localStorage.getItem('sakti_school_config');
+				if (!savedConfigStr) {
+					alert("Akses ditolak! Silakan login terlebih dahulu melalui Portal Utama SAKTI.");
+					window.location.href = 'index.html'; 
+					throw new Error("Sesi tidak valid"); // Menghentikan eksekusi script
+				}
+				
+				const dynamicFirebaseConfig = JSON.parse(savedConfigStr);
+				const app = initializeApp(dynamicFirebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
                 

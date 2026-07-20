@@ -38,10 +38,10 @@
             
             <form id="admin-login-form" class="space-y-4">
                 <div>
-                    <input type="text" id="login-kode" class="w-full p-3 rounded-xl border border-gray-300 dark:border-emerald-800 bg-gray-50 dark:bg-cyber-900 text-center text-lg font-bold focus:ring-2 focus:ring-blue-500 outline-none dark:text-white uppercase tracking-wider" placeholder="KODE SEKOLAH" autocomplete="off" required>
+                    <input type="text" id="login-kode" name="admin_kode_sekolah" class="w-full p-3 rounded-xl border border-gray-300 dark:border-emerald-800 bg-gray-50 dark:bg-cyber-900 text-center text-lg font-bold focus:ring-2 focus:ring-blue-500 outline-none dark:text-white uppercase tracking-wider" placeholder="KODE SEKOLAH" autocomplete="new-password" required>
                 </div>
                 <div>
-                    <input type="password" id="login-pass" class="w-full p-3 rounded-xl border border-gray-300 dark:border-emerald-800 bg-gray-50 dark:bg-cyber-900 text-center text-lg font-bold focus:ring-2 focus:ring-blue-500 outline-none dark:text-white tracking-widest" placeholder="PASSWORD" autocomplete="off" required>
+                    <input type="password" id="login-pass" name="admin_sandi_rahasia" class="w-full p-3 rounded-xl border border-gray-300 dark:border-emerald-800 bg-gray-50 dark:bg-cyber-900 text-center text-lg font-bold focus:ring-2 focus:ring-blue-500 outline-none dark:text-white tracking-widest" placeholder="PASSWORD" autocomplete="new-password" required>
                 </div>
                 <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-95">Masuk Pengaturan</button>
             </form>
@@ -393,6 +393,18 @@
         let jadwalPiket = { Senin: [], Selasa: [], Rabu: [], Kamis: [], Jumat: [], Sabtu: [] };
         let tempTags = { 't-mapel': new Set(), 't-kelas': new Set() };
 
+		// [TAMBAHAN: AUTO-FILL KODE SEKOLAH & PEMBERSIH PASSWORD]
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedKode = localStorage.getItem('sakti_school_kode');
+            if (savedKode) {
+                document.getElementById('login-kode').value = savedKode;
+            }
+            // Bersihkan kotak password jika browser memaksa mengisinya
+            setTimeout(() => {
+                document.getElementById('login-pass').value = '';
+            }, 100);
+        });
+		
         // --- SISTEM LOGIN ADMIN SEKOLAH (KEAMANAN TINGGI SERVER-SIDE) ---
         document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
             e.preventDefault();

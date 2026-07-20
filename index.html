@@ -441,6 +441,12 @@
             const savedSchoolName = localStorage.getItem('sakti_school_nama');
             const savedSchoolLogo = localStorage.getItem('sakti_school_logo');
             
+            // [TAMBAHAN: AUTO-FILL KODE SEKOLAH]
+            const savedSchoolCode = localStorage.getItem('sakti_school_kode');
+            if (savedSchoolCode) {
+                document.getElementById('login-kode').value = savedSchoolCode;
+            }
+            
             if (savedSchoolName) {
                 applySchoolBranding(savedSchoolName, savedSchoolLogo);
             }

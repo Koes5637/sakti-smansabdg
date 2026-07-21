@@ -647,19 +647,24 @@
         }
 
         function updateFilteredQuestions() {
-            const m = els.mapel.value;
-            const k = els.kelas.value;
-            const b = els.bab.value;
-            const s = els.subbab.value;
-            const kw = els.keyword.value.toLowerCase().trim(); // Ambil kata kunci
+            const m = els.mapel.value ? els.mapel.value.toUpperCase().trim() : "";
+            const k = els.kelas.value ? els.kelas.value.toUpperCase().replace("KELAS ", "").trim() : "ALL";
+            const b = els.bab.value ? els.bab.value.toUpperCase().trim() : "ALL";
+            const s = els.subbab.value ? els.subbab.value.toUpperCase().trim() : "ALL";
+            const kw = els.keyword.value.toLowerCase().trim(); 
             const t = els.tipe.value;
             const l = els.level.value;
 
             filteredQuestions = allQuestions.filter(q => {
-                const matchMapel = q.metadata.mapel === m;
-                const matchKelas = k === 'all' || q.metadata.kelas === k;
-                const matchBab = b === 'all' || q.metadata.bab === b;
-                const matchSub = s === 'all' || !s || q.metadata.subbab === s;
+                const dbMapel = q.metadata.mapel ? q.metadata.mapel.toUpperCase().trim() : "";
+                let dbKelas = q.metadata.kelas ? q.metadata.kelas.toUpperCase().replace("KELAS ", "").trim() : "";
+                const dbBab = q.metadata.bab ? q.metadata.bab.toUpperCase().trim() : "";
+                const dbSub = q.metadata.subbab ? q.metadata.subbab.toUpperCase().trim() : "";
+
+                const matchMapel = dbMapel === m;
+                const matchKelas = k === 'ALL' || dbKelas === k;
+                const matchBab = b === 'ALL' || dbBab === b;
+                const matchSub = s === 'ALL' || !s || dbSub === s;
                 
                 // Filter pencarian kata kunci pada naskah soal
                 const matchKeyword = !kw || 
@@ -674,7 +679,6 @@
 
             els.count.textContent = filteredQuestions.length;
             window.renderGrid();
-            
         }
 		
         window.refreshGridData = async () => {
@@ -731,21 +735,21 @@
         }
 
         els.mapel.addEventListener('change', () => {
-            const m = els.mapel.value;
+            const m = els.mapel.value ? els.mapel.value.toUpperCase().trim() : "";
             if(!m) { resetDropdowns(['kelas', 'bab', 'subbab']); return; }
-            const filtered = allQuestions.filter(q => q.metadata.mapel === m);
+            const filtered = allQuestions.filter(q => (q.metadata.mapel || "").toUpperCase().trim() === m);
             
-            const kelas = getUnique(filtered, 'kelas');
+            const kelas = [...new Set(filtered.map(q => q.metadata.kelas ? q.metadata.kelas.replace("KELAS ", "").trim() : "Umum"))].sort();
             els.kelas.innerHTML = '<option value="all">Semua Kelas</option>';
-            kelas.forEach(k => els.kelas.add(new Option(k, k)));
+            kelas.forEach(k => els.kelas.add(new Option("Kelas " + k, k)));
             els.kelas.disabled = false;
 
-            const babs = getUnique(filtered, 'bab');
+            const babs = [...new Set(filtered.map(q => q.metadata.bab ? q.metadata.bab.trim() : "Lainnya"))].sort();
             els.bab.innerHTML = '<option value="all">Semua BAB</option>';
             babs.forEach(b => els.bab.add(new Option(b, b)));
             els.bab.disabled = false;
 
-            const subs = getUnique(filtered, 'subbab').filter(s => s);
+            const subs = [...new Set(filtered.map(q => q.metadata.subbab ? q.metadata.subbab.trim() : ""))].filter(s => s).sort();
             els.subbab.innerHTML = '<option value="all">Semua Sub BAB</option>';
             subs.forEach(s => els.subbab.add(new Option(s, s)));
             els.subbab.disabled = false;
@@ -754,21 +758,50 @@
         });
 
         els.kelas.addEventListener('change', () => {
-            const m = els.mapel.value;
-            const k = els.kelas.value;
+            const m = els.mapel.value ? els.mapel.value.toUpperCase().trim() : "";
+            const k = els.kelas.value ? els.kelas.value.toUpperCase().replace("KELAS ", "").trim() : "ALL";
             if(!m) { resetDropdowns(['bab', 'subbab']); return; }
-            const filtered = allQuestions.filter(q => q.metadata.mapel === m && (k === 'all' || q.metadata.kelas === k));
             
-            const babs = getUnique(filtered, 'bab');
+            const filtered = allQuestions.filter(q => {
+                const dbM = (q.metadata.mapel || "").toUpperCase().trim();
+                const dbK = q.metadata.kelas ? q.metadata.kelas.toUpperCase().replace("KELAS ", "").trim() : "";
+                return dbM === m && (k === 'ALL' || dbK === k);
+            });
+            
+            const babs = [...new Set(filtered.map(q => q.metadata.bab ? q.metadata.bab.trim() : "Lainnya"))].sort();
             els.bab.innerHTML = '<option value="all">Semua BAB</option>';
             babs.forEach(b => els.bab.add(new Option(b, b)));
             els.bab.disabled = false;
 
-            const subs = getUnique(filtered, 'subbab').filter(s => s);
+            const subs = [...new Set(filtered.map(q => q.metadata.subbab ? q.metadata.subbab.trim() : ""))].filter(s => s).sort();
             els.subbab.innerHTML = '<option value="all">Semua Sub BAB</option>';
             subs.forEach(s => els.subbab.add(new Option(s, s)));
             els.subbab.disabled = false;
             
+            checkButtonState();
+        });
+
+        els.bab.addEventListener('change', () => {
+            const m = els.mapel.value ? els.mapel.value.toUpperCase().trim() : "";
+            const k = els.kelas.value ? els.kelas.value.toUpperCase().replace("KELAS ", "").trim() : "ALL";
+            const b = els.bab.value ? els.bab.value.toUpperCase().trim() : "ALL";
+            if(!m) { resetDropdowns(['subbab']); return; }
+            
+            const filtered = allQuestions.filter(q => {
+                const dbM = (q.metadata.mapel || "").toUpperCase().trim();
+                const dbK = q.metadata.kelas ? q.metadata.kelas.toUpperCase().replace("KELAS ", "").trim() : "";
+                const dbB = (q.metadata.bab || "").toUpperCase().trim();
+                return dbM === m && (k === 'ALL' || dbK === k) && (b === 'ALL' || dbB === b);
+            });
+            
+            const subs = [...new Set(filtered.map(q => q.metadata.subbab ? q.metadata.subbab.trim() : ""))].filter(s => s).sort(); 
+            els.subbab.innerHTML = '<option value="all">Semua Sub BAB</option>';
+            if (subs.length > 0) {
+                subs.forEach(s => els.subbab.add(new Option(s, s)));
+                els.subbab.disabled = false;
+            } else {
+                els.subbab.disabled = true;
+            }
             checkButtonState();
         });
 

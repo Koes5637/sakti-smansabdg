@@ -594,14 +594,20 @@
             const q = query(collection(db, 'hasil_ujian'), where('ujianId', '==', examCode));
             
             currentListener = onSnapshot(q, (snapshot) => {
-                // FIX PENTING: resetIdleTimer() telah DIHAPUS dari sini. 
-                // Timer 2 menit sekarang murni hanya direset oleh pergerakan mouse/tangan guru, bukan dari data siswa.
+                    // FIX PENTING: resetIdleTimer() telah DIHAPUS dari sini. 
+                    // Timer 2 menit sekarang murni hanya direset oleh pergerakan mouse/tangan guru, bukan dari data siswa.
 
-                const students = [];
-                snapshot.forEach(doc => students.push({id: doc.id, ...doc.data()}));
-                
-                // Sort: Yang curang & aktif di atas
-                students.sort((a, b) => {
+                    let students = [];
+                    snapshot.forEach(doc => students.push({id: doc.id, ...doc.data()}));
+                    
+                    // SARINGAN KELAS: Hanya tampilkan siswa yang sesuai dengan kotak "Kelas" di atas
+                    const kelasTerpilih = document.getElementById('filter-kelas').value;
+                    if (kelasTerpilih) {
+                        students = students.filter(s => s.kelas === kelasTerpilih);
+                    }
+                    
+                    // Sort: Yang curang & aktif di atas
+                    students.sort((a, b) => {
                     const statusRank = { 'suspended': 3, 'selesai': 2, 'mengerjakan': 1 };
                     const rankA = statusRank[a.status] || 0;
                     const rankB = statusRank[b.status] || 0;
@@ -625,19 +631,8 @@
             });
         }
 
+        // FUNGSI UPDATE TOMBOL MASSAL (CUKUP SATU INI SAJA)
         function updateMassActionButton() {
-            const btnContainer = document.getElementById('mass-action-container');
-            const btnCount = document.getElementById('active-count-btn');
-            
-            if (currentActiveStudents.length > 0) {
-                btnContainer.classList.remove('hidden');
-                btnCount.textContent = currentActiveStudents.length;
-            } else {
-                btnContainer.classList.add('hidden');
-            }
-        }
-
-		function updateMassActionButton() {
             const btnContainer = document.getElementById('mass-action-container');
             const hintText = document.getElementById('mass-action-hint');
             const btnCount = document.getElementById('active-count-btn');
@@ -654,6 +649,7 @@
             }
         }
 
+        // FUNGSI TAMBAH WAKTU
         window.addExtraTime = async () => {
             if (!activeExamCode) return alert("Pilih ujian terlebih dahulu!");
             let inputMenit = prompt("⏳ TAMBAH WAKTU UJIAN\nMasukkan tambahan waktu (dalam MENIT) untuk SELURUH SISWA:\nContoh: 10", "10");

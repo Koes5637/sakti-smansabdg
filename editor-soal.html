@@ -2662,10 +2662,11 @@ editorVisual.addEventListener('paste', async (e) => {
 						return;
 					}	
 					// POIN 5: Suntikkan BAB & Sub-BAB baru ke memori lokal secara instan tanpa refresh browser
-                    const mapelVal = publicData.metadata.mapel;
-                    const kelasVal = publicData.metadata.kelas;
-                    const babVal = publicData.metadata.bab;
-                    const subBabVal = publicData.metadata.subbab;
+                    const mapelVal = publicData.metadata.mapel ? publicData.metadata.mapel.trim().toUpperCase() : null;
+                    let kelasVal = publicData.metadata.kelas ? publicData.metadata.kelas.trim().toUpperCase() : null;
+                    if (kelasVal && kelasVal.startsWith("KELAS ")) kelasVal = kelasVal.replace("KELAS ", "");
+                    const babVal = publicData.metadata.bab ? publicData.metadata.bab.trim().toUpperCase() : null;
+                    const subBabVal = publicData.metadata.subbab ? publicData.metadata.subbab.trim().toUpperCase() : null;
 
                     if (babVal && mapelVal && kelasVal) {
                         if (!window.petaKurikulumOtomatis[mapelVal]) window.petaKurikulumOtomatis[mapelVal] = {};
@@ -2747,6 +2748,7 @@ editorVisual.addEventListener('paste', async (e) => {
 						const defaultText = (s.id.includes('mapel')) ? 'Semua Mapel' : 
 										  (s.id.includes('tipe')) ? 'Semua Tipe' :
 										  (s.id.includes('kelas')) ? 'Semua Kelas' :
+										  (s.id.includes('kesulitan')) ? 'Semua Level' :
 										  (s.id.includes('bab')) ? 'Semua BAB' : 'Semua Sub';
 						s.innerHTML = `<option value="">${defaultText}</option>`; 
 					}
@@ -2848,13 +2850,29 @@ editorVisual.addEventListener('paste', async (e) => {
                     const promises = snapshot.docs.map(async (docSnap) => {
                         const d = docSnap.data();
                         
-                        // Client-side filtering
-                        if (filters.mapel && d.metadata?.mapel !== filters.mapel) return null;
-                        if (filters.tipe && d.type !== filters.tipe) return null;
-                        if (filters.kelas && d.metadata?.kelas !== filters.kelas) return null;
-                        if (filters.kesulitan && d.metadata?.kesulitan !== filters.kesulitan) return null;
-                        if (filters.bab && d.metadata?.bab !== filters.bab) return null;
-                        if (filters.subbab && d.metadata?.subbab !== filters.subbab) return null;
+                        // Client-side filtering (SUPER KEBAL: Anti Spasi & Anti Case-Sensitive)
+                        const isMatch = (dbVal, filterVal, isKelas = false) => {
+                            if (!filterVal) return true; // Jika filter "Semua...", tampilkan
+                            if (!dbVal) return false;    // Filter diisi tapi data kosong, sembunyikan
+                            
+                            // Bersihkan spasi ganda dan ubah ke huruf besar
+                            let v1 = String(dbVal).toUpperCase().replace(/\s+/g, " ").trim();
+                            let v2 = String(filterVal).toUpperCase().replace(/\s+/g, " ").trim();
+							
+                            // Abaikan kata "KELAS" agar "XI" dan "Kelas XI" dianggap sama persis
+                            if (isKelas) {
+                                v1 = v1.replace("KELAS ", "");
+                                v2 = v2.replace("KELAS ", "");
+                            }
+                            return v1 === v2;
+                        };
+
+                        if (!isMatch(d.metadata?.mapel, filters.mapel)) return null;
+                        if (!isMatch(d.type, filters.tipe)) return null;
+                        if (!isMatch(d.metadata?.kelas, filters.kelas, true)) return null;
+                        if (!isMatch(d.metadata?.kesulitan, filters.kesulitan)) return null;
+                        if (!isMatch(d.metadata?.bab, filters.bab)) return null;
+                        if (!isMatch(d.metadata?.subbab, filters.subbab)) return null;
 
                         d.firebaseId = docSnap.id;
                         
@@ -3171,14 +3189,20 @@ async function bangunPetaKurikulum() {
 		}
 
 // ==========================================
-		// FINALISASI SISTEM FILTER & METADATA (STABIL & ANTI-RESET)
+		// FINALISASI SISTEM FILTER & METADATA (STABIL & ANTI-PECAH DATA)
 		// ==========================================
 
-		// 1. Definisikan Helper Global
+		// 1. Definisikan Helper Global (ANTI PECAH DATA)
 		window.getKeyCaseInsensitive = (obj, key) => {
 			if (!obj || !key) return null;
-			const searchKey = String(key).toLowerCase().trim();
-			return Object.keys(obj).find(k => k.toLowerCase().trim() === searchKey) || null;
+			let searchKey = String(key).toUpperCase().trim();
+			if (searchKey.startsWith("KELAS ")) searchKey = searchKey.replace("KELAS ", "");
+			
+			return Object.keys(obj).find(k => {
+				let nodeKey = String(k).toUpperCase().trim();
+				if (nodeKey.startsWith("KELAS ")) nodeKey = nodeKey.replace("KELAS ", "");
+				return nodeKey === searchKey;
+			}) || null;
 		};
 
 		// 2. Variabel Global Peta Kurikulum
@@ -3194,10 +3218,12 @@ async function bangunPetaKurikulum() {
 
 				snapshot.forEach(doc => {
 					const d = doc.data();
-					const mp = d.metadata?.mapel ? d.metadata.mapel.trim() : null;
-					const kl = d.metadata?.kelas ? d.metadata.kelas.trim() : null;
-					const bb = d.metadata?.bab ? d.metadata.bab.trim() : null;
-					const sb = d.metadata?.subbab ? d.metadata.subbab.trim() : null;
+					// PAKSA HURUF BESAR & BUANG KATA "KELAS" AGAR MENYATU
+					const mp = d.metadata?.mapel ? d.metadata.mapel.trim().toUpperCase() : null;
+					let kl = d.metadata?.kelas ? d.metadata.kelas.trim().toUpperCase() : null;
+					if (kl && kl.startsWith("KELAS ")) kl = kl.replace("KELAS ", "");
+					const bb = d.metadata?.bab ? d.metadata.bab.trim().toUpperCase() : null;
+					const sb = d.metadata?.subbab ? d.metadata.subbab.trim().toUpperCase() : null;
 
 					if (mp && kl && bb) {
 						if (!window.petaKurikulumOtomatis[mp]) window.petaKurikulumOtomatis[mp] = {};
@@ -3217,7 +3243,7 @@ async function bangunPetaKurikulum() {
 					}
 				}
 
-				// Isi Datalist Metadata (Agar autocomplete muncul di input soal)
+				// Isi Datalist Metadata
 				const mapelList = document.getElementById('mapel-list');
 				if(mapelList) {
 					mapelList.innerHTML = '';
@@ -3227,21 +3253,22 @@ async function bangunPetaKurikulum() {
 						mapelList.appendChild(opt);
 					});
 				}
-
-				console.log("Sistem: Peta Kurikulum Siap (Global).");
 				
+				// Netralkan bug metadata lama yang membocorkan data (SS1)
+				window.metadataMap = {};
+
+				console.log("Sistem: Peta Kurikulum Siap (Anti Pecah).");
 			} catch (e) {
 				console.error("Gagal membangun peta kurikulum:", e);
 			}
 		};
 
-		// 4. Fungsi Update Dropdown (REVISI FINAL: Persistensi Nilai agar BAB tidak visual reset)
+		// 4. Fungsi Update Dropdown
 		window.perbaruiDropdownFilter = (mapel, kelas, bab, targetKelasId, targetBabId, targetSubId) => {
 			const kelasSelect = document.getElementById(targetKelasId);
 			const babTarget = document.getElementById(targetBabId);
 			const subTarget = document.getElementById(targetSubId);
 
-			// Gunakan Helper Global
 			const mapelKey = window.getKeyCaseInsensitive(window.petaKurikulumOtomatis, mapel);
 			const kelasKey = mapelKey ? window.getKeyCaseInsensitive(window.petaKurikulumOtomatis[mapelKey], kelas) : null;
 			const babKey = (mapelKey && kelasKey) ? window.getKeyCaseInsensitive(window.petaKurikulumOtomatis[mapelKey][kelasKey], bab) : null;
@@ -3258,7 +3285,6 @@ async function bangunPetaKurikulum() {
 							kelasSelect.appendChild(opt);
 						});
 					}
-					// Restore nilai lama jika ada, atau gunakan parameter kelas baru
 					if (kelas) {
 						kelasSelect.value = kelas;
 					} else if(oldVal && Array.from(kelasSelect.options).some(o=>o.value===oldVal)) {
@@ -3267,10 +3293,10 @@ async function bangunPetaKurikulum() {
 				}
 			}
 
-			// B. UPDATE BAB (BAGIAN PENTING: Restore nilai lama)
+			// B. UPDATE BAB
 			if (babTarget) {
 				const isSelect = babTarget.tagName === 'SELECT';
-				const oldBabVal = babTarget.value; // Simpan nilai lama sebelum dihapus
+				const oldBabVal = babTarget.value;
 
 				babTarget.innerHTML = isSelect ? '<option value="">Semua BAB</option>' : '';
 				if (mapelKey && kelasKey && window.petaKurikulumOtomatis[mapelKey][kelasKey]) {
@@ -3282,9 +3308,6 @@ async function bangunPetaKurikulum() {
 					});
 				}
 
-				// RESTORE VALUE: 
-				// 1. Cek apakah ada parameter 'bab' baru yang dikirim
-				// 2. Jika tidak, cek apakah ada nilai lama 'oldBabVal' yang bisa dipakai lagi
 				if (isSelect) {
 					if (bab && Array.from(babTarget.options).some(o => o.value === bab)) {
 						babTarget.value = bab;
@@ -3309,7 +3332,7 @@ async function bangunPetaKurikulum() {
 			}
 		};
 
-		// 5. Fungsi Populate Filter Bank Soal (Memory Based)
+		// 5. Fungsi Populate Filter Bank Soal
 		window.populateFilterDropdowns = () => {
 			const fMapel = document.getElementById('filter-mapel');
 			const fTipe = document.getElementById('filter-tipe');
@@ -3318,19 +3341,16 @@ async function bangunPetaKurikulum() {
 			const fBab = document.getElementById('filter-bab');
 			const fSub = document.getElementById('filter-subbab');
 
-			// Simpan nilai tipe/kesulitan agar tidak ikut tereset visualnya
 			const oldTipe = fTipe ? fTipe.value : "";
 			const oldDiff = fKesulitan ? fKesulitan.value : "";
 
-			// Reset Dropdown Bank Soal
 			if(fMapel) fMapel.innerHTML = '<option value="">Semua Mapel</option>';
+			if(fTipe) fTipe.innerHTML = '<option value="">Semua Tipe</option>';
 			if(fKelas) fKelas.innerHTML = '<option value="">Semua Kelas</option>';
+			if(fKesulitan) fKesulitan.innerHTML = '<option value="">Semua Level</option>';
 			if(fBab) fBab.innerHTML = '<option value="">Semua BAB</option>';
 			if(fSub) fSub.innerHTML = '<option value="">Semua Sub</option>';
-			if(fTipe) fTipe.innerHTML = '<option value="">Semua Tipe</option>';
-			if(fKesulitan) fKesulitan.innerHTML = '<option value="">Semua Level</option>';
 
-			// Isi Mapel dari Memori
 			if (fMapel && window.petaKurikulumOtomatis) {
 				Object.keys(window.petaKurikulumOtomatis).sort().forEach(mp => {
 					const opt = document.createElement('option');
@@ -3339,34 +3359,27 @@ async function bangunPetaKurikulum() {
 				});
 			}
 
-			// Isi Statis
 			const types = [{v:'pg',l:'PG'}, {v:'pgk',l:'PGK'}, {v:'bs',l:'BS'}, {v:'esai-singkat',l:'Essai Singkat'}, {v:'esai-kompleks',l:'Essai Kompleks'}];
 			types.forEach(t => fTipe.add(new Option(t.l, t.v)));
 			['X','XI','XII'].forEach(k => fKelas.add(new Option('Kelas '+k, k))); 
 			['C1','C2','C3','C4','C5','C6'].forEach(k => fKesulitan.add(new Option(k, k)));
 
-			// Restore Tipe & Level
 			if(oldTipe) fTipe.value = oldTipe;
 			if(oldDiff) fKesulitan.value = oldDiff;
 		};
 
-		// 6. EVENT LISTENER (Diikat Ulang dengan Aman)
+		// 6. EVENT LISTENER
 		document.addEventListener('DOMContentLoaded', () => {
-			// A. Jalankan Peta Kurikulum segera
 			setTimeout(window.bangunPetaKurikulum, 500);
 
-			// B. Listener Metadata (Input Soal)
 			const mMapel = document.getElementById('meta-mapel');
 			const mKelas = document.getElementById('meta-kelas');
 			const mBab = document.getElementById('meta-bab');
 
 			const syncMeta = () => {
-				window.perbaruiDropdownFilter(
-					mMapel.value, 
-					mKelas.value, 
-					mBab ? mBab.value : null, 
-					'meta-kelas', 'bab-list', 'subbab-list'
-				);
+                if(mMapel && mKelas) {
+				    window.perbaruiDropdownFilter(mMapel.value, mKelas.value, mBab ? mBab.value : null, 'meta-kelas', 'bab-list', 'subbab-list');
+                }
 			};
 
 			if(mMapel) {
@@ -3374,42 +3387,30 @@ async function bangunPetaKurikulum() {
 				mMapel.addEventListener('change', syncMeta);
 			}
 			if(mKelas) mKelas.addEventListener('change', () => {
-				if(mBab) mBab.value = ''; // Reset bab saat kelas berubah
+				if(mBab) mBab.value = ''; 
 				syncMeta();
 			});
-			if(mBab) mBab.addEventListener('input', syncMeta);
+			if(mBab) {
+                // Menimpa listener input bawaan agar tidak tertipu metadata lama
+                mBab.addEventListener('input', (e) => {
+                    e.stopImmediatePropagation();
+                    syncMeta();
+                });
+            }
 
-
-			// C. Listener Filter (Bank Soal)
 			const fMapel = document.getElementById('filter-mapel');
 			const fKelas = document.getElementById('filter-kelas');
 			const fBab = document.getElementById('filter-bab');
 
 			if(fMapel) {
 				fMapel.addEventListener('change', () => {
-					// Saat mapel berubah, reset kelas & bab
 					if(fKelas) fKelas.value = '';
 					if(fBab) fBab.value = '';
 					window.perbaruiDropdownFilter(fMapel.value, null, null, 'filter-kelas', 'filter-bab', 'filter-subbab');
 				});
 			}
-
-			if(fKelas) {
-				fKelas.addEventListener('change', () => {
-					window.perbaruiDropdownFilter(fMapel.value, fKelas.value, null, 'filter-kelas', 'filter-bab', 'filter-subbab');
-				});
-			}
-
-			if(fBab) {
-				fBab.addEventListener('change', () => {
-					// PENTING: Kirim value BAB saat ini sebagai parameter ke-3 agar tidak tereset visualnya
-					window.perbaruiDropdownFilter(fMapel.value, fKelas.value, fBab.value, 'filter-kelas', 'filter-bab', 'filter-subbab');
-				});
-			}
-
-			// Tombol Refresh Manual (Opsional)
-			const btnCari = document.getElementById('btn-cari-bank');
-			if(btnCari) btnCari.addEventListener('click', window.bangunPetaKurikulum);
+			if(fKelas) fKelas.addEventListener('change', () => window.perbaruiDropdownFilter(fMapel.value, fKelas.value, null, 'filter-kelas', 'filter-bab', 'filter-subbab'));
+			if(fBab) fBab.addEventListener('change', () => window.perbaruiDropdownFilter(fMapel.value, fKelas.value, fBab.value, 'filter-kelas', 'filter-bab', 'filter-subbab'));
 		});
 		
 		// ========================================================

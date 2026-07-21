@@ -562,9 +562,16 @@
                 const d = doc.data(); 
                 d.id = doc.id; 
                 d.metadata = d.metadata || {};
-                if(!d.metadata.mapel) d.metadata.mapel = 'Umum';
-                if(!d.metadata.kelas) d.metadata.kelas = 'Umum';
-                if(!d.metadata.bab) d.metadata.bab = 'Lainnya';
+                
+                // NORMALISASI MASTER: Paksa semua data menjadi huruf kapital dan hapus kata "Kelas"
+                d.metadata.mapel = d.metadata.mapel ? d.metadata.mapel.toUpperCase().trim() : 'UMUM';
+                
+                let kl = d.metadata.kelas ? d.metadata.kelas.toUpperCase().trim() : 'UMUM';
+                if (kl.startsWith("KELAS ")) kl = kl.replace("KELAS ", "");
+                d.metadata.kelas = kl;
+                
+                d.metadata.bab = d.metadata.bab ? d.metadata.bab.toUpperCase().trim() : 'LAINNYA';
+                d.metadata.subbab = d.metadata.subbab ? d.metadata.subbab.toUpperCase().trim() : '';
                 
                 const dateVal = d.updatedAt || d.tanggal || d.tanggalUpdate || d.createdAt || d.timestamp || d.date;
 

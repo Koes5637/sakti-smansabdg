@@ -8,6 +8,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script>MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }, svg: { fontCache: 'global' } };</script>
+    <script type="text/javascript" id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -1299,9 +1301,9 @@
                             autoScore = bobot;
                         } 
                         else if (q.type === 'esai-singkat') {
-                            // FITUR PENOLERANSI HURUF: Ubah semua jadi huruf kecil dan hapus spasi berlebih
-                            let safeStudentAns = String(studentAns).trim().toLowerCase();
-                            let safeKunciAsli = String(q.kunciAsli).trim().toLowerCase();
+                            // MESIN ANTI-SPASI: Ubah semua jadi huruf kecil dan sedot semua spasi
+                            let safeStudentAns = String(studentAns).trim().toLowerCase().replace(/\s+/g, '');
+                            let safeKunciAsli = String(q.kunciAsli).trim().toLowerCase().replace(/\s+/g, '');
                             if (safeStudentAns === safeKunciAsli) autoScore = bobot;
                         } 
                         else if (q.type === 'pgk') {
@@ -1559,6 +1561,9 @@
                 `;
                 container.appendChild(div);
             });
+
+            // Memicu MathJax untuk merender ulang rumus matematika di dalam modal koreksi
+            if(window.MathJax) MathJax.typesetPromise([document.getElementById('correction-content')]);
         }
 
         async function saveCorrection() {

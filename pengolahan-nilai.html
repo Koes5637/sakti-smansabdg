@@ -938,6 +938,13 @@
 
                 eSnap.forEach(d => {
                     const data = d.data();
+                    
+                    // SARINGAN KETAT: Tolak ujian ulangan harian buatan guru lain
+                    if (currentGuruMapel !== 'ADMIN PUSAT') {
+                        // Hanya terima ujian jika yang membuat adalah Bapak SENDIRI, atau ujian tersebut bersifat TERPUSAT (dari sekolah)
+                        if (data.dibuatOleh !== currentGuruId && data.jenis_ujian !== 'TERPUSAT') return;
+                    }
+
                     if(data.status === 'aktif') {
                         const bobot = data.bobotNilai || 1;
                         // Kita asumsikan hasManualCorrection = true agar tidak perlu query Bank Soal di awal
@@ -949,6 +956,9 @@
 
                 const validClassesFromExams = new Set();
                 exams.forEach(ex => {
+                    // GERBANG KEAMANAN 2: Jangan biarkan kelas dari ujian orang lain/sekolah menyusup ke Dropdown Bapak
+                    if (currentGuruMapel !== 'ADMIN PUSAT' && ex.dibuatOleh !== currentGuruId) return;
+
                     if (ex.targetSemuaKelas) validClassesFromExams.add('ALL'); 
                     else if (ex.targetKelas && Array.isArray(ex.targetKelas)) {
                         ex.targetKelas.forEach(cls => {

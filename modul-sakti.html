@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="id" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modul SAKTI - Pusat Bahan Ajar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { 
+                        'deep': '#0f172a', 'surface': '#1e293b', 'primary': '#0ea5e9'
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { transition: background-color 0.3s, color 0.3s; font-family: 'Inter', sans-serif; }
+        body { background-color: #f8fafc; color: #1e293b; }
+        .card { background: #ffffff; border: 1px solid #e2e8f0; }
+        .dark body { background-color: #0f172a; color: #ffffff; }
+        .dark .card { background: #1e293b; border: 1px solid #334155; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- OVERLAY LOGIN -->
+    <div id="login-overlay" class="fixed inset-0 z-[100] bg-gray-100 dark:bg-deep flex items-center justify-center p-4">
+        <div class="card p-8 rounded-2xl shadow-2xl w-full max-w-md text-center">
+            <h2 class="text-2xl font-bold mb-4">Akses Modul</h2>
+            <div id="login-loading">
+                <p class="text-primary font-bold animate-pulse">Menghubungkan ke Portal...</p>
+            </div>
+            <button id="btn-to-portal" onclick="window.location.href='Portal Akademik.html'" class="hidden w-full bg-primary text-white font-bold py-3 rounded-lg mt-4">Buka Portal Akademik</button>
+        </div>
+    </div>
+
+    <!-- NAVBAR -->
+    <nav class="sticky top-0 z-40 bg-white/90 dark:bg-surface/90 backdrop-blur shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-primary rounded-lg text-white shadow-lg">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold">Modul <span class="text-primary">SAKTI</span></h1>
+                        <p class="text-[12px] opacity-70 italic">Pusat Bahan Ajar Terpadu</p>
+                    </div>
+                </div>
+                <div class="flex gap-3 items-center">
+                    <div class="hidden sm:flex items-center gap-2 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full border border-gray-200 dark:border-gray-700">
+                        <span id="current-user-mapel" class="text-xs font-bold">-</span>
+                    </div>
+                    <button onclick="openUploadModal()" class="bg-primary hover:bg-sky-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg transition-all">+ Unggah</button>
+                    <button id="theme-toggle" class="p-2 rounded-full bg-gray-100 dark:bg-gray-800 transition-colors">🌙</button>
+                    <button id="logout-btn" class="bg-red-100 text-red-600 px-3 py-2 rounded-lg text-sm font-bold">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- KONTEN UTAMA -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        
+        <!-- Filter Bar & Tabs -->
+        <div class="card p-4 rounded-2xl shadow-sm flex flex-wrap gap-4 items-center justify-between">
+            <div class="flex gap-3 flex-1 flex-wrap">
+                <input type="text" id="search-input" class="flex-1 min-w-[200px] p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl text-sm outline-none focus:ring-2 ring-primary" placeholder="Cari judul modul...">
+                <select id="filter-kelas" class="p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl text-sm outline-none w-32 cursor-pointer">
+                    <option value="">Semua Kelas</option>
+                    <option value="X">Kelas X</option>
+                    <option value="XI">Kelas XI</option>
+                    <option value="XII">Kelas XII</option>
+                    <option value="UMUM">Umum</option>
+                </select>
+                <select id="filter-tipe" class="p-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl text-sm outline-none w-36 cursor-pointer">
+                    <option value="">Semua Tipe</option>
+                    <option value="pdf">Bahan Ajar (PDF)</option>
+                    <option value="latihan">Latihan Soal</option>
+                </select>
+            </div>
+            
+            <!-- TABS RUANG KERJA -->
+            <div class="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl border border-gray-200 dark:border-gray-700 transition-colors">
+                <button id="tab-semua" onclick="setTab('SEMUA')" class="px-4 py-1.5 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm font-bold shadow border border-gray-200 dark:border-transparent transition-all">Semua Modul</button>
+                <button id="tab-ruang" onclick="setTab('RUANG_KERJAKU')" class="px-4 py-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white text-sm font-bold transition-colors">Ruang Kerjaku</button>
+            </div>
+        </div>
+
+        <!-- Grid Modul -->
+        <div id="module-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="col-span-full text-center py-10 opacity-50 italic">Memuat modul...</div>
+        </div>
+    </main>
+
+    <!-- MODAL UNGGAH MODUL -->
+    <div id="upload-modal" class="fixed inset-0 z-[60] hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="card w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-surface">
+                <h3 class="font-bold text-lg">Unggah Modul Baru</h3>
+                <button onclick="closeUploadModal()" class="text-gray-500 hover:text-red-500">✖</button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="text-xs font-bold text-gray-500 block mb-1">Tipe Modul</label>
+                    <select id="up-tipe" class="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-transparent outline-none font-bold text-primary">
+                        <option value="pdf" class="dark:bg-gray-800">📖 Bahan Ajar / Materi</option>
+                        <option value="latihan" class="dark:bg-gray-800">📝 Latihan Soal / Tugas</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 block mb-1">Judul Modul / Tugas</label>
+                    <input type="text" id="up-judul" class="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-transparent outline-none focus:ring-2 ring-primary">
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-1">
+                        <label class="text-xs font-bold text-gray-500 block mb-1">Target Kelas Asal</label>
+                        <select id="up-kelas" class="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-transparent outline-none">
+                            <option value="X" class="dark:bg-gray-800">Kelas X</option>
+                            <option value="XI" class="dark:bg-gray-800">Kelas XI</option>
+                            <option value="XII" class="dark:bg-gray-800">Kelas XII</option>
+                            <option value="UMUM" class="dark:bg-gray-800">Umum</option>
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="text-xs font-bold text-gray-500 block mb-1">Bab / Topik</label>
+                        <input type="text" id="up-bab" class="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-transparent outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 block mb-1">File PDF (Maks 10MB)</label>
+                    <input type="file" id="up-file" accept="application/pdf" class="w-full p-2 border border-dashed border-primary rounded-lg bg-primary/5 text-sm cursor-pointer">
+                </div>
+                <div id="upload-progress-container" class="hidden">
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                        <div id="upload-progress-bar" class="bg-primary h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                    <p id="upload-status" class="text-xs text-center mt-1 font-bold text-primary">Mengunggah 0%</p>
+                </div>
+            </div>
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3 bg-gray-50 dark:bg-surface">
+                <button onclick="closeUploadModal()" class="px-4 py-2 rounded-lg border font-bold text-sm">Batal</button>
+                <button id="btn-save-upload" onclick="startUpload()" class="px-6 py-2 rounded-lg bg-primary text-white font-bold text-sm shadow-md">Simpan & Unggah</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MODAL DISTRIBUSI TUGAS -->
+    <div id="modal-tugaskan" class="fixed inset-0 z-[70] hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="card w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-amber-50 dark:bg-amber-900/20 flex justify-between items-center">
+                <h3 class="font-bold text-lg text-amber-600 dark:text-amber-400">🚀 Tugaskan ke Kelas</h3>
+                <button onclick="window.tutupModalTugas()" class="text-gray-500 hover:text-red-500 text-xl font-bold">&times;</button>
+            </div>
+            <div class="p-6 space-y-4">
+                <p class="text-sm text-gray-600 dark:text-gray-400">Siswa akan dapat melihat PDF tugas ini di dashboard mereka sampai batas waktu yang ditentukan habis.</p>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 block mb-2">Pilih Kelas Tujuan:</label>
+                    <div id="kelas-target-container" class="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                        <!-- Checkboxes di-inject JS -->
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 block mb-1">Batas Waktu Pengumpulan (Deadline):</label>
+                    <input type="datetime-local" id="input-deadline" class="w-full p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 outline-none focus:ring-2 ring-amber-500 font-mono text-sm">
+                </div>
+            </div>
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3 bg-gray-50 dark:bg-surface">
+                <button onclick="window.tutupModalTugas()" class="px-4 py-2 rounded-lg border font-bold text-sm">Batal</button>
+                <button id="btn-simpan-tugas" onclick="window.simpanTugaskan()" class="px-6 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm shadow-md transition-colors">🚀 Tugaskan Sekarang</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DAFTAR PEMBACA (BARU) -->
+    <div id="modal-pembaca" class="fixed inset-0 z-[80] hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="card w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-sky-50 dark:bg-sky-900/20 flex justify-between items-center">
+                <h3 class="font-bold text-lg text-sky-600 dark:text-sky-400">👀 Daftar Siswa Membaca</h3>
+                <button onclick="window.tutupModalPembaca()" class="text-gray-500 hover:text-red-500 text-xl font-bold">&times;</button>
+            </div>
+            <div class="p-4 max-h-64 overflow-y-auto bg-gray-50 dark:bg-surface">
+                <ul id="list-pembaca" class="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                    <!-- List di-inject via JS -->
+                </ul>
+            </div>
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end bg-white dark:bg-surface">
+                <button onclick="window.tutupModalPembaca()" class="px-6 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 font-bold text-sm transition-colors">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PRESENTASI (TAYANG PDF) -->
+    <div id="presentation-modal" class="fixed inset-0 z-[200] hidden bg-black/95 backdrop-blur-xl flex flex-col">
+        <div class="flex justify-between items-center p-3 bg-gray-900 border-b border-gray-700 text-white">
+            <div class="font-bold text-sm flex items-center gap-2">
+                <span class="bg-red-600 px-2 py-0.5 rounded text-[10px]">MODE PROYEKTOR</span>
+                <span id="present-title">Judul Modul</span>
+            </div>
+            <button onclick="closePresentation()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold transition-colors">Tutup Tayangan</button>
+        </div>
+        <div class="flex-1 w-full bg-gray-800">
+            <iframe id="pdf-viewer" class="w-full h-full border-none" src=""></iframe>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, getDocs, doc, setDoc, query, where, serverTimestamp, deleteDoc, updateDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+
+        let db, auth, storage;
+        let currentGuruId = null;
+        let currentGuruMapel = null;
+        let allModules = [];
+        let currentTab = 'SEMUA'; 
+
+        window.setTab = (tabName) => {
+            currentTab = tabName;
+            if(tabName === 'SEMUA') {
+                document.getElementById('tab-semua').className = "px-4 py-1.5 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm font-bold shadow border border-gray-200 dark:border-transparent transition-all";
+                document.getElementById('tab-ruang').className = "px-4 py-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white text-sm font-bold transition-colors";
+            } else {
+                document.getElementById('tab-ruang').className = "px-4 py-1.5 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm font-bold shadow border border-gray-200 dark:border-transparent transition-all";
+                document.getElementById('tab-semua').className = "px-4 py-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white text-sm font-bold transition-colors";
+            }
+            renderGrid();
+        };
+
+        window.openUploadModal = () => {
+            document.getElementById('upload-modal').classList.remove('hidden');
+            document.getElementById('upload-modal').classList.add('flex');
+            document.getElementById('up-judul').value = '';
+            document.getElementById('up-file').value = '';
+            document.getElementById('upload-progress-container').classList.add('hidden');
+        };
+        
+        window.closeUploadModal = () => {
+            document.getElementById('upload-modal').classList.add('hidden');
+            document.getElementById('upload-modal').classList.remove('flex');
+        };
+        
+        window.openPresentation = (url, judul) => {
+            document.getElementById('present-title').textContent = judul;
+            document.getElementById('pdf-viewer').src = url + '#toolbar=0&view=fitH';
+            const modal = document.getElementById('presentation-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            if (modal.requestFullscreen) modal.requestFullscreen().catch(e => console.log(e));
+            else if (modal.webkitRequestFullscreen) modal.webkitRequestFullscreen();
+            else if (modal.msRequestFullscreen) modal.msRequestFullscreen();
+        };
+
+        window.closePresentation = () => {
+            const modal = document.getElementById('presentation-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.getElementById('pdf-viewer').src = '';
+
+            if (document.fullscreenElement) {
+                if (document.exitFullscreen) document.exitFullscreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            }
+        };
+
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                const modal = document.getElementById('presentation-modal');
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                document.getElementById('pdf-viewer').src = '';
+            }
+        });
+
+        window.startUpload = async () => {
+            const judul = document.getElementById('up-judul').value.trim();
+            const kelas = document.getElementById('up-kelas').value;
+            const bab = document.getElementById('up-bab').value.trim();
+            const tipeModul = document.getElementById('up-tipe').value;
+            const fileInput = document.getElementById('up-file');
+            const file = fileInput.files[0];
+
+            if(!judul || !file) return alert("Judul dan File PDF wajib diisi!");
+            if(file.type !== "application/pdf") return alert("File harus berupa PDF!");
+            if(file.size > 10 * 1024 * 1024) return alert("Ukuran maksimal 10MB!");
+
+            const btnSave = document.getElementById('btn-save-upload');
+            const progContainer = document.getElementById('upload-progress-container');
+            const progBar = document.getElementById('upload-progress-bar');
+            const statusTxt = document.getElementById('upload-status');
+
+            btnSave.disabled = true;
+            progContainer.classList.remove('hidden');
+
+            const docId = `MOD_${Date.now()}`;
+            const storageRef = ref(storage, `modul_sakti/${currentGuruMapel}/${docId}.pdf`);
+            const uploadTask = uploadBytesResumable(storageRef, file);
+
+            uploadTask.on('state_changed', 
+                (snapshot) => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    progBar.style.width = progress + '%';
+                    statusTxt.textContent = `Mengunggah ${Math.round(progress)}%`;
+                }, 
+                (error) => {
+                    alert("Gagal mengunggah: " + error.message);
+                    btnSave.disabled = false;
+                    progContainer.classList.add('hidden');
+                }, 
+                async () => {
+                    statusTxt.textContent = "Menyimpan data...";
+                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                    
+                    try {
+                        let docData = {
+                            judul: judul,
+                            bab: bab || '-',
+                            kelas: kelas,
+                            mapel: currentGuruMapel,
+                            tipe: tipeModul,
+                            fileUrl: downloadURL,
+                            dibuatOleh: currentGuruId,
+                            bookmarks: [], 
+                            pinnedBy: [],
+                            timestamp: serverTimestamp()
+                        };
+
+                        if(tipeModul === 'latihan') {
+                            docData.tugasAktif = false;
+                            docData.batasWaktu = null;
+                            docData.targetKelas = [];
+                            docData.dibacaOleh = [];
+                        }
+
+                        await setDoc(doc(db, 'modul_sakti', docId), docData);
+                        alert("Berhasil mengunggah modul!");
+                        closeUploadModal();
+                        loadModules(); 
+                    } catch (e) {
+                        alert("Gagal menyimpan database: " + e.message);
+                    } finally {
+                        btnSave.disabled = false;
+                    }
+                }
+            );
+        };
+        
+        window.deleteModule = async (docId, fileUrl) => {
+            if(!confirm("Yakin ingin menghapus modul ini selamanya?")) return;
+            try {
+                const fileRef = ref(storage, fileUrl);
+                await deleteObject(fileRef).catch(e => console.log("File di storage mungkin sudah hilang."));
+                await deleteDoc(doc(db, 'modul_sakti', docId));
+                loadModules();
+            } catch (e) {
+                alert("Gagal menghapus: " + e.message);
+            }
+        };
+
+        window.toggleBookmark = async (docId) => {
+            const mod = allModules.find(m => m.id === docId);
+            if(!mod) return;
+            const isBookmarked = mod.bookmarks && mod.bookmarks.includes(currentGuruId);
+            const docRef = doc(db, 'modul_sakti', docId);
+            try {
+                if (isBookmarked) await updateDoc(docRef, { bookmarks: arrayRemove(currentGuruId) });
+                else await updateDoc(docRef, { bookmarks: arrayUnion(currentGuruId) });
+                loadModules();
+            } catch (e) { alert("Error: " + e.message); }
+        };
+
+        window.togglePin = async (docId) => {
+            const mod = allModules.find(m => m.id === docId);
+            if(!mod) return;
+            const isPinned = mod.pinnedBy && mod.pinnedBy.includes(currentGuruId);
+            const docRef = doc(db, 'modul_sakti', docId);
+            try {
+                if (isPinned) await updateDoc(docRef, { pinnedBy: arrayRemove(currentGuruId) });
+                else await updateDoc(docRef, { pinnedBy: arrayUnion(currentGuruId) });
+                loadModules();
+            } catch (e) { alert("Gagal menyematkan: " + e.message); }
+        };
+
+        // Modal Distribusi Tugas
+        let selectedTaskDocId = null;
+        window.bukaModalTugas = (docId) => {
+            selectedTaskDocId = docId;
+            const kelasGuru = JSON.parse(localStorage.getItem('cbt_user_kelas') || '[]');
+            const container = document.getElementById('kelas-target-container');
+            
+            if(kelasGuru.length === 0) {
+                container.innerHTML = `<p class="text-xs text-red-500">Anda belum mengatur kelas ampu di Setup Guru.</p>`;
+            } else {
+                container.innerHTML = kelasGuru.map(k => `
+                    <label class="flex items-center gap-2 p-2 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <input type="checkbox" value="${k}" class="chk-kelas w-4 h-4 text-primary">
+                        <span class="text-sm font-bold text-gray-700 dark:text-gray-300">${k}</span>
+                    </label>
+                `).join('');
+            }
+            
+            document.getElementById('input-deadline').value = '';
+            document.getElementById('modal-tugaskan').classList.remove('hidden');
+            document.getElementById('modal-tugaskan').classList.add('flex');
+        };
+
+        window.tutupModalTugas = () => {
+            document.getElementById('modal-tugaskan').classList.add('hidden');
+            document.getElementById('modal-tugaskan').classList.remove('flex');
+            selectedTaskDocId = null;
+        };
+
+        window.simpanTugaskan = async () => {
+            const deadline = document.getElementById('input-deadline').value;
+            const checkboxes = document.querySelectorAll('.chk-kelas:checked');
+            const targetKelas = Array.from(checkboxes).map(c => c.value);
+
+            if(!deadline) return alert("Batas waktu wajib diisi!");
+            if(targetKelas.length === 0) return alert("Pilih minimal 1 kelas target!");
+
+            const btn = document.getElementById('btn-simpan-tugas');
+            btn.disabled = true;
+            btn.innerHTML = 'Memproses...';
+
+            try {
+                await updateDoc(doc(db, 'modul_sakti', selectedTaskDocId), {
+                    tugasAktif: true,
+                    batasWaktu: deadline,
+                    targetKelas: targetKelas,
+                    dibacaOleh: [] // Reset daftar baca setiap kali ditugaskan ulang
+                });
+                alert("Tugas PDF berhasil didistribusikan ke kelas!");
+                tutupModalTugas();
+                loadModules();
+            } catch(e) {
+                alert("Gagal menugaskan: " + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🚀 Tugaskan Sekarang';
+            }
+        };
+
+        window.hentikanTugas = async (docId) => {
+            if(!confirm("Hentikan tugas ini? Siswa tidak akan bisa melihatnya lagi.")) return;
+            try {
+                await updateDoc(doc(db, 'modul_sakti', docId), { tugasAktif: false });
+                loadModules();
+            } catch (e) { alert("Error: " + e.message); }
+        };
+
+        // FUNGSI BARU: Lihat Daftar Pembaca
+        window.lihatPembaca = (docId) => {
+            const mod = allModules.find(m => m.id === docId);
+            if (!mod) return;
+            const listContainer = document.getElementById('list-pembaca');
+            listContainer.innerHTML = '';
+            
+            if (!mod.dibacaOleh || mod.dibacaOleh.length === 0) {
+                listContainer.innerHTML = '<li class="text-center italic text-gray-500 py-6">Belum ada siswa yang membuka tugas ini.</li>';
+            } else {
+                mod.dibacaOleh.forEach(namaSiswa => {
+                    const inisial = namaSiswa.substring(0,1).toUpperCase();
+                    listContainer.innerHTML += `
+                    <li class="flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                        <div class="w-8 h-8 rounded-full bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 flex items-center justify-center text-xs font-bold shrink-0">${inisial}</div>
+                        <span class="font-semibold text-gray-700 dark:text-gray-200">${namaSiswa}</span>
+                    </li>`;
+                });
+            }
+            
+            document.getElementById('modal-pembaca').classList.remove('hidden');
+            document.getElementById('modal-pembaca').classList.add('flex');
+        };
+
+        window.tutupModalPembaca = () => {
+            document.getElementById('modal-pembaca').classList.add('hidden');
+            document.getElementById('modal-pembaca').classList.remove('flex');
+        };
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const savedConfigStr = localStorage.getItem('sakti_school_config');
+            if (!savedConfigStr) {
+                alert("Silakan login dari Portal Akademik.");
+                window.location.href = 'index.html'; return;
+            }
+            
+            const app = initializeApp(JSON.parse(savedConfigStr));
+            db = getFirestore(app);
+            auth = getAuth(app);
+            storage = getStorage(app);
+
+            const themeBtn = document.getElementById('theme-toggle');
+            const html = document.documentElement;
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                html.classList.add('dark'); html.classList.remove('light'); themeBtn.textContent = '☀️';
+            }
+            themeBtn.addEventListener('click', () => {
+                if (html.classList.contains('dark')) {
+                    html.classList.remove('dark'); html.classList.add('light'); localStorage.theme = 'light'; themeBtn.textContent = '🌙';
+                } else {
+                    html.classList.remove('light'); html.classList.add('dark'); localStorage.theme = 'dark'; themeBtn.textContent = '☀️';
+                }
+            });
+
+            onAuthStateChanged(auth, (user) => {
+                const overlay = document.getElementById('login-overlay');
+                const loading = document.getElementById('login-loading');
+                const btnPortal = document.getElementById('btn-to-portal');
+                
+                const tokenMapel = localStorage.getItem('cbt_user_mapel');
+                currentGuruId = localStorage.getItem('cbt_user_id');
+                currentGuruMapel = tokenMapel ? tokenMapel.toUpperCase() : null;
+
+                if (user) {
+                    overlay.classList.add('hidden');
+                    document.getElementById('current-user-mapel').textContent = currentGuruMapel;
+                    loadModules();
+                } else if (tokenMapel) {
+                    signInAnonymously(auth).catch(e => { loading.classList.add('hidden'); btnPortal.classList.remove('hidden'); });
+                } else {
+                    loading.classList.add('hidden'); btnPortal.classList.remove('hidden');
+                }
+            });
+
+            document.getElementById('logout-btn').addEventListener('click', () => {
+                if(confirm("Tutup aplikasi?")) { window.close(); setTimeout(() => { window.location.href = 'Portal Akademik.html'; }, 500); }
+            });
+
+            document.getElementById('search-input').addEventListener('input', renderGrid);
+            document.getElementById('filter-kelas').addEventListener('change', renderGrid);
+            document.getElementById('filter-tipe').addEventListener('change', renderGrid);
+        });
+
+        async function loadModules() {
+            const grid = document.getElementById('module-grid');
+            grid.innerHTML = '<div class="col-span-full text-center py-10 opacity-50 font-bold animate-pulse">Mengambil data dari server...</div>';
+            
+            try {
+                let qRef = collection(db, 'modul_sakti');
+                if (currentGuruMapel !== 'ADMIN PUSAT') {
+                    qRef = query(qRef, where('mapel', '==', currentGuruMapel));
+                }
+                const snap = await getDocs(qRef);
+                allModules = [];
+                snap.forEach(d => allModules.push({ id: d.id, ...d.data() }));
+                
+                renderGrid();
+            } catch(e) {
+                grid.innerHTML = `<div class="col-span-full text-center py-10 text-red-500 font-bold">Error: ${e.message}</div>`;
+            }
+        }
+
+        function renderGrid() {
+            const search = document.getElementById('search-input').value.toLowerCase();
+            const fKelas = document.getElementById('filter-kelas').value;
+            const fTipe = document.getElementById('filter-tipe').value;
+            const grid = document.getElementById('module-grid');
+
+            // Pengurutan: Pinned teratas, lalu terbaru
+            allModules.sort((a,b) => {
+                const aPinned = a.pinnedBy && a.pinnedBy.includes(currentGuruId) ? 1 : 0;
+                const bPinned = b.pinnedBy && b.pinnedBy.includes(currentGuruId) ? 1 : 0;
+                if (aPinned !== bPinned) return bPinned - aPinned; 
+                return (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0); 
+            });
+
+            const filtered = allModules.filter(m => {
+                const matchSearch = m.judul.toLowerCase().includes(search) || (m.bab && m.bab.toLowerCase().includes(search));
+                const matchKelas = fKelas === '' || m.kelas === fKelas;
+                const matchTipe = fTipe === '' || m.tipe === fTipe;
+                
+                let matchTab = true;
+                if (currentTab === 'RUANG_KERJAKU') {
+                    const isMine = m.dibuatOleh === currentGuruId;
+                    const isBookmarked = m.bookmarks && m.bookmarks.includes(currentGuruId);
+                    matchTab = isMine || isBookmarked; 
+                }
+
+                return matchSearch && matchKelas && matchTipe && matchTab;
+            });
+
+            grid.innerHTML = '';
+            if(filtered.length === 0) {
+                grid.innerHTML = '<div class="col-span-full text-center py-10 opacity-50 italic">Tidak ada modul ditemukan.</div>';
+                return;
+            }
+
+            filtered.forEach(m => {
+                const isMine = m.dibuatOleh === currentGuruId;
+                const isBookmarked = m.bookmarks && m.bookmarks.includes(currentGuruId);
+                const isPinned = m.pinnedBy && m.pinnedBy.includes(currentGuruId);
+                const dateStr = m.timestamp ? new Date(m.timestamp.seconds * 1000).toLocaleDateString('id-ID') : 'Baru Saja';
+                
+                let tipeIcon = m.tipe === 'latihan' ? '📝 LATIHAN' : '📖 MODUL';
+                let tipeColor = m.tipe === 'latihan' ? 'text-amber-500 bg-amber-100 dark:bg-amber-500/20 border-amber-200 dark:border-amber-500/30' : 'text-primary bg-sky-100 dark:bg-primary/20 border-sky-200 dark:border-primary/30';
+                
+                let actionButtons = `
+                    <button onclick="window.openPresentation('${m.fileUrl}', '${m.judul}')" class="flex-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-white py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2">
+                        <span>Tayangkan</span> 📽️
+                    </button>
+                `;
+                
+                if (!isMine) {
+                    actionButtons += `
+                    <button onclick="window.toggleBookmark('${m.id}')" class="px-4 ${isBookmarked ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-indigo-50 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/50 hover:bg-indigo-100 dark:hover:bg-indigo-600/40'} border py-2 rounded-xl text-xs font-bold transition-all" title="${isBookmarked ? 'Hapus dari Ruang Kerjaku' : 'Simpan ke Ruang Kerjaku'}">
+                        ${isBookmarked ? '★ Disimpan' : '📥 Simpan'}
+                    </button>
+                    `;
+                } else {
+                    actionButtons += `
+                    <button onclick="window.deleteModule('${m.id}', '${m.fileUrl}')" class="px-4 bg-red-50 dark:bg-red-600/20 hover:bg-red-100 dark:hover:bg-red-600/40 border border-red-200 dark:border-red-500/50 text-red-600 dark:text-red-400 py-2 rounded-xl text-xs font-bold transition-all" title="Hapus Modul">
+                        🗑️
+                    </button>
+                    `;
+                }
+
+                let areaTugas = '';
+                if (isMine && m.tipe === 'latihan') {
+                    if (m.tugasAktif) {
+                        const dlStr = new Date(m.batasWaktu).toLocaleString('id-ID', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'});
+                        const dibaca = m.dibacaOleh ? m.dibacaOleh.length : 0;
+                        areaTugas = `
+                            <div class="mt-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-[10px] font-bold text-amber-600 dark:text-amber-500">⏳ Deadline: ${dlStr}</span>
+                                    <button onclick="window.hentikanTugas('${m.id}')" class="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded font-bold hover:bg-red-200">Tarik Tugas</button>
+                                </div>
+                                <button onclick="window.lihatPembaca('${m.id}')" class="w-full text-center bg-white hover:bg-sky-50 dark:bg-gray-800 dark:hover:bg-gray-700 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs font-bold shadow-sm text-sky-600 dark:text-sky-400 transition-colors">
+                                    👀 Lihat ${dibaca} Siswa Membaca
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        areaTugas = `
+                            <div class="mt-3">
+                                <button onclick="window.bukaModalTugas('${m.id}')" class="w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+                                    🚀 Tugaskan ke Kelas
+                                </button>
+                            </div>
+                        `;
+                    }
+                }
+
+                grid.innerHTML += `
+                <div class="${isPinned ? 'border-amber-400 dark:border-amber-500 shadow-md ring-1 ring-amber-400' : ''} card p-5 rounded-2xl flex flex-col group hover:border-primary transition-colors relative overflow-hidden shadow-sm hover:shadow-md">
+                    
+                    <button onclick="window.togglePin('${m.id}')" class="absolute top-2 left-3 text-xl z-10 hover:scale-125 transition-transform drop-shadow-md" title="${isPinned ? 'Lepas tanda favorit' : 'Tandai untuk dipakai besok'}">
+                        ${isPinned ? '⭐' : '<span class="text-gray-300 dark:text-gray-600">☆</span>'}
+                    </button>
+
+                    <div class="absolute top-0 right-0 ${tipeColor} text-[10px] font-bold px-3 py-1 rounded-bl-xl border-b border-l">
+                        ${tipeIcon} | KELAS ${m.kelas}
+                    </div>
+                    
+                    <div class="flex items-start gap-4 mb-3 mt-4">
+                        <div class="w-12 h-12 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 shrink-0">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                            <span class="text-[9px] font-black absolute mt-5">PDF</span>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-bold text-gray-800 dark:text-white text-base leading-tight group-hover:text-primary transition-colors pr-2">${m.judul}</h3>
+                            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1">${isMine ? 'Milik Anda' : 'Oleh: Sejawat'} • ${dateStr}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-wrap gap-2 mb-2">
+                        <span class="px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-[10px] text-gray-600 dark:text-gray-300 font-bold">${m.bab}</span>
+                    </div>
+                    
+                    <div class="mt-auto flex gap-2">
+                        ${actionButtons}
+                    </div>
+
+                    ${areaTugas}
+
+                </div>`;
+            });
+        }
+    </script>
+</body>
+</html>

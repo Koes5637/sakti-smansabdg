@@ -478,9 +478,12 @@
                     <td class="px-4 py-3">
                         <p class="text-xs text-gray-600 dark:text-gray-300 italic line-clamp-2">${catatan || 'Belum ada catatan'}</p>
                     </td>
-                    <td class="px-4 py-3 text-center">
-                        <button onclick="window.openModalCatatan('${s.id}', '${s.nama.replace(/'/g, "\\'")}')" class="px-3 py-1.5 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg text-xs font-bold transition-colors">
-                            <i class="fa-solid fa-pen mr-1"></i> Tulis Jurnal
+                    <td class="px-4 py-3 text-center flex flex-col md:flex-row gap-2 justify-center items-center">
+                        <button onclick="window.openModalCatatan('${s.id}', '${s.nama.replace(/'/g, "\\'")}')" class="w-full md:w-auto px-3 py-1.5 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg text-xs font-bold transition-colors shadow-sm">
+                            <i class="fa-solid fa-pen mr-1"></i> Jurnal Rapor
+                        </button>
+                        <button onclick="window.openModalPelanggaran('${s.id}', '${s.nama.replace(/'/g, "\\'")}')" class="w-full md:w-auto px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-xs font-bold transition-colors shadow-sm">
+                            <i class="fa-solid fa-gavel mr-1"></i> Catat Kasus
                         </button>
                     </td>
                 `;
@@ -552,7 +555,7 @@
             });
         }
 
-        // --- VIEW 5: REKAP KEHADIRAN RAPOR ---
+        // --- VIEW 5: REKAP PRESENSI, ANALITIK & SORTING ---
         window.prosesRekapPresensi = async () => {
             const start = document.getElementById('rekap-start').value;
             const end = document.getElementById('rekap-end').value;
@@ -566,47 +569,93 @@
             btn.disabled = true;
 
             try {
-                const snap = await getDocs(collection(db, 'presensi_piket'));
+                const [snapPiket, snapPelanggaran] = await Promise.all([
+                    getDocs(collection(db, 'presensi_piket')),
+                    getDocs(query(collection(db, 'catatan_pelanggaran'), where('kelas', '==', waliKelas)))
+                ]);
                 
                 let rekap = {};
-                students.forEach(s => rekap[s.id] = { H:0, S:0, I:0, A:0 });
+                window.detailRiwayatSiswa = {}; 
 
-                snap.forEach(doc => {
+                students.forEach(s => {
+                    rekap[s.id] = { H:0, S:0, I:0, A:0, T:0, P:0 };
+                    window.detailRiwayatSiswa[s.id] = [];
+                });
+
+                snapPiket.forEach(doc => {
                     const date = doc.id; 
                     if(date >= start && date <= end) {
                         const data = doc.data();
-                        
                         students.forEach(s => {
                             const rec = data[s.id];
                             if(rec && rec.status) {
                                 const st = rec.status.toUpperCase();
                                 if(['H','S','I','A'].includes(st)) {
                                     rekap[s.id][st]++;
+                                    if(st !== 'H') {
+                                        window.detailRiwayatSiswa[s.id].push({ tgl: date, jenis: `Absen (${st})`, sumber: 'Gerbang Piket' });
+                                    }
+                                } else if (st === 'TERLAMBAT') {
+                                    rekap[s.id].H++; 
+                                    rekap[s.id].T++; 
+                                    window.detailRiwayatSiswa[s.id].push({ tgl: date, jenis: 'Keterlambatan', sumber: 'Gerbang Piket' });
+                                }
+                                
+                                if (rec.pelanggaran && rec.pelanggaran.trim() !== '') {
+                                    rekap[s.id].P++;
+                                    window.detailRiwayatSiswa[s.id].push({ tgl: date, jenis: `Pelanggaran: ${rec.pelanggaran}`, sumber: 'Gerbang Piket' });
                                 }
                             }
                         });
                     }
                 });
 
-                const tbody = document.getElementById('tbody-rekap-presensi');
-                tbody.innerHTML = '';
-                
-                students.forEach((s, idx) => {
-                    const r = rekap[s.id];
-                    const isKosong = (r.H + r.S + r.I + r.A) === 0;
-
-                    tbody.innerHTML += `
-                        <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-cyber-700 transition-colors">
-                            <td class="px-4 py-3 text-center text-gray-500 font-mono text-xs">${idx+1}</td>
-                            <td class="px-4 py-3 font-medium text-gray-800 dark:text-white">${s.nama}</td>
-                            <td class="px-4 py-3 text-center font-bold text-green-600 bg-green-50 dark:bg-green-900/10">${isKosong ? '-' : r.H}</td>
-                            <td class="px-4 py-3 text-center font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/10">${isKosong ? '-' : r.S}</td>
-                            <td class="px-4 py-3 text-center font-bold text-amber-500 bg-amber-50 dark:bg-amber-900/10">${isKosong ? '-' : r.I}</td>
-                            <td class="px-4 py-3 text-center font-bold text-red-600 bg-red-50 dark:bg-red-900/10">${isKosong ? '-' : r.A}</td>
-                        </tr>
-                    `;
+                snapPelanggaran.forEach(doc => {
+                    const data = doc.data();
+                    if(data.tanggal >= start && data.tanggal <= end) {
+                        if (rekap[data.nis]) {
+                            rekap[data.nis].P++;
+                            window.detailRiwayatSiswa[data.nis].push({ tgl: data.tanggal, jenis: `Kasus/Pelanggaran: ${data.pelanggaran}`, sumber: `Wali Kelas (${data.pelapor})` });
+                        }
+                    }
                 });
 
+                students.forEach(s => {
+                    window.detailRiwayatSiswa[s.id].sort((a,b) => new Date(b.tgl) - new Date(a.tgl));
+                });
+
+                let topAlpa = [...students].sort((a,b) => rekap[b.id].A - rekap[a.id].A).slice(0,5).filter(s => rekap[s.id].A > 0);
+                let topTelat = [...students].sort((a,b) => rekap[b.id].T - rekap[a.id].T).slice(0,5).filter(s => rekap[s.id].T > 0);
+                let topPelanggaran = [...students].sort((a,b) => rekap[b.id].P - rekap[a.id].P).slice(0,5).filter(s => rekap[s.id].P > 0);
+
+                const renderTop = (list, prop, color) => list.length ? list.map(s => `<div class="flex justify-between items-center border-b border-gray-100 dark:border-gray-700 py-1.5"><span class="text-xs text-gray-700 dark:text-gray-300 truncate pr-2">${s.nama}</span><span class="text-xs font-bold text-${color}-500 bg-${color}-50 dark:bg-${color}-900/20 px-2 py-0.5 rounded">${rekap[s.id][prop]}x</span></div>`).join('') : '<p class="text-xs italic text-gray-400">Nihil / Bersih</p>';
+                
+                const alpaListEl = document.getElementById('top-alpa-list');
+                const telatListEl = document.getElementById('top-telat-list');
+                const pelanggaranListEl = document.getElementById('top-pelanggaran-list');
+                
+                if (alpaListEl) alpaListEl.innerHTML = renderTop(topAlpa, 'A', 'red');
+                if (telatListEl) telatListEl.innerHTML = renderTop(topTelat, 'T', 'orange');
+                if (pelanggaranListEl) pelanggaranListEl.innerHTML = renderTop(topPelanggaran, 'P', 'purple');
+                
+                const panel = document.getElementById('panel-analitik');
+                if(panel) panel.classList.remove('hidden');
+
+                // Siapkan Data Mentah untuk Keperluan Sorting
+                window.currentRekapData = students.map(s => {
+                    const r = rekap[s.id];
+                    return {
+                        id: s.id,
+                        nama: s.nama,
+                        H: r.H, S: r.S, I: r.I, A: r.A, T: r.T, P: r.P,
+                        isKosong: (r.H + r.S + r.I + r.A + r.T + r.P) === 0
+                    };
+                });
+                
+                window.currentSortCol = '';
+                window.currentSortAsc = false;
+
+                window.renderTbodyRekap();
                 document.getElementById('btn-export-rekap').classList.remove('hidden');
 
             } catch(e) {
@@ -618,11 +667,227 @@
             }
         };
 
+        // Fungsi Render (Menggambar) Tabel Berdasarkan Data yang sudah disortir
+        window.renderTbodyRekap = () => {
+            const tbody = document.getElementById('tbody-rekap-presensi');
+            tbody.innerHTML = '';
+            
+            window.currentRekapData.forEach((s, idx) => {
+                tbody.innerHTML += `
+                    <tr class="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-cyber-700 transition-colors">
+                        <td class="px-3 py-3 text-center text-gray-500 font-mono text-xs">${idx+1}</td>
+                        <td class="px-3 py-3 font-medium text-gray-800 dark:text-white text-xs">${s.nama}</td>
+                        <td class="px-2 py-3 text-center font-bold text-green-600 bg-green-50 dark:bg-green-900/10">${s.isKosong ? '-' : s.H}</td>
+                        <td class="px-2 py-3 text-center font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/10">${s.isKosong ? '-' : s.S}</td>
+                        <td class="px-2 py-3 text-center font-bold text-amber-500 bg-amber-50 dark:bg-amber-900/10">${s.isKosong ? '-' : s.I}</td>
+                        <td class="px-2 py-3 text-center font-bold text-red-600 bg-red-50 dark:bg-red-900/10">${s.isKosong ? '-' : s.A}</td>
+                        <td class="px-2 py-3 text-center font-bold text-orange-500 bg-orange-50 dark:bg-orange-900/10">${s.isKosong ? '-' : s.T}</td>
+                        <td class="px-2 py-3 text-center font-bold text-purple-600 bg-purple-50 dark:bg-purple-900/10">${s.isKosong ? '-' : s.P}</td>
+                        <td class="px-3 py-3 text-center">
+                            <button onclick="window.lihatDetailRiwayat('${s.id}', '${s.nama.replace(/'/g, "\\'")}', ${s.H}, ${s.S}, ${s.I}, ${s.A}, ${s.T}, ${s.P})" class="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 rounded-lg text-[10px] font-bold transition-colors shadow-sm flex items-center justify-center gap-1 mx-auto">
+                                <i class="fa-solid fa-address-card"></i> Formulir
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        };
+
+        // Fungsi Membolak-balik (Sortir) Kolom saat di Klik
+        window.sortRekap = (col) => {
+            if (!window.currentRekapData) return;
+            
+            if (window.currentSortCol === col) {
+                window.currentSortAsc = !window.currentSortAsc;
+            } else {
+                window.currentSortCol = col;
+                window.currentSortAsc = false; // Bawaan: Paling Besar di Atas
+            }
+            
+            window.currentRekapData.sort((a, b) => {
+                let valA = a[col];
+                let valB = b[col];
+                
+                if (col === 'nama') {
+                    return window.currentSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                } else {
+                    return window.currentSortAsc ? valA - valB : valB - valA;
+                }
+            });
+            
+            window.renderTbodyRekap();
+        };
+
+        // --- FUNGSI MENGISI KONTEN FORMULIR DETAIL RIWAYAT SISWA ---
+        window.lihatDetailRiwayat = (nis, nama, h, s, i, a, t, p) => {
+            document.getElementById('detail-riwayat-nama').innerText = nama;
+            
+            document.getElementById('det-H').innerText = h;
+            document.getElementById('det-S').innerText = s;
+            document.getElementById('det-I').innerText = i;
+            document.getElementById('det-A').innerText = a;
+            document.getElementById('det-T').innerText = t;
+            document.getElementById('det-P').innerText = p;
+
+            const container = document.getElementById('list-detail-riwayat');
+            const histori = window.detailRiwayatSiswa[nis] || [];
+            
+            if (histori.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-6">
+                        <i class="fa-solid fa-check-circle text-4xl text-green-400 mb-2"></i>
+                        <p class="text-gray-500 dark:text-gray-400 font-bold">Catatan Bersih</p>
+                        <p class="text-xs text-gray-400">Tidak ada rekam jejak absen, telat, maupun kasus.</p>
+                    </div>`;
+            } else {
+                container.innerHTML = histori.map(item => {
+                    let icon = 'fa-circle-info text-gray-400';
+                    let badge = 'bg-gray-100 text-gray-600';
+                    
+                    if (item.jenis.includes('Absen')) { icon = 'fa-user-xmark text-red-500'; badge = 'bg-red-100 text-red-600 border-red-200'; }
+                    if (item.jenis.includes('Keterlambatan')) { icon = 'fa-clock text-orange-500'; badge = 'bg-orange-100 text-orange-600 border-orange-200'; }
+                    if (item.jenis.includes('Pelanggaran') || item.jenis.includes('Kasus')) { icon = 'fa-triangle-exclamation text-purple-500'; badge = 'bg-purple-100 text-purple-600 border-purple-200'; }
+
+                    const dObj = new Date(item.tgl);
+                    const tglIndo = dObj.toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'});
+
+                    return `
+                        <div class="flex gap-4 items-start border-b border-gray-100 dark:border-gray-700 pb-3 last:border-0 last:pb-0">
+                            <div class="mt-1"><i class="fa-solid ${icon} text-lg"></i></div>
+                            <div class="flex-1">
+                                <div class="flex justify-between items-start mb-1">
+                                    <span class="text-[10px] border px-2 py-0.5 rounded font-bold uppercase ${badge}">${item.sumber}</span>
+                                    <span class="text-[10px] text-gray-400 font-mono">${tglIndo}</span>
+                                </div>
+                                <p class="text-sm font-semibold text-gray-800 dark:text-gray-200">${item.jenis}</p>
+                            </div>
+                        </div>`;
+                }).join('');
+            }
+
+            document.getElementById('modal-detail-riwayat').classList.remove('hidden');
+            document.getElementById('modal-detail-riwayat').classList.add('flex');
+        };
+
+        // Pembersihan kolom aksi sebelum mengekspor Excel
         window.exportRekapPresensi = () => {
             const table = document.getElementById('table-rekap-presensi');
             if(!table) return;
-            const wb = XLSX.utils.table_to_book(table, { sheet: "Rekap Presensi Rapor" });
-            XLSX.writeFile(wb, `Rekap_Presensi_Rapor_Kelas_${waliKelas}.xlsx`);
+            const cloneTable = table.cloneNode(true);
+            Array.from(cloneTable.rows).forEach(row => row.deleteCell(-1)); // Buang kolom Detail
+            
+            const wb = XLSX.utils.table_to_book(cloneTable, { sheet: "Analitik & Rekap" });
+            XLSX.writeFile(wb, `Analitik_Presensi_Kelas_${waliKelas}.xlsx`);
+        };
+
+        // --- FUNGSI MODAL DETAIL RIWAYAT SISWA ---
+        window.lihatDetailRiwayat = (nis, nama) => {
+            document.getElementById('detail-riwayat-nama').innerText = nama;
+            const container = document.getElementById('list-detail-riwayat');
+            const histori = window.detailRiwayatSiswa[nis] || [];
+            
+            if (histori.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8">
+                        <i class="fa-solid fa-check-circle text-4xl text-green-400 mb-2"></i>
+                        <p class="text-gray-500 dark:text-gray-400 font-bold">Catatan Bersih</p>
+                        <p class="text-xs text-gray-400">Tidak ada rekam jejak ketidakhadiran, keterlambatan, atau pelanggaran pada periode ini.</p>
+                    </div>`;
+            } else {
+                container.innerHTML = histori.map(h => {
+                    let icon = 'fa-circle-info text-gray-400';
+                    let bg = 'bg-gray-50 dark:bg-gray-800/50';
+                    let border = 'border-gray-200 dark:border-gray-700';
+                    
+                    if (h.jenis.includes('Absen')) { icon = 'fa-user-xmark text-red-500'; bg = 'bg-red-50 dark:bg-red-900/10'; border = 'border-red-200 dark:border-red-900/30'; }
+                    if (h.jenis.includes('Terlambat')) { icon = 'fa-clock text-orange-500'; bg = 'bg-orange-50 dark:bg-orange-900/10'; border = 'border-orange-200 dark:border-orange-900/30'; }
+                    if (h.jenis.includes('Pelanggaran') || h.jenis.includes('Kasus')) { icon = 'fa-triangle-exclamation text-purple-500'; bg = 'bg-purple-50 dark:bg-purple-900/10'; border = 'border-purple-200 dark:border-purple-900/30'; }
+
+                    const dObj = new Date(h.tgl);
+                    const tglIndo = dObj.toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'});
+
+                    return `
+                        <div class="${bg} ${border} border p-3 rounded-xl flex gap-3 items-start">
+                            <div class="mt-1"><i class="fa-solid ${icon} text-lg"></i></div>
+                            <div>
+                                <p class="text-xs font-bold text-gray-800 dark:text-gray-200 mb-0.5">${h.jenis}</p>
+                                <p class="text-[10px] text-gray-500 dark:text-gray-400"><i class="fa-regular fa-calendar mr-1"></i> ${tglIndo} &nbsp;&bull;&nbsp; <i class="fa-solid fa-tower-observation mr-1"></i> Sumber: ${h.sumber}</p>
+                            </div>
+                        </div>`;
+                }).join('');
+            }
+
+            document.getElementById('modal-detail-riwayat').classList.remove('hidden');
+            document.getElementById('modal-detail-riwayat').classList.add('flex');
+        };
+
+        window.closeModalRiwayat = () => {
+            document.getElementById('modal-detail-riwayat').classList.add('hidden');
+            document.getElementById('modal-detail-riwayat').classList.remove('flex');
+        };
+
+        // --- FUNGSI MODAL INPUT KASUS/PELANGGARAN OLEH WALI KELAS ---
+        let targetPelanggaranNis = '';
+        window.openModalPelanggaran = (nis, nama) => {
+            targetPelanggaranNis = nis;
+            document.getElementById('modal-pelanggaran-nama').innerText = nama;
+            
+            // Set tanggal hari ini sebagai nilai default di kolom tanggal
+            const offset = 7 * 60 * 60 * 1000; 
+            const todayStr = new Date(Date.now() + offset).toISOString().split('T')[0];
+            document.getElementById('input-tgl-pelanggaran').value = todayStr;
+            document.getElementById('input-teks-pelanggaran').value = '';
+
+            document.getElementById('modal-pelanggaran').classList.remove('hidden');
+            document.getElementById('modal-pelanggaran').classList.add('flex');
+        };
+
+        window.closeModalPelanggaran = () => {
+            document.getElementById('modal-pelanggaran').classList.add('hidden');
+            document.getElementById('modal-pelanggaran').classList.remove('flex');
+            targetPelanggaranNis = '';
+        };
+
+        window.simpanPelanggaran = async () => {
+            if (!targetPelanggaranNis) return;
+            const tgl = document.getElementById('input-tgl-pelanggaran').value;
+            const teks = document.getElementById('input-teks-pelanggaran').value.trim();
+
+            if (!tgl || !teks) return alert("Tanggal dan Deskripsi Kasus wajib diisi!");
+
+            const btn = document.getElementById('btn-simpan-pelanggaran');
+            const originalText = btn.innerHTML;
+            btn.disabled = true; 
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Menyimpan...';
+
+            try {
+                const uniqueId = `kasus_${tgl}_${targetPelanggaranNis}_${Date.now()}`;
+                
+                await setDoc(doc(collection(db, 'catatan_pelanggaran'), uniqueId), {
+                    nis: targetPelanggaranNis,
+                    kelas: waliKelas,
+                    tanggal: tgl,
+                    pelanggaran: teks,
+                    pelapor: guruName,
+                    timestamp: new Date().toISOString()
+                });
+
+                alert("Pelanggaran/Kasus berhasil dicatat secara permanen!");
+                closeModalPelanggaran();
+                
+                // Segarkan data analitik secara instan jika Wali Kelas membuka menu tersebut
+                if (document.getElementById('tab-rekap_presensi').classList.contains('active')) {
+                    const start = document.getElementById('rekap-start').value;
+                    if(start) window.prosesRekapPresensi();
+                }
+
+            } catch(e) {
+                alert("Gagal menyimpan pelanggaran: " + e.message);
+                console.error(e);
+            } finally {
+                btn.disabled = false; 
+                btn.innerHTML = originalText;
+            }
         };
 
         // --- VIEW 6: BUKU INDUK KELAS (KONTAK ORTU) ---
@@ -921,15 +1186,28 @@
             </div>
         </div>
 
-        <!-- VIEW 5: REKAP PRESENSI RAPOR -->
+        <!-- VIEW 5: REKAP PRESENSI & ANALITIK -->
         <div id="view-rekap_presensi" class="hidden space-y-6 animate-fade-in flex-col h-full">
             <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                 <div>
-                    <h3 class="text-xl font-bold text-gray-800 dark:text-white">Rekapitulasi Kehadiran Rapor</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Total kehadiran siswa berdasarkan data Global (Piket) untuk pengisian rapor.</p>
+                    <h3 class="text-xl font-bold text-gray-800 dark:text-white">Analitik & Rekapitulasi</h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Pantau statistik Alpa, Keterlambatan, dan Pelanggaran dalam rentang waktu tertentu.</p>
                 </div>
                 <button onclick="exportRekapPresensi()" id="btn-export-rekap" class="hidden px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-sm shadow-lg flex items-center gap-2 transition-colors">
                     <i class="fa-solid fa-file-excel"></i> Export Excel
+                </button>
+				<!-- TOMBOL SIMULASI SEMENTARA -->
+                <button onclick="
+                    if (!window.detailRiwayatSiswa) window.detailRiwayatSiswa = {};
+                    window.detailRiwayatSiswa['000000'] = [
+                        { tgl: '2026-07-24', jenis: 'Kasus/Pelanggaran: Ketahuan berkelahi di kantin belakang', sumber: 'Wali Kelas' },
+                        { tgl: '2026-07-20', jenis: 'Keterlambatan', sumber: 'Gerbang Piket' },
+                        { tgl: '2026-07-15', jenis: 'Pelanggaran: Menggunakan atribut tidak lengkap (tanpa dasi)', sumber: 'Gerbang Piket' },
+                        { tgl: '2026-07-02', jenis: 'Absen (S)', sumber: 'Gerbang Piket' }
+                    ];
+                    window.lihatDetailRiwayat('000000', 'Abrar Zavier Lubis (SIMULASI)', 18, 1, 0, 0, 1, 2);
+                " class="px-6 py-2.5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-bold text-sm shadow-lg flex items-center gap-2 transition-colors">
+                    <i class="fa-solid fa-flask"></i> Lihat Simulasi Formulir
                 </button>
             </div>
 
@@ -944,27 +1222,46 @@
                     <input type="date" id="rekap-end" class="w-40 p-2.5 border rounded-lg bg-gray-50 dark:bg-cyber-900 outline-none focus:ring-2 focus:ring-orange-500 dark:text-white dark:border-gray-600">
                 </div>
                 <button onclick="window.prosesRekapPresensi()" id="btn-proses-rekap" class="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2.5 rounded-lg font-bold shadow-md transition-colors flex items-center gap-2">
-                    <i class="fa-solid fa-arrows-rotate"></i> Proses Rekap
+                    <i class="fa-solid fa-arrows-rotate"></i> Proses Data
                 </button>
+            </div>
+
+            <!-- Panel Analitik Top 5 (Muncul setelah diproses) -->
+            <div id="panel-analitik" class="hidden grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="glass-panel p-4 rounded-xl border-t-4 border-t-red-500">
+                    <h4 class="font-bold text-sm text-gray-800 dark:text-white mb-2 flex items-center gap-2"><i class="fa-solid fa-user-xmark text-red-500"></i> Paling Sering Alpa</h4>
+                    <div id="top-alpa-list" class="space-y-1"></div>
+                </div>
+                <div class="glass-panel p-4 rounded-xl border-t-4 border-t-orange-500">
+                    <h4 class="font-bold text-sm text-gray-800 dark:text-white mb-2 flex items-center gap-2"><i class="fa-solid fa-clock text-orange-500"></i> Paling Sering Terlambat</h4>
+                    <div id="top-telat-list" class="space-y-1"></div>
+                </div>
+                <div class="glass-panel p-4 rounded-xl border-t-4 border-t-purple-500">
+                    <h4 class="font-bold text-sm text-gray-800 dark:text-white mb-2 flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation text-purple-500"></i> Pelanggaran Terbanyak</h4>
+                    <div id="top-pelanggaran-list" class="space-y-1"></div>
+                </div>
             </div>
 
             <!-- Tabel Rekap -->
             <div class="glass-panel rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700">
                 <div class="table-container custom-scrollbar">
                     <table class="w-full text-sm text-left border-collapse" id="table-rekap-presensi">
-                        <thead class="bg-gray-50 dark:bg-cyber-800 border-b border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 uppercase text-xs">
+                        <thead class="bg-gray-50 dark:bg-cyber-800 border-b border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 uppercase text-[10px]">
                             <tr>
-                                <th class="px-4 py-4 text-center w-16">No</th>
-                                <th class="px-4 py-4 min-w-[200px]">Nama Siswa</th>
-                                <th class="px-4 py-4 text-center text-green-600 dark:text-green-400 w-24">Hadir (H)</th>
-                                <th class="px-4 py-4 text-center text-blue-600 dark:text-blue-400 w-24">Sakit (S)</th>
-                                <th class="px-4 py-4 text-center text-amber-500 w-24">Izin (I)</th>
-                                <th class="px-4 py-4 text-center text-red-600 dark:text-red-400 w-24">Alpa (A)</th>
+                                <th class="px-3 py-4 text-center w-12">No</th>
+                                <th class="px-3 py-4 min-w-[150px] cursor-pointer hover:bg-gray-200 dark:hover:bg-cyber-700 transition" onclick="sortRekap('nama')" title="Klik untuk urutkan">Nama Siswa <i class="fa-solid fa-sort ml-1"></i></th>
+                                <th class="px-2 py-4 text-center text-green-600 dark:text-green-400 cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/30 transition" onclick="sortRekap('H')" title="Klik untuk urutkan">Hadir <i class="fa-solid fa-sort ml-1"></i></th>
+                                <th class="px-2 py-4 text-center text-blue-600 dark:text-blue-400 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition" onclick="sortRekap('S')" title="Klik untuk urutkan">Sakit <i class="fa-solid fa-sort ml-1"></i></th>
+                                <th class="px-2 py-4 text-center text-amber-500 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/30 transition" onclick="sortRekap('I')" title="Klik untuk urutkan">Izin <i class="fa-solid fa-sort ml-1"></i></th>
+                                <th class="px-2 py-4 text-center text-red-600 dark:text-red-400 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30 transition" onclick="sortRekap('A')" title="Klik untuk urutkan">Alpa <i class="fa-solid fa-sort ml-1"></i></th>
+                                <th class="px-2 py-4 text-center text-orange-500 cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/30 transition" onclick="sortRekap('T')" title="Klik untuk urutkan">Telat <i class="fa-solid fa-sort ml-1"></i></th>
+                                <th class="px-2 py-4 text-center text-purple-500 cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/30 transition" onclick="sortRekap('P')" title="Klik untuk urutkan">Langgar <i class="fa-solid fa-sort ml-1"></i></th>
+                                <th class="px-3 py-4 text-center">Aksi</th>
                             </tr>
                         </thead>
                         <tbody id="tbody-rekap-presensi" class="bg-white dark:bg-cyber-800">
                             <tr>
-                                <td colspan="6" class="text-center py-10 text-gray-400 italic">Pilih tanggal dan klik "Proses Rekap" untuk memuat data.</td>
+                                <td colspan="9" class="text-center py-10 text-gray-400 italic">Pilih tanggal dan klik "Proses Data" untuk memuat analitik.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1029,6 +1326,96 @@
                 <button onclick="simpanCatatan()" id="btn-simpan-catatan" class="px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold shadow-lg shadow-orange-500/30 transition-colors">
                     <i class="fa-solid fa-save mr-1"></i> Simpan Catatan
                 </button>
+            </div>
+        </div>
+    </div>
+	<!-- MODAL CATAT PELANGGARAN -->
+    <div id="modal-pelanggaran" class="fixed inset-0 z-[60] hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-cyber-800 w-full max-w-md rounded-3xl shadow-2xl p-6 border border-purple-200 dark:border-purple-900/50 transform transition-all">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-gavel text-purple-500"></i> Catat Pelanggaran Baru
+                </h3>
+                <button onclick="closeModalPelanggaran()" class="text-gray-400 hover:text-red-500 text-xl"><i class="fa-solid fa-times"></i></button>
+            </div>
+            
+            <div class="mb-4">
+                <p class="text-xs text-gray-500 dark:text-gray-400 uppercase font-bold tracking-wider mb-1">Nama Siswa</p>
+                <p class="text-lg font-bold text-gray-900 dark:text-white" id="modal-pelanggaran-nama">Nama Siswa</p>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-2">Tanggal Kejadian</label>
+                <input type="date" id="input-tgl-pelanggaran" class="w-full p-3 bg-gray-50 dark:bg-cyber-900 border border-gray-200 dark:border-gray-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-purple-500 dark:text-white">
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-xs text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider mb-2">Deskripsi Kasus / Pelanggaran</label>
+                <textarea id="input-teks-pelanggaran" rows="3" class="w-full p-4 bg-gray-50 dark:bg-cyber-900 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-purple-500 dark:text-white resize-none" placeholder="Misal: Berkelahi dengan siswa kelas lain, Merundung teman, dll..."></textarea>
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <button onclick="closeModalPelanggaran()" class="px-6 py-2.5 rounded-xl text-gray-600 dark:text-gray-300 font-bold hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">Batal</button>
+                <button onclick="simpanPelanggaran()" id="btn-simpan-pelanggaran" class="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold shadow-lg shadow-purple-500/30 transition-colors">
+                    <i class="fa-solid fa-save mr-1"></i> Simpan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DETAIL RIWAYAT SISWA (FORM VIEW) -->
+    <div id="modal-detail-riwayat" class="fixed inset-0 z-[60] hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-cyber-800 w-full max-w-2xl rounded-3xl shadow-2xl p-0 border border-gray-200 dark:border-gray-700 transform transition-all flex flex-col max-h-[90vh] overflow-hidden">
+            <!-- Form Header -->
+            <div class="bg-blue-600 p-6 text-white flex justify-between items-start">
+                <div>
+                    <h3 class="text-xl font-bold mb-1 flex items-center gap-2"><i class="fa-solid fa-address-card"></i> Formulir Rekam Jejak Siswa</h3>
+                    <p class="text-blue-200 text-xs">Detail kehadiran dan pelanggaran pada rentang tanggal yang diproses.</p>
+                </div>
+                <button onclick="closeModalRiwayat()" class="text-blue-200 hover:text-white text-2xl"><i class="fa-solid fa-times"></i></button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-6 bg-gray-50 dark:bg-cyber-900">
+                <!-- Info Siswa -->
+                <div class="mb-6">
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Nama Lengkap Siswa</label>
+                    <div class="p-3 bg-white dark:bg-cyber-800 border border-gray-200 dark:border-gray-700 rounded-xl font-bold text-gray-800 dark:text-white text-lg" id="detail-riwayat-nama">-</div>
+                </div>
+
+                <!-- Summary Grid -->
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Ringkasan Poin Kuantitatif</label>
+                <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-6">
+                    <div class="p-3 bg-white dark:bg-cyber-800 border border-gray-200 dark:border-gray-700 rounded-xl text-center">
+                        <span class="block text-xl font-black text-green-500" id="det-H">0</span><span class="text-[9px] text-gray-500 uppercase font-bold">Hadir</span>
+                    </div>
+                    <div class="p-3 bg-white dark:bg-cyber-800 border border-gray-200 dark:border-gray-700 rounded-xl text-center">
+                        <span class="block text-xl font-black text-blue-500" id="det-S">0</span><span class="text-[9px] text-gray-500 uppercase font-bold">Sakit</span>
+                    </div>
+                    <div class="p-3 bg-white dark:bg-cyber-800 border border-gray-200 dark:border-gray-700 rounded-xl text-center">
+                        <span class="block text-xl font-black text-amber-500" id="det-I">0</span><span class="text-[9px] text-gray-500 uppercase font-bold">Izin</span>
+                    </div>
+                    <div class="p-3 bg-white dark:bg-cyber-800 border border-gray-200 dark:border-gray-700 rounded-xl text-center">
+                        <span class="block text-xl font-black text-red-500" id="det-A">0</span><span class="text-[9px] text-gray-500 uppercase font-bold">Alpa</span>
+                    </div>
+                    <div class="p-3 bg-white dark:bg-cyber-800 border border-gray-200 dark:border-gray-700 rounded-xl text-center">
+                        <span class="block text-xl font-black text-orange-500" id="det-T">0</span><span class="text-[9px] text-gray-500 uppercase font-bold">Telat</span>
+                    </div>
+                    <div class="p-3 bg-white dark:bg-cyber-800 border border-gray-200 dark:border-gray-700 rounded-xl text-center">
+                        <span class="block text-xl font-black text-purple-500" id="det-P">0</span><span class="text-[9px] text-gray-500 uppercase font-bold">Kasus</span>
+                    </div>
+                </div>
+
+                <!-- Detailed List -->
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Rincian Deskriptif (Riwayat Lengkap)</label>
+                <div class="bg-white dark:bg-cyber-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 min-h-[150px]">
+                    <div class="space-y-3" id="list-detail-riwayat">
+                        <!-- Injected by JS -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-4 bg-white dark:bg-cyber-800 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+                <button onclick="closeModalRiwayat()" class="px-6 py-2.5 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-xl font-bold text-sm transition-colors dark:text-white">Tutup Formulir</button>
             </div>
         </div>
     </div>

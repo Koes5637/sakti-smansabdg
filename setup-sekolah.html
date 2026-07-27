@@ -777,8 +777,12 @@
             if(!file) return;
             const reader = new FileReader();
             reader.onload = async (e) => {
-                const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
-                const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1});
+                // PERBAIKAN 1: Tambahkan opsi {raw: true} agar mesin tidak mengubah teks jadi angka (kebal dari pembulatan 000)
+                const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', raw: true});
+                
+                // PERBAIKAN 2: Tambahkan opsi {raw: false, defval: ""} agar baris kosong tidak menjadi 'undefined'
+                const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, raw: false, defval: ""});
+                
                 if(json.length > 1) json.shift();
                 const batch = writeBatch(db);
                 let c = 0;

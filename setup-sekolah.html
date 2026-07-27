@@ -656,11 +656,12 @@
                 tbody.innerHTML = '';
                 if(teachers.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-400">Belum ada data guru.</td></tr>'; return; }
 
+                // KODE DROPDOWN PIKET: Pastikan ini hanya ada satu di dalam sini
                 const piketGuruSelect = document.getElementById('piket-guru');
                 if (piketGuruSelect) {
                     piketGuruSelect.innerHTML = '<option value="">-- Pilih Guru --</option>';
                     [...teachers].sort((a,b) => a.fullName.localeCompare(b.fullName)).forEach(t => {
-                        piketGuruSelect.add(new Option(`${t.fullName} (${t.id})`, t.id));
+                        piketGuruSelect.add(new Option(`${t.fullName} - (NIP: ${t.nip || 'Belum Ada'})`, t.nip || t.id));
                     });
                 }
 
@@ -838,7 +839,8 @@
             container.innerHTML = days.map(day => {
                 const listGuru = jadwalPiket[day] || [];
                 const itemsHtml = listGuru.map(nip => {
-                    const guru = teachers.find(t => t.id === nip) || { fullName: nip };
+                    // PERBAIKAN KITA: Mencari kecocokan berdasarkan NIP terlebih dahulu, baru ke ID Portal
+                    const guru = teachers.find(t => t.nip === nip || t.id === nip) || { fullName: nip };
                     return `<div class="flex justify-between items-center bg-white dark:bg-cyber-900 border border-gray-200 dark:border-emerald-800 p-2 rounded-lg text-sm mb-1 shadow-sm">
                                 <span class="font-medium truncate dark:text-gray-300 pr-2">${guru.fullName}</span>
                                 <button onclick="removeGuruPiket('${day}', '${nip}')" class="text-red-400 hover:text-red-600 font-bold text-lg">&times;</button>

@@ -602,7 +602,14 @@
                     <div><label class="text-xs font-bold text-gray-500">Sub BAB</label><input type="text" id="import-subbab" list="subbab-list" class="w-full border dark:bg-cyber-900 dark:border-emerald-800 rounded p-2 text-sm" placeholder="Sub Bab"></div>
                 </div>
 
-                <textarea id="import-textarea" class="flex-1 w-full border rounded-lg p-3 text-sm font-mono bg-gray-50 dark:bg-cyber-900 dark:text-white dark:border-emerald-800 outline-none focus:ring-2 focus:ring-purple-400 min-h-[250px]" placeholder="Paste (Ctrl+V) kumpulan soal dari MS Word di sini..."></textarea>
+                <!-- TOMBOL UNDUH TEMPLATE & KOTAK KETIK -->
+                    <div class="mb-2 flex justify-between items-center">
+                        <span class="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Teks Naskah Soal</span>
+                        <button type="button" onclick="window.unduhTemplateWord()" class="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-300 py-1.5 px-3 rounded-lg font-bold border border-blue-200 dark:border-blue-800 flex items-center gap-1.5 transition-colors shadow-sm">
+                            <span>📄</span> Unduh Template MS Word
+                        </button>
+                    </div>
+                    <textarea id="import-textarea" class="w-full h-64 p-4 border border-gray-300 dark:border-gray-600 rounded-lg outline-none focus:border-indigo-500 font-mono text-sm bg-gray-50 dark:bg-cyber-900 dark:text-white" placeholder="Paste (Ctrl+V) kumpulan soal dari MS Word di sini..."></textarea> </textarea>
 
                 <div class="mt-4 flex justify-end gap-2 border-t border-gray-100 dark:border-emerald-800 pt-3">
                     <button onclick="document.getElementById('importModal').classList.add('hidden')" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-bold hover:bg-gray-300">Batal</button>
@@ -3770,6 +3777,74 @@ async function bangunPetaKurikulum() {
             // Kembalikan fokus ke kotak input
             input.focus();
             input.setSelectionRange(start + simbol.length, start + simbol.length);
+        };
+		
+		// --- MESIN UNDUH TEMPLATE IMPOR (MS WORD) ---
+        window.unduhTemplateWord = () => {
+            const htmlContent = `
+                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                <head>
+                    <meta charset='utf-8'>
+                    <style>
+                        body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.5; }
+                        p { margin-bottom: 15px; }
+                        .tag { font-weight: bold; color: #2563eb; }
+                    </style>
+                </head>
+                <body>
+                    <h2 style="text-align:center;">FORMAT PENULISAN NASKAH SOAL MASSAL</h2>
+                    <p style="text-align:center; font-style:italic; font-size: 10pt; color: #555;">(Hapus petunjuk ini dan ganti dengan soal Anda. Pastikan format # dan KUNCI: tetap dipertahankan)</p>
+                    <hr>
+                    
+                    <p><span class="tag">#PG</span><br>
+                    Keanekaragaman hayati tingkat gen dapat ditunjukkan pada variasi makhluk hidup berikut, yaitu...<br>
+                    A. Kucing rumah, harimau, dan singa<br>
+                    B. Kelapa gading, kelapa hijau, dan kelapa kopyor<br>
+                    C. Padi, jagung, dan gandum<br>
+                    D. Mangga, kuweni, dan gandaria<br>
+                    E. Kerbau, sapi, dan kambing<br>
+                    <b>KUNCI: B</b></p>
+
+                    <p><span class="tag">#PGK</span><br>
+                    Manakah di antara pernyataan berikut yang merupakan ciri-ciri khas dari virus?<br>
+                    A. Memiliki asam nukleat yang hanya terdiri dari DNA saja atau RNA saja<br>
+                    B. Dapat melakukan pembelahan biner di luar tubuh inang<br>
+                    C. Bersifat aseluler (tidak memiliki komponen seluler)<br>
+                    D. Menggunakan organel selnya sendiri untuk sintesis protein<br>
+                    E. Tubuhnya dapat dikristalkan jika berada di luar sel hidup<br>
+                    <b>KUNCI: A, C, E</b></p>
+
+                    <p><span class="tag">#BS</span><br>
+                    Tentukan benar (B) atau salah (S) pernyataan mengenai interaksi dalam ekosistem berikut:<br>
+                    A. Simbiosis mutualisme terjadi ketika kedua spesies yang berinteraksi sama-sama mendapatkan keuntungan.<br>
+                    B. Hubungan antara tanaman anggrek yang menempel pada pohon mangga dikategorikan sebagai simbiosis parasitisme.<br>
+                    C. Kompetisi interspesifik merupakan persaingan yang terjadi antara dua individu atau lebih dari spesies yang sama.<br>
+                    <b>KUNCI: B, S, S</b></p>
+
+                    <p><span class="tag">#ES</span><br>
+                    Selubung protein yang berfungsi sebagai pelindung asam nukleat sekaligus pemberi bentuk pada tubuh virus dinamakan...<br>
+                    <b>KUNCI: Kapsid</b></p>
+
+                    <p><span class="tag">#EK</span><br>
+                    Jelaskan perbedaan mendasar antara siklus litik dan siklus lisogenik pada replikasi virus, serta sebutkan kondisi apa yang dapat memicu siklus lisogenik berubah menjadi siklus litik!</p>
+                </body>
+                </html>
+            `;
+            
+            // Konversi HTML menjadi file .doc yang bisa dibaca MS Word
+            const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Template_Format_Soal.doc';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            if (typeof showNotification === 'function') {
+                showNotification("✅ File Template_Format_Soal.doc berhasil diunduh!");
+            }
         };
 		</script>
 	<!-- MODAL KONFIRMASI AI (FIXED) -->

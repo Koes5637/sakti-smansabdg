@@ -3618,6 +3618,7 @@ async function bangunPetaKurikulum() {
                     try {
                         const blocks = rawText.split(/(?=#PG|#PGK|#BS|#ES|#EK)/i).filter(b => b.trim() !== '');
                         let totalBerhasil = 0;
+						let pelacakUrutanGrup = {}; // <-- MESIN PELACAK URUTAN
 
                         const { runTransaction, doc, collection } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
 
@@ -3640,6 +3641,24 @@ async function bangunPetaKurikulum() {
                                 let naskahTeks = "";
                                 let opsiMurni = [];
                                 let kunciData = null;
+								// --- TAMBAHAN DETEKSI GRUP ID & URUTAN ---
+                                let groupIdData = '';
+                                let urutanDalamGrup = 0;
+                                const grupIndex = lines.findIndex(l => l.toUpperCase().startsWith('GRUP:'));
+                                
+                                if (grupIndex !== -1) {
+                                    groupIdData = lines[grupIndex].substring(5).trim();
+                                    lines.splice(grupIndex, 1); 
+                                    
+                                    // Hitung urutannya
+                                    if (!pelacakUrutanGrup[groupIdData]) {
+                                        pelacakUrutanGrup[groupIdData] = 1;
+                                    } else {
+                                        pelacakUrutanGrup[groupIdData]++;
+                                    }
+                                    urutanDalamGrup = pelacakUrutanGrup[groupIdData];
+                                }
+                                // --------------------------------
 
                                 if (tipeSoal === 'pg' || tipeSoal === 'pgk' || tipeSoal === 'bs') {
                                     const kunciIndex = lines.findIndex(l => l.toUpperCase().startsWith('KUNCI:'));
@@ -3679,7 +3698,7 @@ async function bangunPetaKurikulum() {
 
                                 const publicData = {
                                     type: tipeSoal,
-                                    metadata: { mapel, kelas, kesulitan: 'C3', bab, subbab, groupId: '' },
+                                    metadata: { mapel, kelas, kesulitan: 'C3', bab, subbab, groupId: groupIdData, urutanGrup: urutanDalamGrup },
                                     skor: '1',
                                     naskah: naskahTeks,
                                     naskahBawah: '',
@@ -3779,7 +3798,7 @@ async function bangunPetaKurikulum() {
             input.setSelectionRange(start + simbol.length, start + simbol.length);
         };
 		
-		// --- MESIN UNDUH TEMPLATE IMPOR (MS WORD) ---
+        // --- MESIN UNDUH TEMPLATE IMPOR (MS WORD) - VERSI LENGKAP DENGAN GRUP ---
         window.unduhTemplateWord = () => {
             const htmlContent = `
                 <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -3789,12 +3808,16 @@ async function bangunPetaKurikulum() {
                         body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.5; }
                         p { margin-bottom: 15px; }
                         .tag { font-weight: bold; color: #2563eb; }
+                        .grup { font-weight: bold; color: #059669; }
+                        .divider { border-top: 2px dashed #ccc; margin: 20px 0; }
                     </style>
                 </head>
                 <body>
                     <h2 style="text-align:center;">FORMAT PENULISAN NASKAH SOAL MASSAL</h2>
-                    <p style="text-align:center; font-style:italic; font-size: 10pt; color: #555;">(Hapus petunjuk ini dan ganti dengan soal Anda. Pastikan format # dan KUNCI: tetap dipertahankan)</p>
+                    <p style="text-align:center; font-style:italic; font-size: 10pt; color: #555;">(Hapus petunjuk ini dan ganti dengan soal Anda. Pastikan format #, GRUP:, dan KUNCI: tetap dipertahankan)</p>
                     <hr>
+                    
+                    <p><b>BAGIAN 1: SOAL REGULER (TANPA WACANA)</b></p>
                     
                     <p><span class="tag">#PG</span><br>
                     Keanekaragaman hayati tingkat gen dapat ditunjukkan pada variasi makhluk hidup berikut, yaitu...<br>
@@ -3827,23 +3850,57 @@ async function bangunPetaKurikulum() {
 
                     <p><span class="tag">#EK</span><br>
                     Jelaskan perbedaan mendasar antara siklus litik dan siklus lisogenik pada replikasi virus, serta sebutkan kondisi apa yang dapat memicu siklus lisogenik berubah menjadi siklus litik!</p>
+
+                    <div class="divider"></div>
+
+                    <p><b>BAGIAN 2: SOAL BERKELOMPOK (MENGGUNAKAN WACANA / STIMULUS)</b><br>
+                    <span style="font-size: 10pt; color: #555; font-style: italic;">*Tuliskan teks wacana pada soal pertama saja. Soal kedua dan seterusnya dalam grup yang sama tidak perlu menulis ulang wacana.</span></p>
+
+                    <p><span class="tag">#PG</span><br>
+                    <span class="grup">GRUP: Wacana_Banjir_01</span><br>
+                    <b>Bacalah teks berikut untuk menjawab soal-soal pada grup ini!</b><br>
+                    Banjir bandang melanda Desa Sukamakmur pada Minggu malam. Penyebab utama disinyalir adalah alih fungsi lahan di hulu sungai menjadi kawasan perkebunan semusim. Curah hujan yang tinggi sejak Sabtu sore membuat volume air sungai meluap membawa material lumpur dan batang pohon.<br><br>
+                    Berdasarkan teks di atas, faktor utama penyebab banjir bandang tersebut adalah...<br>
+                    A. Curah hujan tinggi dan alih fungsi lahan<br>
+                    B. Sampah yang menumpuk di hilir sungai<br>
+                    C. Buruknya sistem drainase di Desa Sukamakmur<br>
+                    D. Fenomena pasang air laut (rob)<br>
+                    E. Pemukiman padat di bantaran sungai<br>
+                    <b>KUNCI: A</b></p>
+
+                    <p><span class="tag">#PGK</span><br>
+                    <span class="grup">GRUP: Wacana_Banjir_01</span><br>
+                    Manakah pernyataan berikut yang bernilai benar sesuai dengan isi teks berita di atas?<br>
+                    A. Banjir bandang terjadi pada hari Minggu malam.<br>
+                    B. Material yang terbawa arus banjir hanya berupa air bersih.<br>
+                    C. Kawasan hulu sungai diubah menjadi perkebunan semusim.<br>
+                    D. Curah hujan tinggi sudah terjadi sejak Sabtu sore.<br>
+                    E. Tidak ada material padat yang terbawa arus.<br>
+                    <b>KUNCI: A, C, D</b></p>
+
+                    <p><span class="tag">#BS</span><br>
+                    <span class="grup">GRUP: Wacana_Banjir_01</span><br>
+                    Tentukan Benar (B) atau Salah (S) untuk pernyataan-pernyataan berikut berdasarkan wacana banjir di atas!<br>
+                    A. Alih fungsi lahan memiliki dampak langsung terhadap meluapnya air sungai.<br>
+                    B. Cuaca hujan ekstrem berlangsung lebih dari satu hari.<br>
+                    C. Aliran banjir juga membawa batang pohon yang tumbang.<br>
+                    <b>KUNCI: B, B, B</b></p>
                 </body>
                 </html>
             `;
             
-            // Konversi HTML menjadi file .doc yang bisa dibaca MS Word
             const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'Template_Format_Soal.doc';
+            a.download = 'Template_Format_Soal_Lengkap.doc';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             
             if (typeof showNotification === 'function') {
-                showNotification("✅ File Template_Format_Soal.doc berhasil diunduh!");
+                showNotification("✅ File Template_Format_Soal_Lengkap.doc berhasil diunduh!");
             }
         };
 		</script>

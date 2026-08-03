@@ -939,6 +939,33 @@
             });
         }
 
+        // --- FUNGSI HAPUS (RESET) WA ORTU ---
+        window.resetWaOrtu = async (nisSiswa) => {
+            const konfirmasi = confirm("Apakah Anda yakin ingin MENGHAPUS nomor WA siswa ini?\n\nSiswa bersangkutan akan diizinkan untuk menginput ulang nomor WA-nya di portal siswa.");
+            if (!konfirmasi) return;
+
+            document.getElementById('loading-overlay').classList.remove('hidden');
+            document.getElementById('loading-overlay').classList.add('flex');
+
+            try {
+                // Update dokumen siswa di database, set hp_ortu menjadi string kosong
+                await setDoc(doc(db, 'siswa', nisSiswa), { hp_ortu: "" }, { merge: true });
+                
+                alert("Nomor WA berhasil dihapus.");
+                
+                // Refresh data untuk memuat perubahan
+                await fetchData();
+                renderInduk(); // Refresh tabel Buku Induk
+                
+            } catch (error) {
+                console.error(error);
+                alert("Gagal menghapus WA: " + error.message);
+            } finally {
+                document.getElementById('loading-overlay').classList.add('hidden');
+                document.getElementById('loading-overlay').classList.remove('flex');
+            }
+        };
+
 
         // --- MODAL CATATAN ---
         let selectedNis = '';

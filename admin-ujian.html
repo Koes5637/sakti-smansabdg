@@ -424,6 +424,46 @@
             </div>
         </div>
     </div>
+	<!-- MODAL PRESENTASI / BAHAS SOAL (FULLSCREEN) -->
+    <div id="presentation-modal" class="fixed inset-0 z-[120] hidden bg-white dark:bg-cyber-900 flex-col transition-colors duration-300">
+        <!-- Header -->
+        <div class="flex flex-none items-center justify-between p-4 border-b border-gray-200 dark:border-emerald-800 bg-gray-50 dark:bg-cyber-800 shadow-sm z-10">
+            <h2 id="presentation-title" class="text-xl font-bold text-gray-800 dark:text-emerald-50">Bahas Ulangan</h2>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center bg-white dark:bg-cyber-900 border border-gray-200 dark:border-emerald-700 rounded-lg overflow-hidden shadow-sm">
+                    <button onclick="window.changePresentationZoom(-1)" class="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-cyber-700 font-bold border-r border-gray-200 dark:border-emerald-700" title="Perkecil Teks">A-</button>
+                    <span id="presentation-zoom-level" class="px-3 text-sm font-bold text-indigo-600 dark:text-emerald-400">100%</span>
+                    <button onclick="window.changePresentationZoom(1)" class="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-cyber-700 font-bold border-l border-gray-200 dark:border-emerald-700" title="Perbesar Teks">A+</button>
+                </div>
+                <button onclick="window.closePresentation()" class="bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 px-4 py-2 rounded-lg font-bold transition-colors">Tutup Mode</button>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="flex-1 overflow-y-auto p-6 md:p-12 flex flex-col items-center custom-scrollbar">
+            <div id="presentation-content-wrapper" class="w-full max-w-5xl transition-all duration-300 text-xl text-gray-800 dark:text-gray-100">
+                <!-- Teks Soal & Opsi akan di-inject ke sini oleh JS -->
+            </div>
+        </div>
+
+        <!-- Footer / Navigation -->
+        <div class="flex-none p-4 border-t border-gray-200 dark:border-emerald-800 bg-gray-50 dark:bg-cyber-800 flex items-center justify-between shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
+            <button onclick="window.navigatePresentation(-1)" class="px-5 py-3 bg-indigo-50 text-indigo-700 dark:bg-emerald-900/40 dark:text-emerald-300 border border-indigo-200 dark:border-emerald-700 rounded-xl font-bold hover:bg-indigo-100 dark:hover:bg-emerald-800 transition flex items-center gap-2">
+                &larr; Sebelumnya
+            </button>
+            
+            <div class="flex flex-col items-center">
+                <span id="presentation-counter" class="text-sm font-bold text-gray-500 dark:text-gray-400 mb-2 tracking-widest uppercase">Soal 1 dari 10</span>
+                <button onclick="window.revealPresentationKey()" id="btn-reveal-key" class="px-8 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-full font-bold shadow-lg transform transition active:scale-95 flex items-center gap-2">
+                    <span>🗝️</span> Tampilkan Kunci
+                </button>
+            </div>
+
+            <button onclick="window.navigatePresentation(1)" class="px-5 py-3 bg-indigo-50 text-indigo-700 dark:bg-emerald-900/40 dark:text-emerald-300 border border-indigo-200 dark:border-emerald-700 rounded-xl font-bold hover:bg-indigo-100 dark:hover:bg-emerald-800 transition flex items-center gap-2">
+                Selanjutnya &rarr;
+            </button>
+        </div>
+    </div>
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -1752,6 +1792,9 @@
                         `;
                     } else {
                         actionButtonsHTML = `
+							<button onclick="window.startPresentation('${ex.id}')" class="flex items-center gap-2 px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-300 rounded-lg text-xs font-bold border border-purple-200 dark:border-purple-800 transition-all" title="Bahas soal di layar proyektor">
+                                📽️ Bahas
+                            </button>
                             <button onclick="window.duplicateExam('${ex.id}')" class="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold border transition-colors ${actionBtnClass}" title="Duplikasi / Edit">
                                 ${actionBtnText}
                             </button>
@@ -1927,6 +1970,168 @@
                 }
             }
         });
+		// ==========================================
+            // MESIN MODE PRESENTASI (BAHAS SOAL KELAS)
+            // ==========================================
+            let presentationData = [];
+            let currentPresIndex = 0;
+            let currentPresZoom = 100; // Persentase Zoom
+
+            window.startPresentation = async (examId) => {
+                const exam = allActiveExams.find(e => e.id === examId);
+                if (!exam) return alert("Data ujian tidak ditemukan!");
+                
+                showNotification("Mempersiapkan layar presentasi...", false);
+                document.getElementById('presentation-title').textContent = `Bahas: ${exam.namaUjian}`;
+                
+                try {
+                    // Ambil soal beserta kuncinya dari database
+                    const questionPromises = exam.daftarIdSoal.map(id => getDoc(doc(db, 'bank_soal', id)));
+                    const keyPromises = exam.daftarIdSoal.map(id => getDoc(doc(db, 'bank_soal_privat', id)));
+                    
+                    const [qSnaps, kSnaps] = await Promise.all([Promise.all(questionPromises), Promise.all(keyPromises)]);
+                    
+                    presentationData = [];
+                    qSnaps.forEach((q, idx) => {
+                        if (q.exists()) {
+                            const data = q.data();
+                            if (kSnaps[idx].exists()) data.kunci = kSnaps[idx].data().kunci;
+                            presentationData.push(data);
+                        }
+                    });
+
+                    if (presentationData.length === 0) return alert("Tidak ada soal di ujian ini.");
+
+                    currentPresIndex = 0;
+                    currentPresZoom = 100;
+                    applyPresentationZoom(); // Reset zoom
+                    
+                    document.getElementById('presentation-modal').classList.remove('hidden');
+                    document.getElementById('presentation-modal').classList.add('flex');
+                    renderPresentationStep();
+                    
+                } catch (e) {
+                    alert("Gagal memuat soal: " + e.message);
+                }
+            };
+
+            window.closePresentation = () => {
+                document.getElementById('presentation-modal').classList.add('hidden');
+                document.getElementById('presentation-modal').classList.remove('flex');
+            };
+
+            window.changePresentationZoom = (direction) => {
+                // Perubahan 10% setiap klik, batas minimum 80%, maksimum 200%
+                currentPresZoom += (direction * 10);
+                if (currentPresZoom < 80) currentPresZoom = 80;
+                if (currentPresZoom > 200) currentPresZoom = 200;
+                applyPresentationZoom();
+            };
+
+            function applyPresentationZoom() {
+                document.getElementById('presentation-zoom-level').textContent = `${currentPresZoom}%`;
+                document.getElementById('presentation-content-wrapper').style.fontSize = `${currentPresZoom}%`;
+            }
+
+            window.navigatePresentation = (dir) => {
+                const newIndex = currentPresIndex + dir;
+                if (newIndex >= 0 && newIndex < presentationData.length) {
+                    currentPresIndex = newIndex;
+                    renderPresentationStep();
+                }
+            };
+
+            window.renderPresentationStep = () => {
+                const soal = presentationData[currentPresIndex];
+                document.getElementById('presentation-counter').textContent = `Soal ${currentPresIndex + 1} dari ${presentationData.length}`;
+                
+                const wrapper = document.getElementById('presentation-content-wrapper');
+                const btnKey = document.getElementById('btn-reveal-key');
+                
+                // Kembalikan tombol kunci ke kondisi belum terbuka
+                btnKey.innerHTML = '<span>🗝️</span> Tampilkan Kunci';
+                btnKey.classList.remove('from-green-500', 'to-emerald-500');
+                btnKey.classList.add('from-amber-500', 'to-orange-500');
+                btnKey.disabled = false;
+
+                // Ekstraksi Konten
+                let html = `<div class="mb-6 leading-relaxed font-medium bg-gray-50 dark:bg-black/20 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">${soal.naskah}</div>`;
+                
+                if (soal.naskahImage) {
+                    html += `<img src="${soal.naskahImage}" class="max-h-96 object-contain rounded-xl border-4 border-white shadow-lg mx-auto mb-8">`;
+                }
+
+                html += `<div class="space-y-3 w-full">`;
+                
+                if (soal.type === 'pg' || soal.type === 'pgk') {
+                    soal.opsi.forEach((o, i) => {
+                        html += `
+                            <div id="pres-opt-${i}" class="pres-option p-4 md:p-5 border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-cyber-800 flex items-center gap-4 transition-all duration-300">
+                                <span class="w-10 h-10 flex-none rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-500 dark:text-gray-300 shadow-inner">
+                                    ${String.fromCharCode(65+i)}
+                                </span>
+                                <div class="flex-1">${o.text}</div>
+                            </div>
+                        `;
+                    });
+                } else if (soal.type === 'esai-singkat' || soal.type === 'esai-kompleks') {
+                    html += `
+                        <div class="p-6 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl bg-gray-50 dark:bg-cyber-900/50 text-center text-gray-400">
+                            (Area Jawaban Siswa)
+                        </div>
+                        <div id="pres-essay-key" class="hidden mt-6 p-6 bg-green-100 dark:bg-green-900/30 border-2 border-green-400 dark:border-green-600 rounded-2xl">
+                            <span class="block text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-widest mb-2">Kunci / Panduan Jawaban:</span>
+                            <div class="font-bold text-green-900 dark:text-green-100">${soal.kunci || 'Penilaian Subjektif Guru'}</div>
+                        </div>
+                    `;
+                }
+                
+                html += `</div>`;
+                wrapper.innerHTML = html;
+
+                // Panggil MathJax untuk merapikan kode mentah LaTeX menjadi rumus cantik
+                if (window.MathJax) {
+                    MathJax.typesetPromise([wrapper]);
+                }
+            };
+
+            window.revealPresentationKey = () => {
+                const soal = presentationData[currentPresIndex];
+                const btnKey = document.getElementById('btn-reveal-key');
+                
+                // Ubah tampilan tombol jadi hijau
+                btnKey.innerHTML = '<span>✅</span> Kunci Terbuka';
+                btnKey.classList.replace('from-amber-500', 'from-green-500');
+                btnKey.classList.replace('to-orange-500', 'to-emerald-500');
+                btnKey.disabled = true;
+
+                if (soal.type === 'pg' || soal.type === 'pgk') {
+                    soal.opsi.forEach((_, i) => {
+                        let isKey = false;
+                        if (soal.kunci !== undefined) {
+                            if (Array.isArray(soal.kunci)) isKey = soal.kunci.includes(i);
+                            else isKey = (soal.kunci == i);
+                        }
+                        
+                        const optDiv = document.getElementById(`pres-opt-${i}`);
+                        if (isKey) {
+                            optDiv.classList.replace('border-gray-200', 'border-green-500');
+                            optDiv.classList.replace('dark:border-gray-700', 'dark:border-emerald-500');
+                            optDiv.classList.replace('bg-white', 'bg-green-50');
+                            optDiv.classList.replace('dark:bg-cyber-800', 'dark:bg-emerald-900/40');
+                            
+                            // Tambah ceklis
+                            optDiv.innerHTML += `<div class="text-3xl animate-bounce">✨</div>`;
+                        } else {
+                            optDiv.classList.add('opacity-40'); // Redupkan yang salah
+                        }
+                    });
+                } else if (soal.type === 'esai-singkat' || soal.type === 'esai-kompleks') {
+                    document.getElementById('pres-essay-key').classList.remove('hidden');
+                    document.getElementById('pres-essay-key').classList.add('animate-pulse');
+                    setTimeout(() => document.getElementById('pres-essay-key').classList.remove('animate-pulse'), 1000);
+                }
+            };
     </script>
 </body>
 </html>

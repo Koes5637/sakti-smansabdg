@@ -259,12 +259,12 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, query, where, onSnapshot, doc, getDoc, updateDoc, deleteDoc, getDocs, orderBy, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- JALAN PINTAS NINJA: AMBIL CONFIG DINAMIS DARI MEMORI BROWSER ---
+        // --- JALAN PINTAS NINJA ---
         const savedConfigStr = localStorage.getItem('sakti_school_config');
         if (!savedConfigStr) {
             alert("Akses ditolak! Silakan login terlebih dahulu melalui Portal Utama SAKTI.");
-            window.location.href = 'index.html'; 
-            throw new Error("Sesi tidak valid"); // Menghentikan eksekusi script
+            window.location.href = '/'; 
+            throw new Error("Sesi tidak valid");
         }
         
         const dynamicFirebaseConfig = JSON.parse(savedConfigStr);
@@ -272,68 +272,54 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-		// --- ADMIN SECRET TRIGGER (EASTER EGG) - VERSI DETIK ---
+        // --- ADMIN SECRET TRIGGER ---
         let secretClickCount = 0;
         let secretClickTimer;
 
-        // Pasang pendengar klik pada elemen logo/judul LM di sudut kiri atas
         document.querySelector('.from-primary.to-accent').addEventListener('click', () => {
             secretClickCount++;
             clearTimeout(secretClickTimer);
-            
-            // Jika diklik 3 kali berturut-turut dalam 3 detik
             if (secretClickCount === 3) {
                 let inputDetik = prompt(`🔐 ADMIN MODE: Pengaturan Batas Waktu Idle\n\nSaat ini batas waktu adalah: ${IDLE_LIMIT} Detik.\nMasukkan batas waktu baru (dalam DETIK):`, IDLE_LIMIT);
-                
                 if (inputDetik !== null && !isNaN(inputDetik) && inputDetik.trim() !== "") {
                     let detikBaru = parseInt(inputDetik);
-                    
-                    // Kalau isi 0 = layar nyala terus tanpa batas
                     if (detikBaru === 0) detikBaru = 999999;
-                    
-                    // Simpan di memori rahasia
                     localStorage.setItem('sakti_idle_limit', detikBaru);
                     alert(`✅ Sukses! Batas waktu Idle diubah menjadi ${detikBaru === 999999 ? "TIDAK TERBATAS" : detikBaru + " Detik"}. \nHalaman akan dimuat ulang.`);
                     location.reload();
                 }
                 secretClickCount = 0;
             }
-            
-            // Reset hitungan jika jeda klik terlalu lama
             secretClickTimer = setTimeout(() => { secretClickCount = 0; }, 3000); 
         });
-        // --- THEME TOGGLE LOGIC ---
+
+        // --- THEME TOGGLE ---
         window.toggleTheme = () => {
             document.documentElement.classList.toggle('dark');
             localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
         };
 
+        // --- GLOBAL VARS ---
         let currentListener = null;
+        let currentExamListener = null;
         let selectedStudentId = null;
-        
-        // GLOBAL VARS FOR IDENTITY & IDLE TIMEOUT
         let currentGuruId = null;
         let currentGuruMapel = null;
-        let currentGuruKelas = []; // ARRAY KELAS AMPU
+        let currentGuruKelas = []; 
         let allExamsCache = [];
         let currentExamDuration = 0;
         let currentActiveStudents = [];
-        let activeExamCode = null; // Menyimpan kode ujian yang sedang dipantau
-		let currentExamListener = null; // Radar khusus untuk mendengarkan perubahan waktu
-        let latestStudentsData = []; // Menyimpan data siswa terakhir untuk di-render ulang
+        let latestStudentsData = [];
+        let activeExamCode = null; 
 
-        // IDLE LOGIC VARIABLES
+        // --- IDLE LOGIC ---
         let idleTime = 0;
         let idleInterval = null;
         let isIdle = false;
-        
-        // 1. Cek apakah ada pengaturan waktu dari Admin di memori rahasia
         let savedIdleLimit = localStorage.getItem('sakti_idle_limit');
-        
-        // 2. Jika tidak ada di memori, gunakan default 120 detik (2 Menit)
         let IDLE_LIMIT = savedIdleLimit !== null ? parseInt(savedIdleLimit) : 60;
 
-        // Init & Auth Check
+        // --- INIT & AUTH ---
         document.addEventListener('DOMContentLoaded', async () => {
             onAuthStateChanged(auth, (user) => {
                 const overlay = document.getElementById('login-overlay');
@@ -341,67 +327,45 @@
                 const fallback = document.getElementById('login-fallback');
                 const headerId = document.getElementById('header-user-id');
 
-                // 1. Cek Token & Kelas dari LocalStorage
                 const tokenMapel = localStorage.getItem('cbt_user_mapel');
                 currentGuruId = localStorage.getItem('cbt_user_id');
-                // FIX PENTING: Paksa Mapel menjadi UPPERCASE agar cocok dengan database
                 currentGuruMapel = tokenMapel ? tokenMapel.toUpperCase() : null;
                 
-                // FIX: Parsing Kelas yang lebih tahan banting (Robust)
                 try {
                     const rawKelas = localStorage.getItem('cbt_user_kelas');
                     if (rawKelas) {
-                        // Cek apakah bentuknya JSON Array atau teks yang dipisah koma
-                        if (rawKelas.startsWith('[')) {
-                            currentGuruKelas = JSON.parse(rawKelas);
-                        } else {
-                            currentGuruKelas = rawKelas.split(',').map(s => s.trim());
-                        }
-                    } else {
-                        currentGuruKelas = [];
-                    }
-                } catch(e) { 
-                    currentGuruKelas = []; 
-                }
+                        if (rawKelas.startsWith('[')) currentGuruKelas = JSON.parse(rawKelas);
+                        else currentGuruKelas = rawKelas.split(',').map(s => s.trim());
+                    } else { currentGuruKelas = []; }
+                } catch(e) { currentGuruKelas = []; }
 
                 if(user && tokenMapel) {
-                    // Login Sukses & Sesi Ada
                     overlay.classList.add('hidden');
                     headerId.textContent = `${currentGuruMapel} (${currentGuruId})`;
                     loadExamList();
                 } else if (tokenMapel) {
-                    // Belum Login tapi ada Token -> Auto Login Anonymous
                     signInAnonymously(auth).catch(e => {
-                        console.error("Auto Login Error:", e);
                         loading.classList.add('hidden');
                         fallback.classList.remove('hidden');
                     });
                 } else {
-                    // Tidak ada token -> Tampilkan tombol balik ke portal
                     loading.classList.add('hidden');
                     fallback.classList.remove('hidden');
                 }
             });
-
-            // Start global timer update for UI
             startLiveTimerUpdate();
         });
 
-        // --- IDLE TIMEOUT LOGIC ---
-        function resetIdleTimer() {
-            idleTime = 0;
-        }
-
+        // --- IDLE FUNCTIONS ---
+        function resetIdleTimer() { idleTime = 0; }
         function startIdleTimer() {
             if (idleInterval) clearInterval(idleInterval);
             idleInterval = setInterval(() => {
                 idleTime++;
                 if (idleTime >= IDLE_LIMIT && !isIdle && currentListener) {
-                    // Waktu habis, putuskan koneksi
                     isIdle = true;
-                    if(currentListener) currentListener(); // Unsubscribe Firebase
+                    if(currentListener) currentListener(); 
                     currentListener = null; 
-                    
                     document.getElementById('idle-overlay').classList.remove('hidden');
                     document.getElementById('idle-overlay').classList.add('flex');
                     setConnectionStatus('idle');
@@ -409,7 +373,6 @@
             }, 1000);
         }
 
-        // Listener aktivitas fisik pengguna
         window.addEventListener('mousemove', resetIdleTimer);
         window.addEventListener('keypress', resetIdleTimer);
         window.addEventListener('touchstart', resetIdleTimer);
@@ -421,14 +384,9 @@
             resetIdleTimer();
             document.getElementById('idle-overlay').classList.add('hidden');
             document.getElementById('idle-overlay').classList.remove('flex');
-            
-            // Reconnect jika ada ujian yang dipilih
-            if(activeExamCode) {
-                startMonitoring(activeExamCode);
-            }
+            if(activeExamCode) startMonitoring(activeExamCode);
         };
 
-        // Status Indikator Visual
         function setConnectionStatus(status) {
             const el = document.getElementById('connection-status');
             if (status === 'live') {
@@ -437,19 +395,16 @@
             } else if (status === 'idle') {
                 el.innerHTML = '<span class="w-2 h-2 rounded-full bg-warning animate-pulse"></span> JEDA';
                 el.className = 'hidden md:flex px-3 py-1 rounded-full bg-warning/10 text-warning border border-warning/20 text-xs font-bold items-center gap-2';
-            } else {
-                el.classList.add('hidden');
-            }
+            } else { el.classList.add('hidden'); }
         }
 
+        // --- EXAM LOADING ---
         async function loadExamList() {
             const select = document.getElementById('filter-ujian');
             select.innerHTML = '<option value="">Memuat...</option>';
 
             try {
                 let q = collection(db, 'ujian_terjadwal');
-                
-                // FILTER: Hanya tampilkan ujian buatan guru ini (kecuali Admin Pusat)
                 if (currentGuruMapel !== 'ADMIN PUSAT' && currentGuruId) {
                     q = query(q, where('dibuatOleh', '==', currentGuruId));
                 }
@@ -459,84 +414,61 @@
 
                 snap.forEach(doc => {
                     const d = doc.data();
-                    
-                    // FIX: Jangan tampilkan ujian yang masih DRAFT di Live Monitoring
                     if (d.status !== 'aktif') return;
-
-                    // FIX: Perbandingan Mapel kebal huruf besar/kecil
                     const dataMapel = d.mapel ? d.mapel.toUpperCase() : '';
-                    if (currentGuruMapel !== 'ADMIN PUSAT' && dataMapel !== currentGuruMapel) {
-                        return; // Skip ujian mapel lain
-                    }
-                    
+                    if (currentGuruMapel !== 'ADMIN PUSAT' && dataMapel !== currentGuruMapel) return;
                     allExamsCache.push({ ...d, id: doc.id });
                 });
 
                 if (allExamsCache.length === 0) {
                     select.innerHTML = '<option value="">Belum ada ujian aktif.</option>';
-                    populateDynamicClassFilter(); // Agar opsi dropdown ikut bersih
+                    populateDynamicClassFilter(); 
                     return;
                 }
 
-                // 1. Populate Filter Kelas Otomatis Berdasarkan Ujian yang Benar-Benar Ada
                 populateDynamicClassFilter();
-
-                // 2. Render Dropdown Ujian Awal
                 renderExamDropdown();
 
             } catch (e) {
-                console.error("Gagal memuat ujian:", e);
                 alert("Gagal memuat daftar ujian: " + e.message);
             }
         }
 
-        // --- FILTER KELAS LOGIC (SUPER FIXED & STRICT) ---
         function populateDynamicClassFilter() {
             const classSelect = document.getElementById('filter-kelas');
             const currentVal = classSelect.value;
             const classSet = new Set();
 
-            // Murni mengambil kelas dari daftar ujian yang valid & aktif untuk MAPEL INI.
-            // Karena allExamsCache sudah disaring secara ketat berdasarkan currentGuruMapel di loadExamList()
             allExamsCache.forEach(ex => {
                 if (ex.targetKelas && Array.isArray(ex.targetKelas)) {
                     ex.targetKelas.forEach(c => {
-                        // Abaikan tag generic 'X', 'XI', 'XII', 'Semua' jika bukan Admin Pusat
                         if (currentGuruMapel !== 'ADMIN PUSAT' && ['X', 'XI', 'XII', 'SEMUA', 'ALL'].includes(c.toUpperCase())) return;
                         classSet.add(c);
                     });
-                } else if (ex.kelas) { 
-                     classSet.add(ex.kelas);
-                }
+                } else if (ex.kelas) { classSet.add(ex.kelas); }
             });
 
             const sortedClasses = Array.from(classSet).sort();
-            
             classSelect.innerHTML = '<option value="">Semua Kelas</option>';
             sortedClasses.forEach(c => {
                 const opt = document.createElement('option');
-                opt.value = c;
-                opt.textContent = c;
+                opt.value = c; opt.textContent = c;
                 classSelect.appendChild(opt);
             });
 
-            // Restore selection if valid
-            if (sortedClasses.includes(currentVal)) {
-                classSelect.value = currentVal;
-            }
+            if (sortedClasses.includes(currentVal)) classSelect.value = currentVal;
         }
 
         function renderExamDropdown() {
             const select = document.getElementById('filter-ujian');
             const filterClass = document.getElementById('filter-kelas').value;
             
-            // Stop monitoring jika list berubah
             stopMonitoring(); 
             select.innerHTML = '<option value="">-- Pilih Kode Ujian --</option>';
 
             const filtered = allExamsCache.filter(ex => {
                 if (!filterClass) return true;
-                if (ex.targetSemuaKelas) return true; // Ujian untuk 'Semua Kelas' otomatis valid untuk filter apapun
+                if (ex.targetSemuaKelas) return true; 
                 const classes = ex.targetKelas || (ex.kelas ? [ex.kelas] : []);
                 return classes.includes(filterClass);
             });
@@ -546,7 +478,6 @@
                 return;
             }
 
-            // Sort berdasarkan tanggal terbaru
             filtered.sort((a,b) => new Date(b.tanggal || 0) - new Date(a.tanggal || 0));
 
             filtered.forEach(d => {
@@ -563,72 +494,59 @@
         }
 
         document.getElementById('filter-kelas').addEventListener('change', renderExamDropdown);
-
         document.getElementById('filter-ujian').addEventListener('change', (e) => {
             const code = e.target.value;
             if(code) startMonitoring(code);
             else stopMonitoring();
         });
 
+        // --- CORE MONITORING ---
         function stopMonitoring() {
             if(currentListener) currentListener();
-            if(currentExamListener) currentExamListener(); // Bersihkan radar waktu
-            latestStudentsData = []; // Kosongkan data
+            if(currentExamListener) currentExamListener();
             
             activeExamCode = null;
+            latestStudentsData = [];
             isIdle = false;
             clearInterval(idleInterval);
-            // ... (kode di bawahnya tetap sama)
+            setConnectionStatus('offline');
+
+            document.getElementById('cards-container').innerHTML = '<div class="col-span-full text-center py-20 text-slate-500 dark:text-slate-400">Pilih kode ujian untuk memulai pemantauan.</div>';
+            document.getElementById('mass-action-container').classList.add('hidden');
+            resetStats();
+        }
 
         function startMonitoring(examCode) {
             if(currentListener) currentListener();
-            if(currentExamListener) currentExamListener(); // Bersihkan radar waktu jika pindah ujian
+            if(currentExamListener) currentExamListener(); // Bersihkan radar waktu lama
             
             activeExamCode = examCode;
+            currentExamDuration = 0; // KUNCI UTAMA: Reset total waktu ke 0 setiap pindah ujian!
+            latestStudentsData = [];
             isIdle = false;
             resetIdleTimer();
             startIdleTimer();
             setConnectionStatus('live');
-            
-            // --- 1. RADAR WAKTU GANDA (LIVE INJECTOR) ---
-            let lastLiveEkstra = -1; // Penyimpan jejak ekstraWaktu
+
+            document.getElementById('cards-container').innerHTML = '<div class="col-span-full text-center py-20 text-primary animate-pulse">Menghubungkan ke data live...</div>';
+
+            // --- 1. RADAR PENGATURAN UJIAN (100% AKURAT DARI DATABASE) ---
             currentExamListener = onSnapshot(doc(db, 'ujian_terjadwal', examCode), (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    const durasiDasar = parseInt(data.durasiMenit) || 60;
-                    const newEkstra = parseInt(data.ekstraWaktu) || 0;
                     
-                    // Update durasi mutlak untuk siswa yang baru bergabung
-                    currentExamDuration = durasiDasar + newEkstra;
+                    // Sedot durasi asli langsung dari dokumen Firebase (bukan dari cache)
+                    const durasiDasar = parseInt(data.durasiMenit) || parseInt(data.durasi) || parseInt(data.waktu) || 60;
+                    const ekstra = parseInt(data.ekstraWaktu) || 0;
                     
-                    if (lastLiveEkstra === -1) {
-                        // Kunci nilai saat pertama kali buka
-                        lastLiveEkstra = newEkstra; 
-                    } else if (newEkstra > lastLiveEkstra) {
-                        const diffMenit = newEkstra - lastLiveEkstra;
-                        lastLiveEkstra = newEkstra;
-                        
-                        // SUNTIKAN LANGSUNG: Geser waktu di semua kartu tanpa me-reload HTML
-                        document.querySelectorAll('.live-timer').forEach(el => {
-                            const oldEnd = parseInt(el.getAttribute('data-endtime'));
-                            if (!isNaN(oldEnd)) {
-                                const newEnd = oldEnd + (diffMenit * 60000); // Tambah milidetik
-                                el.setAttribute('data-endtime', newEnd);
-                                
-                                // Efek visual hijau membesar agar pengawas tahu waktu berhasil disuntik
-                                el.classList.remove('text-indigo-600', 'dark:text-indigo-400');
-                                el.classList.add('text-emerald-500', 'scale-110', 'animate-pulse');
-                                setTimeout(() => {
-                                    el.classList.remove('text-emerald-500', 'scale-110', 'animate-pulse');
-                                    el.classList.add('text-indigo-600', 'dark:text-indigo-400');
-                                }, 3500);
-                            }
-                        });
+                    currentExamDuration = durasiDasar + ekstra;
+                    
+                    // Refresh tampilan jika data siswa sudah masuk duluan
+                    if (latestStudentsData.length > 0) {
+                        renderCards(latestStudentsData);
                     }
                 }
             });
-
-            document.getElementById('cards-container').innerHTML = '<div class="col-span-full text-center py-20 text-primary animate-pulse">Menghubungkan ke data live...</div>';
 
             // --- 2. RADAR AKTIVITAS SISWA (Hasil Ujian) ---
             const q = query(collection(db, 'hasil_ujian'), where('ujianId', '==', examCode));
@@ -637,21 +555,17 @@
                 let students = [];
                 snapshot.forEach(doc => students.push({id: doc.id, ...doc.data()}));
                 
-                // SARINGAN KELAS
                 const kelasTerpilih = document.getElementById('filter-kelas').value;
                 if (kelasTerpilih) {
                     students = students.filter(s => s.kelas === kelasTerpilih);
                 }
                 
-                // Sort: Yang curang & aktif di atas
                 students.sort((a, b) => {
                     const statusRank = { 'suspended': 3, 'selesai': 2, 'mengerjakan': 1 };
                     const rankA = statusRank[a.status] || 0;
                     const rankB = statusRank[b.status] || 0;
 
-                    if (a.status === 'suspended' || b.status === 'suspended') {
-                         return rankB - rankA; 
-                    }
+                    if (a.status === 'suspended' || b.status === 'suspended') return rankB - rankA; 
                     if (b.pelanggaran !== a.pelanggaran) return b.pelanggaran - a.pelanggaran;
                     return b.skor - a.skor;
                 });
@@ -659,7 +573,12 @@
                 currentActiveStudents = students.filter(s => s.status === 'mengerjakan');
                 updateMassActionButton();
 
-                renderCards(students);
+                latestStudentsData = students; 
+                
+                // Mencegah timer menampilkan waktu aneh sebelum durasi asli didapatkan
+                if (currentExamDuration > 0) {
+                    renderCards(students);
+                }
                 updateStats(students);
             }, (error) => {
                 console.error("Error monitoring:", error);
@@ -667,7 +586,6 @@
             });
         }
 
-        // FUNGSI UPDATE TOMBOL MASSAL (CUKUP SATU INI SAJA)
         function updateMassActionButton() {
             const btnContainer = document.getElementById('mass-action-container');
             const hintText = document.getElementById('mass-action-hint');
@@ -685,16 +603,13 @@
             }
         }
 
-        // FUNGSI TAMBAH WAKTU (SUDAH DIPERBAIKI)
+        // --- TAMBAH WAKTU ---
         window.addExtraTime = async () => {
             if (!activeExamCode) return alert("Pilih ujian terlebih dahulu!");
-            
             let inputMenit = prompt("⏳ TAMBAH WAKTU UJIAN\nMasukkan tambahan waktu (dalam MENIT) untuk semua siswa:");
 
-            // Validasi input: pastikan bukan null, bukan teks kosong, dan angka > 0
             if (inputMenit !== null && inputMenit.trim() !== "" && !isNaN(inputMenit) && parseInt(inputMenit) > 0) {
                 const tambahan = parseInt(inputMenit);
-                
                 if (confirm(`Yakin ingin menambah waktu ${tambahan} menit untuk semua siswa yang sedang ujian?`)) {
                     try {
                         const refUjian = doc(db, 'ujian_terjadwal', activeExamCode);
@@ -702,147 +617,106 @@
                         
                         if (snapUjian.exists()) {
                             const dataUjian = snapUjian.data();
-                            // DIPAKSA MENJADI ANGKA agar tidak terjadi "10" + 15 = "1015"
                             const currentEkstra = parseInt(dataUjian.ekstraWaktu) || 0;
-                            
-                            await updateDoc(refUjian, { 
-                                ekstraWaktu: currentEkstra + tambahan 
-                            });
-                            
-                            alert(`✅ Sukses! Waktu ujian berhasil ditambah ${tambahan} menit.`);
+                            await updateDoc(refUjian, { ekstraWaktu: currentEkstra + tambahan });
+                            // alert("✅ Sukses!"); (Boleh diaktifkan jika butuh notif popup sukses)
                         } else {
-                            // MENCEGAH MACET DIAM-DIAM
-                            alert("❌ Gagal: Data ujian aktif tidak ditemukan di database!");
+                            alert("❌ Gagal: Data ujian aktif tidak ditemukan!");
                         }
-                    } catch (e) {
-                        alert("❌ Gagal menambah waktu: " + e.message);
-                        console.error("Detail Error Waktu:", e);
-                    }
+                    } catch (e) { alert("❌ Gagal menambah waktu: " + e.message); }
                 }
             } else if (inputMenit !== null) {
-                // Menangkap jika guru mengetik sembarangan (misal: huruf)
-                alert("⚠️ Peringatan: Masukkan angka menit yang valid (lebih dari 0)!");
+                alert("⚠️ Peringatan: Masukkan angka menit yang valid!");
             }
         };
 
         window.forceFinishAll = async () => {
             if (currentActiveStudents.length === 0) return;
-            
             const count = currentActiveStudents.length;
-            const confirmMsg = `PERINGATAN KERAS!\n\nAnda akan memaksa SELESAI untuk ${count} peserta yang sedang aktif.\n\nMereka tidak akan bisa mengerjakan soal lagi.\nApakah Anda yakin ingin melanjutkan?`;
             
-            if (confirm(confirmMsg)) {
-                if (confirm(`Konfirmasi Terakhir: Yakin selesaikan ${count} peserta sekarang?`)) {
-                    
+            if (confirm(`PERINGATAN KERAS!\n\nAnda akan memaksa SELESAI untuk ${count} peserta aktif.`)) {
+                if (confirm(`Yakin selesaikan ${count} peserta sekarang?`)) {
                     try {
                         const batch = writeBatch(db);
-                        
                         currentActiveStudents.forEach(student => {
                             const ref = doc(db, 'hasil_ujian', student.id);
-                            batch.update(ref, { 
-                                status: 'selesai', 
-                                selesaiPada: serverTimestamp() 
-                            });
+                            batch.update(ref, { status: 'selesai', selesaiPada: serverTimestamp() });
                         });
-                        
                         await batch.commit();
-                        alert("Berhasil! Semua peserta aktif telah diselesaikan.");
-                        
-                    } catch (e) {
-                        alert("Gagal melakukan aksi massal: " + e.message);
-                    }
+                        alert("Berhasil! Peserta aktif telah diselesaikan.");
+                    } catch (e) { alert("Gagal massal: " + e.message); }
                 }
             }
         }
 
+        // --- RENDER UI ---
         function renderCards(students) {
             const container = document.getElementById('cards-container');
             container.innerHTML = '';
 
             if (students.length === 0) {
-                container.innerHTML = '<div class="col-span-full text-center py-20 text-slate-500 dark:text-slate-400">Belum ada siswa yang bergabung.</div>';
+                container.innerHTML = '<div class="col-span-full text-center py-20 text-slate-500">Belum ada siswa yang bergabung.</div>';
                 return;
             }
 
             students.forEach(s => {
                 const isOnline = s.lastHeartbeat && (Date.now() - s.lastHeartbeat.toMillis() < 60000); 
-                const statusColor = s.status === 'selesai' ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-400/10 border-emerald-200 dark:border-emerald-400/20' : 
-                                    (s.status === 'suspended' ? 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-400/10 border-red-200 dark:border-red-400/20' : 
-                                    'text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-400/10 border-sky-200 dark:border-sky-400/20');
+                const statusColor = s.status === 'selesai' ? 'text-emerald-600 bg-emerald-100 border-emerald-200' : 
+                                    (s.status === 'suspended' ? 'text-red-600 bg-red-100 border-red-200' : 
+                                    'text-sky-600 bg-sky-100 border-sky-200');
                 
                 let statusContent = s.status === 'selesai' ? 'SELESAI' : (s.status === 'suspended' ? 'SUSPENDED' : (isOnline ? 'MENGERJAKAN' : 'OFFLINE'));
 
-                // --- LOGIKA SISA WAKTU YANG BARU ---
                 let liveTimerAttr = `class="text-sm font-bold text-slate-600 dark:text-slate-300 mt-1"`;
                 let displayTime = '--:--';
 
+                // Kalkulasi waktu dengan currentExamDuration (yang sudah otomatis menjumlahkan ekstraWaktu)
                 if (s.status === 'mengerjakan' && s.mulaiPada && currentExamDuration > 0) {
                     const endTime = s.mulaiPada.toMillis() + (currentExamDuration * 60000);
-                    // Pindahkan pewarnaan timer ke teks
                     liveTimerAttr = `class="text-sm font-bold text-indigo-600 dark:text-indigo-400 mt-1 live-timer" data-endtime="${endTime}"`;
                     displayTime = '...';
                 }
 
-                let violationBadge = '';
-                if (s.pelanggaran > 0) {
-                    violationBadge = `
-                        <div class="px-3 py-1 rounded-lg bg-red-100 dark:bg-red-500/20 border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-1.5 animate-pulse">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                            ${s.pelanggaran}x Curang
-                        </div>
-                    `;
-                } else {
-                    violationBadge = `
-                        <div class="px-3 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold flex items-center gap-1.5 opacity-50">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            Aman
-                        </div>
-                    `;
-                }
+                let violationBadge = s.pelanggaran > 0 ? 
+                    `<div class="px-3 py-1 rounded-lg bg-red-100 text-red-600 text-xs font-bold animate-pulse">${s.pelanggaran}x Curang</div>` : 
+                    `<div class="px-3 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-xs font-bold opacity-50">Aman</div>`;
 
                 const card = document.createElement('div');
-                card.className = `glass-panel rounded-2xl p-5 student-card flex flex-col relative overflow-hidden group ${s.pelanggaran > 0 ? 'border-red-300 dark:border-red-500/30' : 'border-slate-200 dark:border-white/5'}`;
+                card.className = `glass-panel rounded-2xl p-5 student-card flex flex-col relative overflow-hidden group ${s.pelanggaran > 0 ? 'border-red-300' : 'border-slate-200'}`;
                 
-                if(s.pelanggaran > 0) {
-                    card.innerHTML += `<div class="absolute inset-0 bg-red-500/5 z-0 pointer-events-none"></div>`;
-                }
+                if(s.pelanggaran > 0) card.innerHTML += `<div class="absolute inset-0 bg-red-500/5 z-0 pointer-events-none"></div>`;
 
-                // UI Kartu dengan 3 Kolom (Skor, Kelas, Sisa Waktu)
                 card.innerHTML += `
                     <div class="relative z-10 flex items-start justify-between mb-4">
                         <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-500 dark:text-slate-300 border border-slate-300 dark:border-white/10 overflow-hidden">
-                                ${s.foto ? `<img src="${s.foto}" class="w-full h-full object-cover">` : s.nama.substring(0,2).toUpperCase()}
+                            <div class="w-10 h-10 rounded-full bg-slate-200 overflow-hidden">
+                                ${s.foto ? `<img src="${s.foto}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center font-bold text-slate-500">${s.nama.substring(0,2).toUpperCase()}</div>`}
                             </div>
                             <div>
-                                <h3 class="font-bold text-slate-800 dark:text-white text-sm line-clamp-1" title="${s.nama}">${s.nama}</h3>
-                                <p class="text-xs text-slate-500 dark:text-slate-400 font-mono">${s.nis}</p>
+                                <h3 class="font-bold text-slate-800 dark:text-white text-sm line-clamp-1">${s.nama}</h3>
+                                <p class="text-xs text-slate-500 font-mono">${s.nis}</p>
                             </div>
                         </div>
-                        <button onclick="openActionModal('${s.id}', '${s.nama.replace(/'/g, "\\'")}')" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors z-20">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
-                        </button>
+                        <button onclick="openActionModal('${s.id}', '${s.nama.replace(/'/g, "\\'")}')" class="p-2 rounded-lg bg-slate-100 text-slate-500 hover:text-slate-800 hover:bg-slate-200 z-20">⚙️</button>
                     </div>
 
                     <div class="relative z-10 grid grid-cols-3 gap-2 mb-4">
-                        <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-2 text-center border border-slate-100 dark:border-white/5 flex flex-col justify-center">
-                            <p class="text-[9px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wider">Skor</p>
+                        <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-2 text-center border border-slate-100 flex flex-col justify-center">
+                            <p class="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Skor</p>
                             <p class="text-lg font-bold text-slate-700 dark:text-white mt-0.5">${s.skor || 0}</p>
                         </div>
-                        <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-2 text-center border border-slate-100 dark:border-white/5 flex flex-col justify-center">
-                            <p class="text-[9px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wider">Kelas</p>
+                        <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-2 text-center border border-slate-100 flex flex-col justify-center">
+                            <p class="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Kelas</p>
                             <p class="text-xs font-bold text-slate-600 dark:text-slate-300 mt-1 line-clamp-1">${s.kelas || '-'}</p>
                         </div>
-                        <div class="bg-indigo-50 dark:bg-indigo-900/10 rounded-xl p-2 text-center border border-indigo-100 dark:border-indigo-800/30 flex flex-col justify-center">
-                            <p class="text-[9px] text-indigo-400 dark:text-indigo-500 uppercase font-bold tracking-wider">Waktu</p>
+                        <div class="bg-indigo-50 dark:bg-indigo-900/10 rounded-xl p-2 text-center border border-indigo-100 flex flex-col justify-center">
+                            <p class="text-[9px] text-indigo-400 uppercase font-bold tracking-wider">Waktu</p>
                             <p ${liveTimerAttr}>${displayTime}</p>
                         </div>
                     </div>
 
-                    <div class="relative z-10 flex items-center justify-between mt-auto pt-4 border-t border-slate-100 dark:border-white/5">
-                        <div class="px-2.5 py-1 rounded border text-[10px] font-bold uppercase tracking-wide ${statusColor}">
-                            ${statusContent}
-                        </div>
+                    <div class="relative z-10 flex items-center justify-between mt-auto pt-4 border-t border-slate-100">
+                        <div class="px-2.5 py-1 rounded border text-[10px] font-bold uppercase ${statusColor}">${statusContent}</div>
                         ${violationBadge}
                     </div>
                 `;
@@ -850,14 +724,12 @@
             });
         }
 
-        // GLOBAL TIMER UPDATE FUNCTION
         function startLiveTimerUpdate() {
             setInterval(() => {
                 const now = Date.now();
                 document.querySelectorAll('.live-timer').forEach(el => {
                     const end = parseInt(el.getAttribute('data-endtime'));
                     if (isNaN(end)) return;
-
                     const diff = end - now;
                     
                     if (diff <= 0) {
@@ -887,7 +759,7 @@
             document.getElementById('stat-cheat').innerText = '0';
         }
 
-        // Action Modal Logic
+        // --- ACTION MODAL ---
         window.openActionModal = (id, name) => {
             selectedStudentId = id;
             document.getElementById('modal-student-name').innerText = name;
@@ -906,44 +778,30 @@
             const ref = doc(db, 'hasil_ujian', selectedStudentId);
 
             try {
-                // --- FITUR PESAN PERSONAL ---
                 if (action === 'send_message') {
                     const namaSiswa = document.getElementById('modal-student-name').innerText;
-                    const msg = prompt(`Kirim pesan ke ${namaSiswa}:\n(Pesan akan muncul di tengah layar HP siswa dan memaksa mereka menekannya)`);
-                    
+                    const msg = prompt(`Kirim pesan ke ${namaSiswa}:\n(Akan muncul di tengah layar HP siswa)`);
                     if (msg && msg.trim() !== "") {
-                        await updateDoc(ref, { 
-                            pesanGuru: msg.trim() 
-                        });
-                        alert(`✅ Sukses mengirim peringatan ke ${namaSiswa}!`);
+                        await updateDoc(ref, { pesanGuru: msg.trim() });
+                        alert(`✅ Pesan terkirim!`);
                     }
                 } 
                 else if(action === 'reset_cheat') {
-                    if(confirm("Yakin reset pelanggaran siswa ini?")) {
-                        await updateDoc(ref, { pelanggaran: 0 }); // Reset ke 0
-                        alert("Pelanggaran direset. Siswa bisa masuk kembali.");
+                    if(confirm("Yakin reset pelanggaran?")) {
+                        await updateDoc(ref, { pelanggaran: 0 });
                     }
                 } else if(action === 'force_finish') {
-                    if(confirm("Paksa selesaikan ujian siswa ini?")) {
+                    if(confirm("Paksa selesaikan ujian?")) {
                         await updateDoc(ref, { status: 'selesai', selesaiPada: serverTimestamp() });
                     }
                 } else if(action === 'suspend') {
                     if(confirm("Diskualifikasi siswa ini?")) {
-                        await updateDoc(ref, { 
-                            status: 'suspended', 
-                            skor: 0
-                        });
+                        await updateDoc(ref, { status: 'suspended', skor: 0 });
                     }
                 } else if(action === 'delete') {
-                    if(confirm("HAPUS DATA PERMANEN? Siswa harus mulai dari awal.")) {
-                        await deleteDoc(ref);
-                    }
+                    if(confirm("HAPUS DATA PERMANEN?")) { await deleteDoc(ref); }
                 }
                 closeModal();
-            } catch(e) {
-                alert("Gagal: " + e.message);
-            }
+            } catch(e) { alert("Gagal: " + e.message); }
         };
     </script>
-</body>
-</html>

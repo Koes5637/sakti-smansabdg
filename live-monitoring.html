@@ -572,13 +572,15 @@
 
         function stopMonitoring() {
             if(currentListener) currentListener();
-            if(currentExamListener) currentExamListener(); // Bersihkan radar waktu
-            latestStudentsData = []; // Kosongkan data
-            
             activeExamCode = null;
             isIdle = false;
             clearInterval(idleInterval);
-            // ... (kode di bawahnya tetap sama)
+            setConnectionStatus('offline');
+
+            document.getElementById('cards-container').innerHTML = '<div class="col-span-full text-center py-20 text-slate-500 dark:text-slate-400">Pilih kode ujian untuk memulai pemantauan.</div>';
+            document.getElementById('mass-action-container').classList.add('hidden');
+            resetStats();
+        }
 
         function startMonitoring(examCode) {
             if(currentListener) currentListener();
@@ -589,30 +591,18 @@
             startIdleTimer();
             setConnectionStatus('live');
             
-            // --- 1. RADAR PENGATURAN UJIAN (Mendeteksi Tambah Waktu Real-Time) ---
-            if (currentExamListener) currentExamListener();
-            currentExamListener = onSnapshot(doc(db, 'ujian_terjadwal', examCode), (docSnap) => {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    const durasiDasar = parseInt(data.durasiMenit) || 60;
-                    const ekstra = parseInt(data.ekstraWaktu) || 0;
-                    
-                    // Update total durasi secara dinamis
-                    currentExamDuration = durasiDasar + ekstra;
-                    
-                    // Jika data siswa sudah ada, perbarui kartunya agar jamnya ikut bertambah
-                    if (latestStudentsData.length > 0) {
-                        renderCards(latestStudentsData);
-                    }
-                }
-            });
+            // GET DURATION
+            const selectedExam = allExamsCache.find(e => e.kodeUjian === examCode);
+            currentExamDuration = selectedExam ? parseInt(selectedExam.durasiMenit || 60) : 0;
 
             document.getElementById('cards-container').innerHTML = '<div class="col-span-full text-center py-20 text-primary animate-pulse">Menghubungkan ke data live...</div>';
 
-            // --- 2. RADAR AKTIVITAS SISWA (Hasil Ujian) ---
             const q = query(collection(db, 'hasil_ujian'), where('ujianId', '==', examCode));
             
             currentListener = onSnapshot(q, (snapshot) => {
+                    // FIX PENTING: resetIdleTimer() telah DIHAPUS dari sini. 
+                    // Timer 2 menit sekarang murni hanya direset oleh pergerakan mouse/tangan guru, bukan dari data siswa.
+
                     let students = [];
                     snapshot.forEach(doc => students.push({id: doc.id, ...doc.data()}));
                     
@@ -638,8 +628,7 @@
                 // Filter siswa yang statusnya 'mengerjakan' untuk tombol mass action
                 currentActiveStudents = students.filter(s => s.status === 'mengerjakan');
                 updateMassActionButton();
-				
-				latestStudentsData = students;
+
                 renderCards(students);
                 updateStats(students);
             }, (error) => {

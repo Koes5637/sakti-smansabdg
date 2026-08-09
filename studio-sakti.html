@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modul SAKTI - Dasbor Guru</title>
+    <title>Studio SAKTI - Dasbor Guru</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -242,7 +242,10 @@
         <!-- ========================================== -->
         <div id="tab-content-forum" class="tab-content space-y-6">
             <div class="bg-white dark:bg-slate-800 p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 max-w-4xl mx-auto">
-                <h2 class="text-lg font-bold text-indigo-600 dark:text-indigo-400 mb-6 flex items-center gap-2"><i class="ph ph-chalkboard-teacher text-2xl"></i> Mading & Diskusi Kelas</h2>
+                <div class="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-700 pb-4">
+                    <h2 class="text-lg font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-2"><i class="ph ph-chalkboard-teacher text-2xl"></i> Mading & Diskusi Kelas</h2>
+                    <button onclick="hapusSemuaPesan('diskusi_global', null)" class="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-xl text-xs font-bold border border-red-200 transition-colors flex items-center gap-2 shadow-sm"><i class="ph ph-trash text-base"></i> Bersihkan Mading</button>
+                </div>
                 
                 <div class="flex gap-4 mb-8">
                     <div class="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center font-bold text-xl shrink-0 shadow-sm" id="avatar-guru-forum">G</div>
@@ -337,7 +340,11 @@
                     <h3 class="font-bold text-lg text-indigo-600 dark:text-indigo-400 flex items-center gap-2"><i class="ph ph-chats-circle"></i> Ruang Diskusi Materi</h3>
                     <p class="text-xs text-slate-500 font-bold mt-1" id="diskusi-judul-materi">Judul Materi</p>
                 </div>
-                <button onclick="tutupModalDiskusiGuru()" class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 hover:text-red-500 flex items-center justify-center transition-colors"><i class="ph ph-x font-bold"></i></button>
+                <div class="flex items-center gap-3">
+                    <button id="btn-bersihkan-diskusi" class="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg text-xs font-bold border border-red-200 transition-colors flex items-center gap-1.5 shadow-sm"><i class="ph ph-trash text-sm"></i> Bersihkan Semua</button>
+                    <div class="w-px h-6 bg-slate-300 dark:bg-slate-700"></div>
+                    <button onclick="tutupModalDiskusiGuru()" class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 hover:text-red-500 flex items-center justify-center transition-colors"><i class="ph ph-x font-bold"></i></button>
+                </div>
             </div>
             
             <div class="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-slate-900/50" id="wadah-diskusi-guru">
@@ -1088,17 +1095,17 @@
             document.getElementById('modal-diskusi-guru').classList.remove('hidden');
             document.getElementById('modal-diskusi-guru').classList.add('flex');
             
-            // PERBAIKAN: Mengikat tombol secara langsung (bukan lewat setAttribute)
-            document.getElementById('btn-kirim-diskusi-guru').onclick = function() {
-                kirimBalasanGuru(idModul);
-            };
+            document.getElementById('btn-kirim-diskusi-guru').onclick = function() { kirimBalasanGuru(idModul); };
+            
+            // Pasang fungsi hapus semua ke tombol "Bersihkan Semua"
+            const btnBersihkan = document.getElementById('btn-bersihkan-diskusi');
+            if(btnBersihkan) btnBersihkan.onclick = function() { hapusSemuaPesan('diskusi_materi', idModul); };
             
             const wadah = document.getElementById('wadah-diskusi-guru');
             wadah.innerHTML = `<div class="text-center py-10"><i class="ph ph-spinner animate-spin text-3xl text-slate-400"></i></div>`;
             
             if(unsubscribeDiskusi) unsubscribeDiskusi(); 
             
-            // Urutkan manual tanpa membebani Firebase Index
             unsubscribeDiskusi = db.collection('diskusi_materi')
                 .where('id_modul', '==', idModul)
                 .onSnapshot(snap => {
@@ -1108,7 +1115,8 @@
                     }
                     
                     let pesanArray = [];
-                    snap.forEach(doc => { pesanArray.push(doc.data()); });
+                    // MENANGKAP ID DOKUMEN AGAR BISA DIHAPUS NANTI
+                    snap.forEach(doc => { pesanArray.push({ id: doc.id, ...doc.data() }); });
                     pesanArray.sort((a, b) => new Date(b.waktu) - new Date(a.waktu));
 
                     let html = '';
@@ -1122,10 +1130,14 @@
                         html += `
                         <div class="flex gap-3 mb-4 fade-in">
                             <div class="w-8 h-8 rounded-full ${isGuru ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'} flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">${d.nama.charAt(0).toUpperCase()}</div>
-                            <div class="flex-1 p-4 rounded-2xl rounded-tl-none border ${bgWarna} shadow-sm">
+                            <div class="flex-1 p-4 rounded-2xl rounded-tl-none border ${bgWarna} shadow-sm group">
                                 <div class="flex justify-between items-start mb-2">
                                     <span class="text-xs font-bold text-slate-700 dark:text-slate-300">${namaTampil}</span>
-                                    <span class="text-[9px] font-semibold text-slate-400">${tgl}</span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[9px] font-semibold text-slate-400">${tgl}</span>
+                                        <!-- TOMBOL HAPUS SATUAN -->
+                                        <button onclick="hapusPesanSatu('${d.id}', 'diskusi_materi')" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all" title="Hapus Pesan Ini"><i class="ph ph-trash text-sm"></i></button>
+                                    </div>
                                 </div>
                                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">${window.formatTextAman ? window.formatTextAman(d.teks) : d.teks}</p>
                             </div>
@@ -1185,16 +1197,21 @@
             
             try {
                 unsubscribeForumGlobalGuru = db.collection('diskusi_global')
-                    .orderBy('waktu', 'desc')
-                    .limit(50)
                     .onSnapshot(snap => {
                         if(snap.empty) {
                             wadah.innerHTML = `<div class="text-center py-10 text-slate-400 font-medium border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl bg-slate-50 dark:bg-slate-900">Belum ada obrolan di kelas. Jadilah yang pertama menyapa! 👋</div>`;
                             return;
                         }
+                        
+                        let pesanArray = [];
+                        snap.forEach(doc => { pesanArray.push({ id: doc.id, ...doc.data() }); });
+                        pesanArray.sort((a, b) => new Date(b.waktu) - new Date(a.waktu));
+                        
+                        // Batasi tampilan 50 pesan terakhir agar browser tetap ringan
+                        pesanArray = pesanArray.slice(0, 50);
+
                         let html = '';
-                        snap.forEach(doc => {
-                            const d = doc.data();
+                        pesanArray.forEach(d => {
                             const tgl = new Date(d.waktu).toLocaleString('id-ID', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'});
                             const isGuru = d.role === 'guru';
                             const isSaya = d.nis === currentUser.id; 
@@ -1207,10 +1224,14 @@
                             html += `
                             <div class="flex gap-3 fade-in">
                                 <div class="w-10 h-10 rounded-full ${isGuru ? 'bg-amber-100 text-amber-600' : 'bg-slate-200 text-slate-600'} flex items-center justify-center font-bold shrink-0 shadow-sm text-lg">${d.nama.charAt(0).toUpperCase()}</div>
-                                <div class="flex-1 p-5 rounded-2xl rounded-tl-none border ${bgWarna} shadow-sm">
+                                <div class="flex-1 p-5 rounded-2xl rounded-tl-none border ${bgWarna} shadow-sm group">
                                     <div class="flex justify-between items-start mb-3">
                                         <span class="text-sm font-bold ${warnaTeksNama}">${namaTampil} ${labelPeran}</span>
-                                        <span class="text-[10px] font-semibold text-slate-400 bg-white/50 dark:bg-black/20 px-2 py-0.5 rounded-full">${tgl}</span>
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-[10px] font-semibold text-slate-400 bg-white/50 dark:bg-black/20 px-2 py-0.5 rounded-full">${tgl}</span>
+                                            <!-- TOMBOL HAPUS SATUAN -->
+                                            <button onclick="hapusPesanSatu('${d.id}', 'diskusi_global')" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all" title="Hapus Pesan Ini"><i class="ph ph-trash text-lg"></i></button>
+                                        </div>
                                     </div>
                                     <p class="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">${window.formatTextAman ? window.formatTextAman(d.teks) : d.teks}</p>
                                     ${!isGuru ? `<div class="mt-3 flex justify-end"><button onclick="document.getElementById('input-forum-guru').value = 'Membalas @${d.nama}: ';" class="text-[10px] font-bold text-indigo-500 hover:text-indigo-700"><i class="ph ph-arrow-u-down-left"></i> Balas</button></div>` : ''}
@@ -1582,6 +1603,43 @@
                 if(window.MathJax) MathJax.typesetPromise([wadahKunci]);
             } else {
                 wadahKunci.innerHTML = `<span class="font-bold text-red-500 text-xl"><i class="ph ph-warning-circle text-3xl"></i> Kunci tidak ditemukan di brankas server.</span>`;
+            }
+        }
+		// --- MESIN MODERASI & PENGHAPUS PESAN ---
+        window.hapusPesanSatu = async function(docId, namaKoleksi) {
+            if(confirm("Hapus pesan ini secara permanen? Pesan akan hilang dari layar siswa seketika.")) {
+                try {
+                    await db.collection(namaKoleksi).doc(docId).delete();
+                } catch(e) {
+                    alert("Gagal menghapus pesan: " + e.message);
+                }
+            }
+        }
+
+        window.hapusSemuaPesan = async function(namaKoleksi, idModul) {
+            const pesanPeringatan = idModul 
+                ? "PERINGATAN! Anda akan menghapus SELURUH pesan diskusi pada materi ini. Aksi ini tidak dapat dibatalkan. Lanjutkan?" 
+                : "PERINGATAN! Anda akan MENGOSONGKAN SELURUH ISI Mading Kelas. Aksi ini tidak dapat dibatalkan. Lanjutkan?";
+
+            if(confirm(pesanPeringatan)) {
+                try {
+                    let referensiTabel = db.collection(namaKoleksi);
+                    if(idModul) referensiTabel = referensiTabel.where('id_modul', '==', idModul);
+                    
+                    const snap = await referensiTabel.get();
+                    if(snap.empty) return alert("Ruang diskusi sudah bersih, tidak ada pesan yang bisa dihapus.");
+                    
+                    // Menggunakan Batch agar ratusan pesan bisa dihapus dalam 1 detik sekaligus
+                    const batch = db.batch();
+                    snap.forEach(doc => {
+                        batch.delete(doc.ref);
+                    });
+                    
+                    await batch.commit();
+                    alert("Operasi Pembersihan Selesai!");
+                } catch(e) {
+                    alert("Gagal membersihkan pesan: " + e.message);
+                }
             }
         }
     </script>

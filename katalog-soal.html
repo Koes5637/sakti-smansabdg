@@ -312,6 +312,12 @@
                 </label>
             </div>
 
+            <!-- TOMBOL BARU UNTUK MODUL SAKTI -->
+            <button id="send-sakti-btn" onclick="window.kirimKeModulSakti()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed mb-2 flex items-center justify-center gap-2" disabled>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                KIRIM KE MODUL SAKTI
+            </button>
+            
             <button id="checkout-btn" class="w-full bg-gold hover:bg-yellow-600 text-slate-900 font-bold py-3 rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed mb-2" disabled>PROSES KE ADMIN UJIAN</button>
             <button id="export-word-btn" onclick="window.exportToWord()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2" disabled>
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -1249,15 +1255,18 @@
             
             const btn = document.getElementById('checkout-btn');
             const exportBtn = document.getElementById('export-word-btn');
+            const saktiBtn = document.getElementById('send-sakti-btn'); // Sensor tombol baru
             
             if (count === 0) {
                 btn.disabled = true;
                 btn.innerText = "PILIH SOAL DULU";
                 exportBtn.disabled = true;
+                if(saktiBtn) saktiBtn.disabled = true;
             } else {
                 btn.disabled = false;
                 btn.innerText = `PROSES (${count})`;
                 exportBtn.disabled = false;
+                if(saktiBtn) saktiBtn.disabled = false;
             }
 
             const list = document.getElementById('cart-items');
@@ -1268,7 +1277,20 @@
             });
         }
         
-// --- NEW: EXPORT TO MS WORD ---
+		// --- NEW: KIRIM KE MODUL SAKTI ---
+        window.kirimKeModulSakti = () => {
+            if (cart.size === 0) return alert("Keranjang kosong! Pilih minimal 1 soal.");
+            
+            // Ambil semua ID dari Set(cart) menjadi Array
+            const idSoalTerpilih = Array.from(cart);
+            
+            // Simpan ke Keranjang Browser (Memori Sementara)
+            localStorage.setItem('keranjang_soal_sakti', JSON.stringify(idSoalTerpilih));
+            
+            // Lemparkan kembali ke Modul SAKTI
+            window.location.href = 'modul-sakti.html';
+        };
+		// --- NEW: EXPORT TO MS WORD ---
         window.exportToWord = () => {
             if (cart.size === 0) return alert("Keranjang kosong!");
             

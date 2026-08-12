@@ -1277,7 +1277,7 @@
             });
         }
         
-		// --- NEW: KIRIM KE MODUL SAKTI ---
+		// --- NEW: KIRIM KE STUDIO SAKTI ---
         window.kirimKeModulSakti = () => {
             if (cart.size === 0) return alert("Keranjang kosong! Pilih minimal 1 soal.");
             
@@ -1287,8 +1287,8 @@
             // Simpan ke Keranjang Browser (Memori Sementara)
             localStorage.setItem('keranjang_soal_sakti', JSON.stringify(idSoalTerpilih));
             
-            // Lemparkan kembali ke Modul SAKTI
-            window.location.href = 'modul-sakti.html';
+            // Lemparkan kembali ke Studio SAKTI (Nama file baru)
+            window.location.href = 'studio-sakti.html';
         };
 		// --- NEW: EXPORT TO MS WORD ---
         window.exportToWord = () => {

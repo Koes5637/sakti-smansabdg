@@ -446,7 +446,9 @@
                     <option value="8">Tebal</option>
                 </select>
 
-                <button onclick="window.hapusCoretan()" class="p-1.5 rounded-lg text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors" title="Hapus Coretan"><span class="text-base">🗑️</span></button>
+                <button onclick="window.undoCoretan()" class="p-1.5 rounded-lg text-gray-500 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors" title="Batal (Hapus Coretan Terakhir)"><span class="text-base">↩️</span></button>
+                <div class="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-0.5"></div>
+                <button onclick="window.hapusCoretan()" class="p-1.5 rounded-lg text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors" title="Hapus Semua Coretan"><span class="text-base">🗑️</span></button>
             </div>
 
             <div class="flex items-center gap-3">
@@ -2224,12 +2226,16 @@
                 }
             };
 
-            // --- MESIN KANVAS PENA (CORET-CORET) ---
+            // --- MESIN KANVAS PENA (DENGAN FITUR UNDO) ---
             let isPenaAktif = false;
             let isDrawing = false;
             let canvas, ctx;
             let warnaPenaAktif = '#ef4444';
             let ketebalanPenaAktif = 4;
+            
+            // Memori penyimpan jejak coretan
+            let riwayatCoretan = []; 
+            let coretanSekarang = null; 
 
             window.ubahWarnaPena = function(warna) {
                 warnaPenaAktif = warna;
@@ -2247,49 +2253,93 @@
 
                 window.addEventListener('resize', sesuaikanUkuranKanvas);
 
-                canvas.onmousedown = (e) => { if(!isPenaAktif) return; isDrawing = true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); };
-                canvas.onmousemove = (e) => { 
-                    if(!isPenaAktif || !isDrawing) return; 
-                    ctx.lineTo(e.offsetX, e.offsetY); 
+                function mulaiCoret(x, y) {
+                    if(!isPenaAktif) return;
+                    isDrawing = true;
+                    // Buat rekam jejak baru untuk garis ini
+                    coretanSekarang = { warna: warnaPenaAktif, tebal: ketebalanPenaAktif, titik: [{x, y}] };
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                }
+
+                function tarikCoret(x, y) {
+                    if(!isPenaAktif || !isDrawing) return;
+                    coretanSekarang.titik.push({x, y}); // Simpan setiap belokan kordinat
+                    ctx.lineTo(x, y);
                     ctx.strokeStyle = warnaPenaAktif; 
                     ctx.lineWidth = ketebalanPenaAktif; 
                     ctx.lineCap = 'round'; 
+                    ctx.lineJoin = 'round';
                     ctx.stroke(); 
-                };
-                canvas.onmouseup = () => { isDrawing = false; };
-                canvas.onmouseleave = () => { isDrawing = false; };
+                }
 
-                // Dukungan Sentuh Layar (Tablet/Stylus)
+                function lepasCoret() {
+                    if(isDrawing) {
+                        riwayatCoretan.push(coretanSekarang); // Masukkan garis ke dalam memori riwayat
+                        isDrawing = false;
+                        coretanSekarang = null;
+                    }
+                }
+
+                // Mouse (Laptop/PC)
+                canvas.onmousedown = (e) => mulaiCoret(e.offsetX, e.offsetY);
+                canvas.onmousemove = (e) => tarikCoret(e.offsetX, e.offsetY);
+                canvas.onmouseup = lepasCoret;
+                canvas.onmouseleave = lepasCoret;
+
+                // Sentuhan (Tablet/Stylus)
                 canvas.ontouchstart = (e) => {
                     if(!isPenaAktif) return;
-                    isDrawing = true;
                     const rect = canvas.getBoundingClientRect();
                     const touch = e.touches[0];
-                    ctx.beginPath();
-                    ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
+                    mulaiCoret(touch.clientX - rect.left, touch.clientY - rect.top);
                     e.preventDefault();
                 };
                 canvas.ontouchmove = (e) => {
                     if(!isPenaAktif || !isDrawing) return;
                     const rect = canvas.getBoundingClientRect();
                     const touch = e.touches[0];
-                    ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
-                    ctx.strokeStyle = warnaPenaAktif; 
-                    ctx.lineWidth = ketebalanPenaAktif; 
-                    ctx.lineCap = 'round'; 
-                    ctx.stroke();
+                    tarikCoret(touch.clientX - rect.left, touch.clientY - rect.top);
                     e.preventDefault();
                 };
-                canvas.ontouchend = () => { isDrawing = false; };
+                canvas.ontouchend = lepasCoret;
             };
 
             function sesuaikanUkuranKanvas() {
                 const wadah = document.getElementById('wadah-scroll-bahas');
                 if(!canvas || !wadah) return;
                 canvas.width = wadah.scrollWidth;
-                // Pastikan canvas menutupi tinggi penuh agar coretan tembus sampai bawah
                 canvas.height = Math.max(wadah.scrollHeight, wadah.clientHeight);
+                gambarUlangRiwayat(); // Jika layar membesar/mengecil, gambar ulang coretannya
             }
+
+            // Fungsi untuk menggambar ulang memori coretan secara kilat
+            function gambarUlangRiwayat() {
+                if(!ctx || !canvas) return;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                riwayatCoretan.forEach(garis => {
+                    if(garis.titik.length < 1) return;
+                    ctx.beginPath();
+                    ctx.moveTo(garis.titik[0].x, garis.titik[0].y);
+                    for(let i = 1; i < garis.titik.length; i++) {
+                        ctx.lineTo(garis.titik[i].x, garis.titik[i].y);
+                    }
+                    ctx.strokeStyle = garis.warna;
+                    ctx.lineWidth = garis.tebal;
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.stroke();
+                });
+            }
+
+            // FITUR BARU: Batal / Undo Coretan Terakhir
+            window.undoCoretan = function() {
+                if (riwayatCoretan.length > 0) {
+                    riwayatCoretan.pop(); // Buang garis yang paling terakhir dibuat
+                    gambarUlangRiwayat(); // Gambar ulang sisanya
+                }
+            };
 
             window.togglePenaBahas = function() {
                 isPenaAktif = !isPenaAktif;
@@ -2307,6 +2357,7 @@
             };
 
             window.hapusCoretan = function() {
+                riwayatCoretan = []; // Kosongkan memori
                 if(ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
             };
     </script>

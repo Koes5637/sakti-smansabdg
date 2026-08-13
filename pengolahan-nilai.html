@@ -492,6 +492,37 @@
             }, 3000);
         }
 
+		// FITUR UNLOCK NILAI UJIAN (REMEDIAL/SUSULAN)
+        window.handleExamScoreEdit = (e, nis, examCode, namaSiswa, kelasSiswa) => {
+            let raw = e.target.value;
+            let val = parseFloat(raw.replace(',', '.'));
+            
+            const docRef = doc(db, 'hasil_ujian', `${examCode}_${nis}`);
+
+            if (raw === "" || isNaN(val)) {
+                // Jika dikosongkan, hapus nilainya dari memori dan database
+                if (scores[nis] && scores[nis][examCode]) {
+                    delete scores[nis][examCode];
+                }
+                deleteDoc(docRef).catch(err => console.log(err));
+            } else {
+                // Simpan ke memori lokal
+                if (!scores[nis]) scores[nis] = {};
+                if (!scores[nis][examCode]) {
+                    scores[nis][examCode] = { docId: `${examCode}_${nis}`, nis: nis, nama: namaSiswa, kelas: kelasSiswa, ujianId: examCode };
+                }
+                scores[nis][examCode].skor = val;
+                
+                // Tulis ke database Firebase
+                setDoc(docRef, {
+                    nis: nis, nama: namaSiswa, kelas: kelasSiswa, ujianId: examCode,
+                    skor: val, status: 'selesai', isRemedial: true, 
+                    dikoreksiPada: new Date().toISOString()
+                }, { merge: true }).catch(err => console.log(err));
+            }
+            
+            renderTable(); // Update Rata-rata secara instan
+        };
         // FITUR UNLOCK NILAI AKHIR (FIX 5)
         window.handleManualInput = (e, nis, colId) => {
             let raw = e.target.value;
@@ -953,7 +984,40 @@
                     }
                 });
                 exams.sort((a,b) => new Date(b.tanggal || 0) - new Date(a.tanggal || 0));
-
+				
+				// --- INTEGRASI SILUMAN: MENARIK TUGAS DARI MODUL SAKTI ---
+                let qModul = collection(db, 'modul_sakti');
+                if (currentGuruMapel !== 'ADMIN PUSAT') {
+                    qModul = query(qModul, where('mapel', '==', currentGuruMapel), where('tipe_konten', '==', 'tugas'));
+                }
+                const mSnap = await getDocs(qModul);
+                
+                mSnap.forEach(d => {
+                    const data = d.data();
+                    // Keamanan: Hanya tarik tugas buatan Bapak sendiri
+                    if (currentGuruMapel !== 'ADMIN PUSAT' && data.guru_id !== currentGuruId) return;
+                    
+                    if (data.tugasAktif) {
+                        exams.push({
+                            id: d.id,
+                            hasManualCorrection: true, 
+                            bobotNilai: 1, // Default bobot 1 (bisa Bapak ubah di menu Atur Bobot)
+                            kodeUjian: data.id_modul, // Kunci siluman agar sinkron dengan Ruang Belajar
+                            namaUjian: "📝 " + data.judul, // Ikon pensil sebagai penanda tugas LMS
+                            targetSemuaKelas: data.is_publik,
+                            targetKelas: data.target_kelas,
+                            dibuatOleh: data.guru_id,
+                            jenis_ujian: 'MANDIRI',
+                            daftarIdSoal: data.soal_latihan ? data.soal_latihan.map(s => s.id) : [],
+                            tanggal: data.dibuat_pada
+                        });
+                        examIds.add(data.id_modul);
+                    }
+                });
+                // Urutkan ulang agar tugas dan ujian CBT berbaur sesuai tanggal
+                exams.sort((a,b) => new Date(b.tanggal || 0) - new Date(a.tanggal || 0));
+                // ---------------------------------------------------------
+				
                 const validClassesFromExams = new Set();
                 exams.forEach(ex => {
                     // GERBANG KEAMANAN 2: Jangan biarkan kelas dari ujian orang lain/sekolah menyusup ke Dropdown Bapak
@@ -1207,23 +1271,30 @@
                 } else {
                     visibleExams.forEach(e => {
                         const record = scores[s.id]?.[e.kodeUjian];
-                        let cellContent = '-';
-                        let cellClass = "opacity-30";
-
+                        let scoreVal = record && record.skor !== undefined ? Math.round(record.skor) : '';
+                        
+                        let tombolDetail = '';
+                        let textWarna = "text-gray-800 dark:text-gray-200";
+                        
                         if (record) {
-                            // Tampilkan tombol detail untuk SEMUA ujian (Review Jawaban Lengkap)
                             const isGraded = record.manualScores && Object.keys(record.manualScores).length > 0;
                             const btnColor = e.hasManualCorrection && !isGraded ? 'bg-amber-100 text-amber-700 animate-pulse' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200';
                             const iconBtn = e.hasManualCorrection && !isGraded ? '✎' : '👁️';
                             const titleBtn = e.hasManualCorrection && !isGraded ? 'Ada Esai Belum Dikoreksi' : 'Lihat Lembar Jawaban Siswa';
                             
-                            let tombolDetail = `<button onclick="window.openCorrection('${s.id}', '${e.kodeUjian}')" class="ml-2 text-[10px] ${btnColor} dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded transition-all" title="${titleBtn}">${iconBtn}</button>`;
+                            tombolDetail = `<button onclick="window.openCorrection('${s.id}', '${e.kodeUjian}')" class="absolute right-1 top-1/2 transform -translate-y-1/2 text-[10px] ${btnColor} dark:bg-indigo-900 dark:text-indigo-300 px-1.5 py-0.5 rounded transition-all z-10 shadow-sm" title="${titleBtn}">${iconBtn}</button>`;
                             
-                            cellContent = Math.round(record.skor) + tombolDetail;
-                            cellClass = "font-bold text-gray-800 dark:text-white";
-                            if (record.skor < 70) cellClass = "font-bold text-red-500";
-                        } 
-                        rowHtml += `<td class="px-2 py-4 text-center ${cellClass}">${cellContent}</td>`;
+                            if (record.skor < 70) textWarna = "text-red-500 font-bold";
+                            else textWarna = "text-gray-800 dark:text-white font-bold";
+                        }
+
+                        rowHtml += `
+                        <td class="px-2 py-2 text-center relative border-l border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+                            <input type="number" value="${scoreVal}"
+                                onchange="window.handleExamScoreEdit(event, '${s.id}', '${e.kodeUjian}', '${s.nama}', '${s.kelas}')"
+                                class="w-12 p-1.5 text-center bg-transparent border border-transparent group-hover:border-gray-300 dark:group-hover:border-gray-600 rounded focus:bg-white dark:focus:bg-cyber-800 focus:border-primary focus:ring-2 ring-primary outline-none transition-all text-sm ${textWarna}" placeholder="-">
+                            ${tombolDetail}
+                        </td>`;
                     });
                 }
 
@@ -1233,7 +1304,7 @@
                     <td class="px-2 py-3 text-center border-l border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-900/5">
                         <input type="number" data-nis="${s.id}" value="${cVal}" 
                             onpaste="handleExcelPaste(event, this, '${col.id}')"
-                            oninput="handleManualInput(event, '${s.id}', '${col.id}')"
+                            onchange="window.handleManualInput(event, '${s.id}', '${col.id}')"
                             class="paste-receiver paste-${col.id} w-14 p-1.5 text-center font-bold text-indigo-900 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-700 rounded bg-white dark:bg-cyber-800 focus:ring-2 ring-indigo-500 outline-none text-sm" placeholder="-">
                     </td>`;
                 });
@@ -1247,7 +1318,7 @@
                     <td class="px-4 py-4 text-center border-l border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10">
                         <input type="number" data-nis="${s.id}" value="${s.finalGrade}"
                             onpaste="handleExcelPaste(event, this, 'nilai_akhir')"
-                            oninput="handleManualInput(event, '${s.id}', 'nilai_akhir')"
+                            onchange="window.handleManualInput(event, '${s.id}', 'nilai_akhir')"
                             class="paste-receiver paste-nilai_akhir w-16 p-2 text-center font-bold text-blue-900 dark:text-blue-100 border rounded-lg outline-none focus:ring-2 ring-blue-500 ${finalBorder}">
                     </td>
                     <td class="px-6 py-4 text-center">
@@ -1436,6 +1507,9 @@
             if (filterDropdown) filterDropdown.value = 'all';
 
             questions.forEach((q, idx) => {
+                // TAMENG PELINDUNG: Jika tipe soal kosong, anggap sebagai 'pg'
+                q.type = q.type || 'pg'; 
+                
                 const bobot = (examData.kustomisasiBobot && examData.kustomisasiBobot[q.id]) ? parseInt(examData.kustomisasiBobot[q.id]) : (parseInt(q.skor) || 1);
                 const ansObj = answerMap[q.id] || { val: '-', image: null };
                 const studentAns = ansObj.val;

@@ -181,7 +181,7 @@
                 // 1. TARIK SELURUH DATA UTAMA SECARA PARALEL
                 const [snapSiswa, snapHasil, piketSnap, pSnap, legerSnap] = await Promise.all([
                     getDocs(query(collection(db, 'siswa'), where('kelas', '==', waliKelas))),
-                    getDocs(query(collection(db, 'hasil_ujian'), where('kelas', '==', waliKelas))), // Ditarik hanya untuk menghitung Pelanggaran Curang di Dashboard
+                    getDocs(query(collection(db, 'catatan_pelanggaran'), where('kelas', '==', waliKelas))), // Menarik data kasus/pelanggaran resmi
                     getDoc(doc(db, 'presensi_piket', todayStr)).catch(() => null),
                     getDocs(collection(db, 'presensi')).catch(() => null),
                     // INBOX: Tarik data dari koleksi "leger_terkirim" (Pemisahan Data)
@@ -260,10 +260,10 @@
             document.getElementById('stat-total-siswa').innerText = students.length;
 
             let violationMap = {};
-            // Hitung dari raw data hasil_ujian (masih relevan karena ini history real-time ujian)
+            // Hitung dari catatan_pelanggaran resmi
             allResults.forEach(r => {
-                if(r.pelanggaran > 0) {
-                    violationMap[r.nis] = (violationMap[r.nis] || 0) + r.pelanggaran;
+                if(r.nis) {
+                    violationMap[r.nis] = (violationMap[r.nis] || 0) + 1;
                 }
             });
 
@@ -464,7 +464,7 @@
             tbody.innerHTML = '';
 
             students.forEach((s, idx) => {
-                const pelanggaran = allResults.filter(r => r.nis === s.id).reduce((acc, curr) => acc + (curr.pelanggaran || 0), 0);
+                const pelanggaran = allResults.filter(r => r.nis === s.id).length;
                 const catatan = catatanSiswa[s.id] || '';
                 
                 const tr = document.createElement('tr');
@@ -1108,7 +1108,7 @@
                 <!-- Stat Card 2 -->
                 <div class="glass-panel p-6 rounded-3xl shadow-sm border-l-4 border-l-red-500 flex items-center justify-between">
                     <div>
-                        <p class="text-sm text-gray-500 dark:text-gray-400 font-semibold mb-1">Total Pelanggaran Ujian</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 font-semibold mb-1">Total Kasus & Pelanggaran</p>
                         <h3 class="text-4xl font-black text-gray-800 dark:text-white" id="stat-kasus">0</h3>
                     </div>
                     <div class="w-14 h-14 rounded-full bg-red-50 dark:bg-red-900/30 text-red-500 flex items-center justify-center text-2xl">
@@ -1120,9 +1120,9 @@
             <!-- List Pelanggar -->
             <div class="glass-panel p-6 rounded-3xl shadow-sm">
                 <h3 class="font-bold text-lg text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-                    <i class="fa-solid fa-bullseye text-red-500"></i> Pantauan Karakter Kritis
+                    <i class="fa-solid fa-bullseye text-purple-500"></i> Pantauan Karakter Kritis
                 </h3>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Siswa yang paling sering terdeteksi menyontek/keluar dari ujian (Lintas Mapel).</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Siswa yang memiliki catatan kasus disiplin atau pelanggaran karakter terbanyak.</p>
                 <div id="list-pelanggar" class="space-y-1">
                     <!-- Injected by JS -->
                 </div>

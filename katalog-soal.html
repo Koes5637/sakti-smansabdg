@@ -394,7 +394,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, runTransaction, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, getDoc, doc, setDoc, updateDoc, deleteDoc, runTransaction, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
         // --- JALAN PINTAS NINJA: AMBIL CONFIG DINAMIS DARI MEMORI BROWSER ---
@@ -1891,9 +1891,27 @@ Berikan penjelasan mengapa jawaban tersebut benar dan tips cepat untuk menjawab 
                 let targetClassArr = targetClassRaw.split(',').map(s=>s.trim()).filter(Boolean);
                 let finalTargetClasses = new Set();
                 let isSemua = false;
-                const genericX = ['X','X-1','X-2','X-3','X-4','X-5','X-6','X-7','X-8','X-9','X-10','X-11','X-12','X-IPA','X-IPS'];
-                const genericXI = ['XI','XI-1','XI-2','XI-3','XI-4','XI-5','XI-6','XI-7','XI-8','XI-9','XI-10','XI-11','XI-12','XI-IPA','XI-IPS'];
-                const genericXII = ['XII','XII-1','XII-2','XII-3','XII-4','XII-5','XII-6','XII-7','XII-8','XII-9','XII-10','XII-11','XII-12','XII-IPA','XII-IPS'];
+                
+                let genericX = ['X']; let genericXI = ['XI']; let genericXII = ['XII'];
+                
+                try {
+                    const masterRef = doc(db, 'sekolah_settings', 'master_data');
+                    const masterSnap = await getDoc(masterRef);
+                    if (masterSnap.exists() && masterSnap.data().listKelas) {
+                        const listDb = masterSnap.data().listKelas;
+                        listDb.forEach(k => {
+                            let kUp = k.toUpperCase().trim();
+                            if(kUp.startsWith('XII')) genericXII.push(kUp);
+                            else if(kUp.startsWith('XI')) genericXI.push(kUp);
+                            else if(kUp.startsWith('X')) genericX.push(kUp);
+                        });
+                    }
+                } catch(e) { console.warn("Gagal tarik kelas."); }
+                
+                // Jika database sekolah kosong, gunakan cadangan ini
+                if (genericX.length === 1) genericX = ['X','X-1','X-2','X-3','X-4','X-5','X-6','X-7','X-8','X-9','X-10','X-11','X-12','X-IPA','X-IPS'];
+                if (genericXI.length === 1) genericXI = ['XI','XI-1','XI-2','XI-3','XI-4','XI-5','XI-6','XI-7','XI-8','XI-9','XI-10','XI-11','XI-12','XI-IPA','XI-IPS'];
+                if (genericXII.length === 1) genericXII = ['XII','XII-1','XII-2','XII-3','XII-4','XII-5','XII-6','XII-7','XII-8','XII-9','XII-10','XII-11','XII-12','XII-IPA','XII-IPS'];
 
                 targetClassArr.forEach(c => {
                     if (c === 'SEMUA' || c === 'ALL') isSemua = true;

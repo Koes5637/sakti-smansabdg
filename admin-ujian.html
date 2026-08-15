@@ -1538,12 +1538,32 @@
 
                 if (targetType === 'angkatan') {
                     const angkatan = document.querySelector('input[name="admin_target_angkatan_val"]:checked').value;
-                    for (let i = 1; i <= 11; i++) targetClassArr.push(`${angkatan}-${i}`);
+                    try {
+                        const masterRef = doc(db, 'sekolah_settings', 'master_data');
+                        const masterSnap = await getDoc(masterRef);
+                        if(masterSnap.exists() && masterSnap.data().listKelas) {
+                            targetClassArr = masterSnap.data().listKelas.filter(k => k.toUpperCase().startsWith(angkatan));
+                        }
+                    } catch(e) { console.warn("Gagal tarik kelas."); }
+                    
+                    if(targetClassArr.length === 0) { // Cadangan jika database kosong
+                        for (let i = 1; i <= 11; i++) targetClassArr.push(`${angkatan}-${i}`);
+                    }
                 } else if (targetType === 'semua') {
                     targetAll = true;
-                    ['X', 'XI', 'XII'].forEach(angkatan => {
-                        for (let i = 1; i <= 11; i++) targetClassArr.push(`${angkatan}-${i}`);
-                    });
+                    try {
+                        const masterRef = doc(db, 'sekolah_settings', 'master_data');
+                        const masterSnap = await getDoc(masterRef);
+                        if(masterSnap.exists() && masterSnap.data().listKelas) {
+                            targetClassArr = masterSnap.data().listKelas;
+                        }
+                    } catch(e) { console.warn("Gagal tarik kelas."); }
+                    
+                    if(targetClassArr.length === 0) { // Cadangan jika database kosong
+                        ['X', 'XI', 'XII'].forEach(angkatan => {
+                            for (let i = 1; i <= 11; i++) targetClassArr.push(`${angkatan}-${i}`);
+                        });
+                    }
                 } else {
                     targetClassArr = document.getElementById('exam-target-class').value.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean);
                 }
@@ -2059,96 +2079,163 @@
             }
 
             window.navigatePresentation = (dir) => {
-                const newIndex = currentPresIndex + dir;
-                if (newIndex >= 0 && newIndex < presentationData.length) {
-                    currentPresIndex = newIndex;
-                    renderPresentationStep();
-                    window.hapusCoretan();
+                const soalSekarang = presentationData[currentPresIndex];
+                const groupId = soalSekarang.metadata?.groupId || soalSekarang.group_id;
+
+                if (dir === 1) { // SELANJUTNYA
+                    if (groupId) {
+                        while (currentPresIndex < presentationData.length - 1 && (presentationData[currentPresIndex].metadata?.groupId || presentationData[currentPresIndex].group_id) === groupId) {
+                            currentPresIndex++;
+                        }
+                        if ((presentationData[currentPresIndex].metadata?.groupId || presentationData[currentPresIndex].group_id) === groupId) {
+                            // Mentok di soal terakhir grup, biarkan diam
+                        }
+                    } else {
+                        if (currentPresIndex < presentationData.length - 1) currentPresIndex++;
+                    }
+                } 
+                else if (dir === -1) { // SEBELUMNYA
+                    if (groupId) {
+                        while (currentPresIndex > 0 && (presentationData[currentPresIndex - 1].metadata?.groupId || presentationData[currentPresIndex - 1].group_id) === groupId) {
+                            currentPresIndex--;
+                        }
+                        if (currentPresIndex > 0) currentPresIndex--;
+                        
+                        const prevGroupId = presentationData[currentPresIndex].metadata?.groupId || presentationData[currentPresIndex].group_id;
+                        if (prevGroupId) {
+                            while (currentPresIndex > 0 && (presentationData[currentPresIndex - 1].metadata?.groupId || presentationData[currentPresIndex - 1].group_id) === prevGroupId) {
+                                currentPresIndex--;
+                            }
+                        }
+                    } else {
+                        if (currentPresIndex > 0) {
+                            currentPresIndex--;
+                            const prevGroupId = presentationData[currentPresIndex].metadata?.groupId || presentationData[currentPresIndex].group_id;
+                            if (prevGroupId) {
+                                while (currentPresIndex > 0 && (presentationData[currentPresIndex - 1].metadata?.groupId || presentationData[currentPresIndex - 1].group_id) === prevGroupId) {
+                                    currentPresIndex--;
+                                }
+                            }
+                        }
+                    }
                 }
+
+                renderPresentationStep();
+                if(window.hapusCoretan) window.hapusCoretan();
             };
 
             window.renderPresentationStep = () => {
-                const soal = presentationData[currentPresIndex];
-                document.getElementById('presentation-counter').textContent = `Soal ${currentPresIndex + 1} dari ${presentationData.length}`;
+                let startIdx = currentPresIndex;
+                let endIdx = currentPresIndex;
+                const reqQ = presentationData[currentPresIndex];
+                const gid = reqQ.metadata?.groupId || reqQ.group_id;
+
+                // Deteksi Batas Kelompok (Grup)
+                if (gid) {
+                    while (startIdx > 0 && (presentationData[startIdx - 1].metadata?.groupId || presentationData[startIdx - 1].group_id) === gid) startIdx--;
+                    while (endIdx < presentationData.length - 1 && (presentationData[endIdx + 1].metadata?.groupId || presentationData[endIdx + 1].group_id) === gid) endIdx++;
+                }
+
+                currentPresIndex = startIdx; // Kunci indeks ke awal grup
+
+                if (startIdx === endIdx) {
+                    document.getElementById('presentation-counter').textContent = `Soal ${startIdx + 1} dari ${presentationData.length}`;
+                } else {
+                    document.getElementById('presentation-counter').textContent = `Soal ${startIdx + 1}-${endIdx + 1} dari ${presentationData.length}`;
+                }
                 
                 const wrapper = document.getElementById('presentation-content-wrapper');
                 const btnKey = document.getElementById('btn-reveal-key');
                 
-                // Kembalikan tombol kunci ke kondisi belum terbuka
                 btnKey.innerHTML = '<span>🗝️</span> Buka Kunci';
                 btnKey.classList.remove('from-green-500', 'to-emerald-500');
                 btnKey.classList.add('from-amber-500', 'to-orange-500');
                 btnKey.disabled = false;
 
-                // Ekstraksi Konten Utama
-                let html = `<div class="mb-6 leading-relaxed font-medium bg-gray-50 dark:bg-black/20 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">${soal.naskah}</div>`;
-                
-                if (soal.naskahImage) {
-                    html += `<img src="${soal.naskahImage}" class="max-h-96 object-contain rounded-xl border-4 border-white shadow-lg mx-auto mb-8">`;
-                }
+                let html = '';
 
-                html += `<div class="space-y-3 w-full">`;
-                
-                // 1. RENDER PG & PGK (DENGAN PEMBEDA TANDA OPSI)
-                if (soal.type === 'pg' || soal.type === 'pgk') {
-                    soal.opsi.forEach((o, i) => {
-                        // Logika pembeda: PG pakai abjad, PGK pakai kotak kosong
-                        const penandaOpsi = soal.type === 'pg' 
-                            ? String.fromCharCode(65+i) 
-                            : `<div class="w-4 h-4 border-2 border-gray-400 dark:border-gray-500 rounded-sm"></div>`;
+                for (let i = startIdx; i <= endIdx; i++) {
+                    const soal = presentationData[i];
 
+                    // Wacana hanya dicetak 1x di paling atas
+                    if (i === startIdx && soal.wacana) {
+                        html += `<div class="mb-8 p-6 bg-blue-50/60 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl text-slate-800 dark:text-slate-200 shadow-sm leading-relaxed">${window.formatTextAman ? window.formatTextAman(soal.wacana) : soal.wacana}</div>`;
+                    }
+
+                    // Pembatas antar soal
+                    html += `<div class="mb-10 relative border-b-4 border-dotted border-gray-200 dark:border-gray-700 pb-10 last:border-0">`;
+                    html += `<div class="absolute -top-4 -left-4 bg-indigo-600 text-white px-4 py-1.5 rounded-xl font-black shadow-lg text-sm border-2 border-white dark:border-gray-900">SOAL NO ${i + 1}</div>`;
+
+                    html += `<div class="mt-6 mb-6 leading-relaxed font-medium bg-gray-50 dark:bg-black/20 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">${window.formatTextAman ? window.formatTextAman(soal.naskah) : soal.naskah}</div>`;
+                    
+                    if (soal.naskahImage) {
+                        html += `<img src="${soal.naskahImage}" class="max-h-96 object-contain rounded-xl border-4 border-white shadow-lg mx-auto mb-8">`;
+                    }
+                    if (soal.naskahBawah) {
+                        html += `<div class="mb-6 leading-relaxed font-medium bg-gray-50 dark:bg-black/20 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">${window.formatTextAman ? window.formatTextAman(soal.naskahBawah) : soal.naskahBawah}</div>`;
+                    }
+
+                    html += `<div class="space-y-3 w-full">`;
+                    
+                    if (soal.type === 'pg' || soal.type === 'pgk') {
+                        soal.opsi.forEach((o, optIdx) => {
+                            const penandaOpsi = soal.type === 'pg' 
+                                ? String.fromCharCode(65+optIdx) 
+                                : `<div class="w-4 h-4 border-2 border-gray-400 dark:border-gray-500 rounded-sm"></div>`;
+
+                            const txtOpt = typeof o === 'object' ? o.text : o;
+                            html += `
+                                <div id="pres-opt-${i}-${optIdx}" class="pres-option p-4 md:p-5 border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-cyber-800 flex items-center gap-4 transition-all duration-300">
+                                    <span class="w-10 h-10 flex-none rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-500 dark:text-gray-300 shadow-inner">
+                                        ${penandaOpsi}
+                                    </span>
+                                    <div class="flex-1">${window.formatTextAman ? window.formatTextAman(txtOpt) : txtOpt}</div>
+                                    ${(typeof o === 'object' && o.imageBase64) ? `<img src="${o.imageBase64}" class="max-h-32 rounded-lg shadow-sm ml-4 border">` : ''}
+                                </div>
+                            `;
+                        });
+                    } 
+                    else if (soal.type === 'bs') {
                         html += `
-                            <div id="pres-opt-${i}" class="pres-option p-4 md:p-5 border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-cyber-800 flex items-center gap-4 transition-all duration-300">
-                                <span class="w-10 h-10 flex-none rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-500 dark:text-gray-300 shadow-inner">
-                                    ${penandaOpsi}
-                                </span>
-                                <div class="flex-1">${o.text}</div>
+                            <div class="overflow-x-auto rounded-xl border-2 border-gray-200 dark:border-gray-700">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr class="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                                            <th class="p-4 border-b-2 border-gray-200 dark:border-gray-700 font-bold">Pernyataan</th>
+                                            <th class="p-4 border-b-2 border-gray-200 dark:border-gray-700 font-bold text-center w-32 border-l border-gray-200 dark:border-gray-700">Benar</th>
+                                            <th class="p-4 border-b-2 border-gray-200 dark:border-gray-700 font-bold text-center w-32 border-l border-gray-200 dark:border-gray-700">Salah</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                        `;
+                        soal.opsi.forEach((o, optIdx) => {
+                            const txtOpt = typeof o === 'object' ? o.text : o;
+                            html += `
+                                <tr id="pres-bs-row-${i}-${optIdx}" class="bg-white dark:bg-cyber-900 transition-colors duration-300">
+                                    <td class="p-4 border-b border-gray-200 dark:border-gray-800">${window.formatTextAman ? window.formatTextAman(txtOpt) : txtOpt}</td>
+                                    <td id="pres-bs-true-${i}-${optIdx}" class="p-4 border-b border-l border-gray-200 dark:border-gray-800 text-center text-3xl font-bold"></td>
+                                    <td id="pres-bs-false-${i}-${optIdx}" class="p-4 border-b border-l border-gray-200 dark:border-gray-800 text-center text-3xl font-bold"></td>
+                                </tr>
+                            `;
+                        });
+                        html += `</tbody></table></div>`;
+                    } 
+                    else if (soal.type === 'esai-singkat' || soal.type === 'esai-kompleks') {
+                        html += `
+                            <div class="p-6 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl bg-gray-50 dark:bg-cyber-900/50 text-center text-gray-400">
+                                (Area Analisis / Diskusi Kelas)
+                            </div>
+                            <div id="pres-essay-key-${i}" class="hidden mt-6 p-6 bg-green-100 dark:bg-green-900/30 border-2 border-green-400 dark:border-green-600 rounded-2xl">
+                                <span class="block text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-widest mb-2">Kunci / Panduan Jawaban:</span>
+                                <div class="font-bold text-green-900 dark:text-green-100">${window.formatTextAman ? window.formatTextAman(soal.kunci || 'Penilaian Subjektif Guru') : (soal.kunci || 'Penilaian Subjektif Guru')}</div>
                             </div>
                         `;
-                    });
-                } 
-                // 2. RENDER BENAR-SALAH (BS)
-                else if (soal.type === 'bs') {
-                    html += `
-                        <div class="overflow-x-auto rounded-xl border-2 border-gray-200 dark:border-gray-700">
-                            <table class="w-full text-left border-collapse">
-                                <thead>
-                                    <tr class="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
-                                        <th class="p-4 border-b-2 border-gray-200 dark:border-gray-700 font-bold">Pernyataan</th>
-                                        <th class="p-4 border-b-2 border-gray-200 dark:border-gray-700 font-bold text-center w-32 border-l border-gray-200 dark:border-gray-700">Benar</th>
-                                        <th class="p-4 border-b-2 border-gray-200 dark:border-gray-700 font-bold text-center w-32 border-l border-gray-200 dark:border-gray-700">Salah</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                    `;
-                    soal.opsi.forEach((o, i) => {
-                        html += `
-                            <tr id="pres-bs-row-${i}" class="bg-white dark:bg-cyber-900 transition-colors duration-300">
-                                <td class="p-4 border-b border-gray-200 dark:border-gray-800">${o.text}</td>
-                                <td id="pres-bs-true-${i}" class="p-4 border-b border-l border-gray-200 dark:border-gray-800 text-center text-3xl font-bold"></td>
-                                <td id="pres-bs-false-${i}" class="p-4 border-b border-l border-gray-200 dark:border-gray-800 text-center text-3xl font-bold"></td>
-                            </tr>
-                        `;
-                    });
-                    html += `</tbody></table></div>`;
-                } 
-                // 3. RENDER ESAI
-                else if (soal.type === 'esai-singkat' || soal.type === 'esai-kompleks') {
-                    html += `
-                        <div class="p-6 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl bg-gray-50 dark:bg-cyber-900/50 text-center text-gray-400">
-                            (Area Analisis / Diskusi Kelas)
-                        </div>
-                        <div id="pres-essay-key" class="hidden mt-6 p-6 bg-green-100 dark:bg-green-900/30 border-2 border-green-400 dark:border-green-600 rounded-2xl">
-                            <span class="block text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-widest mb-2">Kunci / Panduan Jawaban:</span>
-                            <div class="font-bold text-green-900 dark:text-green-100">${soal.kunci || 'Penilaian Subjektif Guru'}</div>
-                        </div>
-                    `;
+                    }
+                    html += `</div></div>`; // Tutup bungkus soal per item
                 }
                 
-                html += `</div>`;
                 wrapper.innerHTML = html;
 
-                // Panggil MathJax untuk merapikan kode mentah LaTeX menjadi rumus cantik
                 if (window.MathJax) {
                     MathJax.typesetPromise([wrapper]).then(() => {
                         if (typeof sesuaikanUkuranKanvas === 'function') sesuaikanUkuranKanvas();
@@ -2159,70 +2246,86 @@
             };
 
             window.revealPresentationKey = () => {
-                const soal = presentationData[currentPresIndex];
                 const btnKey = document.getElementById('btn-reveal-key');
-                
-                // Ubah tampilan tombol jadi hijau
                 btnKey.innerHTML = '<span>✅</span> Kunci Terbuka';
                 btnKey.classList.replace('from-amber-500', 'from-green-500');
                 btnKey.classList.replace('to-orange-500', 'to-emerald-500');
                 btnKey.disabled = true;
 
-                // 1. BUKA KUNCI PG & PGK
-                if (soal.type === 'pg' || soal.type === 'pgk') {
-                    soal.opsi.forEach((_, i) => {
-                        let isKey = false;
-                        if (soal.kunci !== undefined) {
-                            if (Array.isArray(soal.kunci)) isKey = soal.kunci.includes(i); // Logika PGK
-                            else isKey = (soal.kunci == i); // Logika PG
-                        }
-                        
-                        const optDiv = document.getElementById(`pres-opt-${i}`);
-                        if (isKey) {
-                            optDiv.classList.replace('border-gray-200', 'border-green-500');
-                            optDiv.classList.replace('dark:border-gray-700', 'dark:border-emerald-500');
-                            optDiv.classList.replace('bg-white', 'bg-green-50');
-                            optDiv.classList.replace('dark:bg-cyber-800', 'dark:bg-emerald-900/40');
+                const reqQ = presentationData[currentPresIndex];
+                const gid = reqQ.metadata?.groupId || reqQ.group_id;
+                
+                let startIdx = currentPresIndex;
+                let endIdx = currentPresIndex;
+
+                if (gid) {
+                    while (startIdx > 0 && (presentationData[startIdx - 1].metadata?.groupId || presentationData[startIdx - 1].group_id) === gid) startIdx--;
+                    while (endIdx < presentationData.length - 1 && (presentationData[endIdx + 1].metadata?.groupId || presentationData[endIdx + 1].group_id) === gid) endIdx++;
+                }
+
+                // Buka kunci satu per satu untuk semua soal di grup ini
+                for (let i = startIdx; i <= endIdx; i++) {
+                    const soal = presentationData[i];
+                    
+                    if (soal.type === 'pg' || soal.type === 'pgk') {
+                        soal.opsi.forEach((_, optIdx) => {
+                            let isKey = false;
+                            if (soal.kunci !== undefined) {
+                                if (Array.isArray(soal.kunci)) isKey = soal.kunci.includes(optIdx);
+                                else isKey = (soal.kunci == optIdx);
+                            }
                             
-                            // Tambah ceklis
-                            optDiv.innerHTML += `<div class="text-3xl animate-bounce">✨</div>`;
-                        } else {
-                            optDiv.classList.add('opacity-40'); // Redupkan yang salah
+                            const optDiv = document.getElementById(`pres-opt-${i}-${optIdx}`);
+                            if(!optDiv) return;
+
+                            if (isKey) {
+                                optDiv.classList.replace('border-gray-200', 'border-green-500');
+                                optDiv.classList.replace('dark:border-gray-700', 'dark:border-emerald-500');
+                                optDiv.classList.replace('bg-white', 'bg-green-50');
+                                optDiv.classList.replace('dark:bg-cyber-800', 'dark:bg-emerald-900/40');
+                                
+                                if (!optDiv.querySelector('.animate-bounce')) {
+                                    optDiv.innerHTML += `<div class="text-3xl animate-bounce">✨</div>`;
+                                }
+                            } else {
+                                optDiv.classList.add('opacity-40');
+                            }
+                        });
+                    } 
+                    else if (soal.type === 'bs') {
+                        soal.opsi.forEach((_, optIdx) => {
+                            let isTrue = false;
+                            if (soal.kunci !== undefined && soal.kunci[optIdx] !== undefined) {
+                                const val = soal.kunci[optIdx];
+                                isTrue = (val === true || val === 'true');
+                            }
+                            
+                            const row = document.getElementById(`pres-bs-row-${i}-${optIdx}`);
+                            const tdTrue = document.getElementById(`pres-bs-true-${i}-${optIdx}`);
+                            const tdFalse = document.getElementById(`pres-bs-false-${i}-${optIdx}`);
+                            
+                            if(!row) return;
+
+                            row.classList.replace('bg-white', 'bg-green-50');
+                            row.classList.replace('dark:bg-cyber-900', 'dark:bg-emerald-900/40');
+                            
+                            if (isTrue) {
+                                tdTrue.innerHTML = `<span class="text-green-600 dark:text-green-400 animate-bounce block">✅</span>`;
+                                tdFalse.innerHTML = `<span class="text-gray-300 dark:text-gray-600">❌</span>`;
+                            } else {
+                                tdFalse.innerHTML = `<span class="text-green-600 dark:text-green-400 animate-bounce block">✅</span>`;
+                                tdTrue.innerHTML = `<span class="text-gray-300 dark:text-gray-600">❌</span>`;
+                            }
+                        });
+                    } 
+                    else if (soal.type === 'esai-singkat' || soal.type === 'esai-kompleks') {
+                        const keyDiv = document.getElementById(`pres-essay-key-${i}`);
+                        if (keyDiv) {
+                            keyDiv.classList.remove('hidden');
+                            keyDiv.classList.add('animate-pulse');
+                            setTimeout(() => keyDiv.classList.remove('animate-pulse'), 1000);
                         }
-                    });
-                } 
-                // 2. BUKA KUNCI BENAR-SALAH (BS)
-                else if (soal.type === 'bs') {
-                    soal.opsi.forEach((_, i) => {
-                        let isTrue = false;
-                        if (soal.kunci !== undefined && soal.kunci[i] !== undefined) {
-                            const val = soal.kunci[i];
-                            isTrue = (val === true || val === 'true');
-                        }
-                        
-                        const row = document.getElementById(`pres-bs-row-${i}`);
-                        const tdTrue = document.getElementById(`pres-bs-true-${i}`);
-                        const tdFalse = document.getElementById(`pres-bs-false-${i}`);
-                        
-                        // Warnai baris
-                        row.classList.replace('bg-white', 'bg-green-50');
-                        row.classList.replace('dark:bg-cyber-900', 'dark:bg-emerald-900/40');
-                        
-                        // Taruh ikon sesuai kunci
-                        if (isTrue) {
-                            tdTrue.innerHTML = `<span class="text-green-600 dark:text-green-400 animate-bounce block">✅</span>`;
-                            tdFalse.innerHTML = `<span class="text-gray-300 dark:text-gray-600">❌</span>`;
-                        } else {
-                            tdFalse.innerHTML = `<span class="text-green-600 dark:text-green-400 animate-bounce block">✅</span>`;
-                            tdTrue.innerHTML = `<span class="text-gray-300 dark:text-gray-600">❌</span>`;
-                        }
-                    });
-                } 
-                // 3. BUKA KUNCI ESAI
-                else if (soal.type === 'esai-singkat' || soal.type === 'esai-kompleks') {
-                    document.getElementById('pres-essay-key').classList.remove('hidden');
-                    document.getElementById('pres-essay-key').classList.add('animate-pulse');
-                    setTimeout(() => document.getElementById('pres-essay-key').classList.remove('animate-pulse'), 1000);
+                    }
                 }
             };
 

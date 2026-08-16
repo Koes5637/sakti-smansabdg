@@ -2122,6 +2122,12 @@
 
                 renderPresentationStep();
                 if(window.hapusCoretan) window.hapusCoretan();
+                
+                // MENGEMBALIKAN LAYAR KE PALING ATAS DENGAN JEDA WAKTU (DELAY)
+                setTimeout(() => {
+                    const wadahScroll = document.getElementById('wadah-scroll-bahas');
+                    if(wadahScroll) wadahScroll.scrollTop = 0;
+                }, 100);
             };
 
             window.renderPresentationStep = () => {

@@ -389,7 +389,8 @@
                     <option value="8">Tebal</option>
                 </select>
 
-                <button onclick="hapusCoretan()" class="p-1.5 rounded-lg text-slate-500 hover:text-red-500 hover:bg-white dark:hover:bg-slate-800 transition-colors" title="Hapus Coretan"><i class="ph ph-trash text-base"></i></button>
+                <button onclick="undoCoretan()" class="p-1.5 rounded-lg text-slate-500 hover:text-orange-500 hover:bg-white dark:hover:bg-slate-800 transition-colors" title="Undo (Batalkan Coretan Terakhir)"><i class="ph ph-arrow-u-up-left text-base"></i></button>
+                <button onclick="hapusCoretan()" class="p-1.5 rounded-lg text-slate-500 hover:text-red-500 hover:bg-white dark:hover:bg-slate-800 transition-colors" title="Hapus Semua Coretan"><i class="ph ph-trash text-base"></i></button>
                 <div class="w-px h-4 bg-slate-300 dark:bg-slate-700 mx-1 hidden md:block"></div>
                 <button onclick="ubahZoomBahas(0.1)" class="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 font-bold text-sm shadow-sm flex items-center justify-center text-slate-700 dark:text-slate-200 hover:text-indigo-600">+</button>
                 <button onclick="ubahZoomBahas(-0.1)" class="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 font-bold text-sm shadow-sm flex items-center justify-center text-slate-700 dark:text-slate-200 hover:text-indigo-600">-</button>
@@ -397,12 +398,7 @@
             </div>
 
             <div class="flex items-center justify-center gap-2 md:gap-3 w-full md:w-auto">
-                <button onclick="navigasiBahas(-1)" class="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 px-3 py-2 rounded-xl text-xs md:text-sm font-bold flex items-center gap-1 transition-colors text-slate-700 dark:text-slate-200"><i class="ph ph-caret-left text-lg"></i></button>
-                <div id="indikator-bahas-soal" class="font-black text-sm bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400 px-3 py-2 rounded-xl shadow-inner border border-indigo-200 dark:border-indigo-700">1 / 10</div>
-                <button onclick="navigasiBahas(1)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl text-xs md:text-sm font-bold flex items-center gap-1 transition-colors shadow-md"><i class="ph ph-caret-right text-lg"></i></button>
-                
-                <div class="w-px h-6 bg-slate-300 dark:bg-slate-700 mx-1"></div>
-                <button onclick="tutupBahasSoal()" class="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-xl text-xs font-bold shadow-md transition-colors"><i class="ph ph-x text-lg"></i></button>
+                <button onclick="tutupBahasSoal()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-md transition-colors flex items-center gap-2"><i class="ph ph-x text-lg"></i> Tutup Pembahasan</button>
             </div>
         </div>
 
@@ -1324,6 +1320,28 @@
         let isPenaAktif = false;
         let isDrawing = false;
         let canvas, ctx;
+        let riwayatCoretan = []; // Memori untuk Undo
+
+        function simpanRiwayatCoretan() {
+            if(canvas) riwayatCoretan.push(canvas.toDataURL());
+            // Batasi memori agar browser tidak berat (maksimal simpan 20 langkah terakhir)
+            if(riwayatCoretan.length > 20) riwayatCoretan.shift(); 
+        }
+
+        window.undoCoretan = function() {
+            if(riwayatCoretan.length > 0) {
+                riwayatCoretan.pop(); // Buang coretan yang paling terakhir
+                ctx.clearRect(0, 0, canvas.width, canvas.height); // Bersihkan layar
+                
+                // Gambar ulang memori sisa sebelumnya
+                if(riwayatCoretan.length > 0) {
+                    const imgData = riwayatCoretan[riwayatCoretan.length - 1];
+                    const img = new Image();
+                    img.src = imgData;
+                    img.onload = () => { ctx.drawImage(img, 0, 0); };
+                }
+            }
+        }
 
         window.bukaBahasSoal = function(id) {
             modulBahasAktif = semuaModulGlobal.find(x => x.id === id);
@@ -1350,13 +1368,18 @@
             if(document.fullscreenElement) document.exitFullscreen();
         }
 
-        window.navigasiBahas = function(arah) {
-            indeksBahas += arah;
-            if(indeksBahas < 0) indeksBahas = 0;
-            if(indeksBahas >= modulBahasAktif.soal_latihan.length) indeksBahas = modulBahasAktif.soal_latihan.length - 1;
-            skalaZoom = 1.0; // Reset zoom tiap pindah soal
+        window.pindahSoalBahas = function(targetIdx) {
+            if(targetIdx < 0) targetIdx = 0;
+            if(targetIdx >= modulBahasAktif.soal_latihan.length) targetIdx = modulBahasAktif.soal_latihan.length - 1;
+            
+            indeksBahas = targetIdx;
+            skalaZoom = 1.0; 
             renderBahasSoal();
             hapusCoretan();
+            
+            // KUNCI PERBAIKAN: Mengembalikan layar/scroll ke posisi paling atas
+            const wadahScroll = document.getElementById('wadah-scroll-bahas');
+            if(wadahScroll) wadahScroll.scrollTop = 0;
         }
 
         // Kontrol Zoom
@@ -1396,6 +1419,7 @@
 
             window.addEventListener('resize', sesuaikanUkuranKanvas);
 
+            // Pergerakan Mouse Laptop
             canvas.onmousedown = (e) => { if(!isPenaAktif) return; isDrawing = true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); };
             canvas.onmousemove = (e) => { 
                 if(!isPenaAktif || !isDrawing) return; 
@@ -1405,9 +1429,10 @@
                 ctx.lineCap = 'round'; 
                 ctx.stroke(); 
             };
-            canvas.onmouseup = () => { isDrawing = false; };
-            canvas.onmouseleave = () => { isDrawing = false; };
+            canvas.onmouseup = () => { if(isDrawing) { isDrawing = false; simpanRiwayatCoretan(); } };
+            canvas.onmouseleave = () => { if(isDrawing) { isDrawing = false; simpanRiwayatCoretan(); } };
 
+            // Pergerakan Sentuhan Jari/Stylus di Layar Sentuh
             canvas.ontouchstart = (e) => {
                 if(!isPenaAktif) return;
                 isDrawing = true;
@@ -1428,7 +1453,7 @@
                 ctx.stroke();
                 e.preventDefault();
             };
-            canvas.ontouchend = () => { isDrawing = false; };
+            canvas.ontouchend = () => { if(isDrawing) { isDrawing = false; simpanRiwayatCoretan(); } };
         }
 
         function sesuaikanUkuranKanvas() {
@@ -1454,156 +1479,240 @@
         }
 
         window.hapusCoretan = function() {
-            if(ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if(ctx && canvas) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                riwayatCoretan = []; // Kosongkan memori jika tong sampah diklik
+            }
         }
 
-        // Render Soal & Segenap Kunci (Dilengkapi MathJax Universal)
+        // Render Soal & Segenap Kunci (Dilengkapi MathJax Universal) - VERSI GROUP ID
         window.renderBahasSoal = function() {
-            document.getElementById('indikator-bahas-soal').innerText = `${indeksBahas + 1} / ${modulBahasAktif.soal_latihan.length}`;
-            const soal = modulBahasAktif.soal_latihan[indeksBahas];
+            if(!modulBahasAktif || !modulBahasAktif.soal_latihan || modulBahasAktif.soal_latihan.length === 0) return;
             
-            const teksSoal = window.formatTextAman ? window.formatTextAman(soal.soal_teks || soal.naskah) : (soal.soal_teks || soal.naskah);
-            let imgSoal = soal.naskahImage ? `<img src="${soal.naskahImage}" class="max-h-96 mx-auto mt-6 rounded-2xl shadow-md border border-slate-200">` : '';
-            if(!soal.naskahImage && soal.gambar) imgSoal = `<img src="${soal.gambar}" class="max-h-96 mx-auto mt-6 rounded-2xl shadow-md">`;
+            const soalSaatIni = modulBahasAktif.soal_latihan[indeksBahas];
+            const gId = soalSaatIni.metadata && soalSaatIni.metadata.groupId ? soalSaatIni.metadata.groupId : null;
             
-            let opsiHtml = '';
-            if (!soal.type || soal.type === 'pg' || soal.type === 'pgk') {
-                const opsiList = soal.opsiPemetaan ? soal.opsiPemetaan : (soal.opsi || []).map((opt, idx) => ({ teks: opt, idxAsli: String(idx) }));
-                opsiList.forEach((opt, i) => {
-                    const huruf = String.fromCharCode(65 + i);
-                    const rawTeksOpt = typeof opt.teks === 'object' ? opt.teks.text : opt.teks;
-                    const txt = window.formatTextAman ? window.formatTextAman(rawTeksOpt) : rawTeksOpt;
-                    const imgOpt = (typeof opt.teks === 'object' && opt.teks.imageBase64) ? `<br><img src="${opt.teks.imageBase64}" class="max-h-48 mt-3 rounded-lg shadow-sm">` : '';
-                    
-                    // Bentuk Kotak untuk PGK, Lingkaran untuk PG
-                    const bentukHuruf = soal.type === 'pgk' ? 'rounded-lg' : 'rounded-full';
-
-                    opsiHtml += `
-                    <div id="container-bahas-${opt.idxAsli}" class="p-5 border-2 border-slate-200 dark:border-slate-700 rounded-2xl mb-4 flex gap-5 text-xl bg-white dark:bg-slate-800 items-start shadow-sm transition-all duration-500">
-                        <div class="w-10 h-10 shrink-0 bg-slate-100 dark:bg-slate-700 font-black flex items-center justify-center ${bentukHuruf} border border-slate-300 dark:border-slate-600 shadow-inner">${huruf}</div>
-                        <div class="flex-1 pt-1 leading-relaxed text-slate-700 dark:text-slate-200">${txt}${imgOpt}</div>
-                        <div class="w-10 flex justify-end shrink-0" id="icon-kunci-bahas-${opt.idxAsli}"></div>
-                    </div>`;
-                });
-            } else if (soal.type === 'bs') {
-                opsiHtml += `
-                <table class="w-full text-lg border-collapse mt-4 shadow-sm rounded-xl overflow-hidden hidden md:table">
-                    <thead class="bg-slate-100 dark:bg-slate-700">
-                        <tr><th class="p-4 text-left border dark:border-slate-600 w-3/4">Pernyataan</th><th class="p-4 text-center border dark:border-slate-600">B</th><th class="p-4 text-center border dark:border-slate-600">S</th></tr>
-                    </thead>
-                    <tbody>`;
-                
-                (soal.opsi || []).forEach((opt, subIdx) => {
-                    const rawTeksOpt = typeof opt === 'object' ? opt.text : opt;
-                    const textOpt = window.formatTextAman ? window.formatTextAman(rawTeksOpt) : rawTeksOpt;
-                    opsiHtml += `
-                    <tr class="bg-white dark:bg-slate-800">
-                        <td class="p-4 border dark:border-slate-600 text-slate-700 dark:text-slate-200 leading-relaxed">${textOpt}</td>
-                        <td class="p-4 border dark:border-slate-600 text-center" id="bs-benar-${subIdx}">
-                            <div class="w-8 h-8 mx-auto rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center font-bold text-slate-400 shadow-inner">B</div>
-                        </td>
-                        <td class="p-4 border dark:border-slate-600 text-center" id="bs-salah-${subIdx}">
-                            <div class="w-8 h-8 mx-auto rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center font-bold text-slate-400 shadow-inner">S</div>
-                        </td>
-                    </tr>`;
-                });
-                opsiHtml += `</tbody></table>`;
-            } else if (soal.type === 'esai-singkat' || soal.type === 'esai-kompleks') {
-                opsiHtml += `<div class="p-6 border-2 border-indigo-200 bg-indigo-50/50 rounded-2xl text-lg text-slate-700 dark:text-slate-300 italic">Ini adalah soal uraian/esai. Kunci jawaban akan ditampilkan saat Anda menekan tombol singkap kunci.</div>`;
+            let startIndex = indeksBahas;
+            if (gId) {
+                while(startIndex > 0 && modulBahasAktif.soal_latihan[startIndex-1].metadata?.groupId === gId) startIndex--;
             }
+            
+            let soalGrup = [];
+            let i = startIndex;
+            while (i < modulBahasAktif.soal_latihan.length) {
+                let currentGid = modulBahasAktif.soal_latihan[i].metadata?.groupId;
+                if (gId && currentGid === gId) {
+                    soalGrup.push({ data: modulBahasAktif.soal_latihan[i], realIdx: i });
+                } else if (!gId && i === startIndex) {
+                    soalGrup.push({ data: modulBahasAktif.soal_latihan[i], realIdx: i });
+                } else {
+                    break;
+                }
+                i++;
+            }
+            let endIndex = i - 1;
+
+            let htmlKumpulan = '';
+            
+            soalGrup.forEach((item) => {
+                const soal = item.data;
+                const idx = item.realIdx;
+                const noUrut = idx + 1;
+                
+                const teksSoal = window.formatTextAman ? window.formatTextAman(soal.soal_teks || soal.naskah) : (soal.soal_teks || soal.naskah);
+                let imgSoal = soal.naskahImage ? `<img src="${soal.naskahImage}" class="max-h-96 mx-auto mt-6 rounded-2xl shadow-md border border-slate-200">` : '';
+                if(!soal.naskahImage && soal.gambar) imgSoal = `<img src="${soal.gambar}" class="max-h-96 mx-auto mt-6 rounded-2xl shadow-md">`;
+                
+                let opsiHtml = '';
+                if (!soal.type || soal.type === 'pg' || soal.type === 'pgk') {
+                    const opsiList = soal.opsiPemetaan ? soal.opsiPemetaan : (soal.opsi || []).map((opt, idopt) => ({ teks: opt, idxAsli: String(idopt) }));
+                    opsiList.forEach((opt, iOpsi) => {
+                        const huruf = String.fromCharCode(65 + iOpsi);
+                        const rawTeksOpt = typeof opt.teks === 'object' ? opt.teks.text : opt.teks;
+                        const txt = window.formatTextAman ? window.formatTextAman(rawTeksOpt) : rawTeksOpt;
+                        const imgOpt = (typeof opt.teks === 'object' && opt.teks.imageBase64) ? `<br><img src="${opt.teks.imageBase64}" class="max-h-48 mt-3 rounded-lg shadow-sm">` : '';
+                        
+                        const bentukHuruf = soal.type === 'pgk' ? 'rounded-lg' : 'rounded-full';
+
+                        opsiHtml += `
+                        <div id="container-bahas-${idx}-${opt.idxAsli}" class="p-5 border-2 border-slate-200 dark:border-slate-700 rounded-2xl mb-4 flex gap-5 text-xl bg-white dark:bg-slate-800 items-start shadow-sm transition-all duration-500">
+                            <div class="w-10 h-10 shrink-0 bg-slate-100 dark:bg-slate-700 font-black flex items-center justify-center ${bentukHuruf} border border-slate-300 dark:border-slate-600 shadow-inner">${huruf}</div>
+                            <div class="flex-1 pt-1 leading-relaxed text-slate-700 dark:text-slate-200">${txt}${imgOpt}</div>
+                            <div class="w-10 flex justify-end shrink-0" id="icon-kunci-bahas-${idx}-${opt.idxAsli}"></div>
+                        </div>`;
+                    });
+                } else if (soal.type === 'bs') {
+                    opsiHtml += `
+                    <table class="w-full text-lg border-collapse mt-4 shadow-sm rounded-xl overflow-hidden hidden md:table">
+                        <thead class="bg-slate-100 dark:bg-slate-700">
+                            <tr><th class="p-4 text-left border dark:border-slate-600 w-3/4">Pernyataan</th><th class="p-4 text-center border dark:border-slate-600">B</th><th class="p-4 text-center border dark:border-slate-600">S</th></tr>
+                        </thead>
+                        <tbody>`;
+                    
+                    (soal.opsi || []).forEach((opt, subIdx) => {
+                        const rawTeksOpt = typeof opt === 'object' ? opt.text : opt;
+                        const textOpt = window.formatTextAman ? window.formatTextAman(rawTeksOpt) : rawTeksOpt;
+                        opsiHtml += `
+                        <tr class="bg-white dark:bg-slate-800">
+                            <td class="p-4 border dark:border-slate-600 text-slate-700 dark:text-slate-200 leading-relaxed">${textOpt}</td>
+                            <td class="p-4 border dark:border-slate-600 text-center" id="bs-benar-${idx}-${subIdx}">
+                                <div class="w-8 h-8 mx-auto rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center font-bold text-slate-400 shadow-inner">B</div>
+                            </td>
+                            <td class="p-4 border dark:border-slate-600 text-center" id="bs-salah-${idx}-${subIdx}">
+                                <div class="w-8 h-8 mx-auto rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center font-bold text-slate-400 shadow-inner">S</div>
+                            </td>
+                        </tr>`;
+                    });
+                    opsiHtml += `</tbody></table>`;
+                } else if (soal.type === 'esai-singkat' || soal.type === 'esai-kompleks') {
+                    opsiHtml += `<div class="p-6 border-2 border-indigo-200 bg-indigo-50/50 rounded-2xl text-lg text-slate-700 dark:text-slate-300 italic">Ini adalah soal uraian/esai. Kunci jawaban akan ditampilkan saat Anda menekan tombol singkap kunci.</div>`;
+                }
+                
+                let pembahasanHtml = '';
+                if (soal.pembahasan) {
+                    pembahasanHtml = `
+                    <div id="pembahasan-soal-${idx}" class="hidden mt-8 p-6 bg-indigo-50 dark:bg-cyber-900 border-l-4 border-indigo-500 dark:border-indigo-600 rounded-r-2xl shadow-sm">
+                        <h4 class="font-bold text-indigo-700 dark:text-indigo-400 text-sm uppercase tracking-wider mb-3"><i class="ph ph-lightbulb"></i> Pembahasan Khusus No ${noUrut}</h4>
+                        <div class="text-lg text-slate-700 dark:text-slate-300 prose dark:prose-invert max-w-none leading-relaxed">${soal.pembahasan}</div>
+                        ${soal.pembahasanImage ? `<img src="${soal.pembahasanImage}" class="mt-4 max-h-60 rounded-xl border border-slate-300">` : ''}
+                    </div>`;
+                }
+
+                // Desain Soal Berurut
+                htmlKumpulan += `
+                <div class="mb-10 pb-10 border-b-4 border-slate-200 dark:border-slate-700 border-dashed last:border-b-0 relative pt-8">
+                    ${!gId || (gId && idx !== startIndex) ? `
+                    <div class="absolute -top-4 -left-4 bg-indigo-600 text-white px-6 py-2 rounded-2xl font-black shadow-lg text-lg border-4 border-slate-100 dark:border-slate-900 z-10">
+                        SOAL NO ${noUrut}
+                    </div>` : `
+                    <div class="absolute -top-4 -left-4 bg-emerald-600 text-white px-6 py-2 rounded-2xl font-black shadow-lg text-lg border-4 border-slate-100 dark:border-slate-900 z-10 flex items-center gap-2">
+                        <i class="ph ph-books"></i> WACANA & SOAL NO ${noUrut}
+                    </div>`}
+                    <div class="mb-8 mt-2 text-justify">${teksSoal}${imgSoal}</div>
+                    <div class="space-y-4 text-lg md:text-xl">${opsiHtml}</div>
+                    ${pembahasanHtml}
+                </div>`;
+            });
 
             const wadah = document.getElementById('konten-bahas-soal');
             wadah.innerHTML = `
                 <div class="max-w-6xl mx-auto mb-20 pt-4">
                     <div class="bg-white dark:bg-slate-800 p-8 md:p-12 rounded-[2rem] shadow-xl border border-slate-200 dark:border-slate-700 relative text-xl md:text-2xl leading-relaxed font-medium text-slate-800 dark:text-slate-100">
                         
-                        <div class="absolute -top-4 -left-4 bg-indigo-600 text-white px-6 py-2 rounded-2xl font-black shadow-lg text-lg border-4 border-slate-100 dark:border-slate-900">
-                            SOAL NO ${indeksBahas + 1}
-                        </div>
+                        ${htmlKumpulan}
+                        
+                        <div class="mt-12 flex flex-col md:flex-row items-center justify-between gap-6 border-t-2 border-dashed border-slate-200 dark:border-slate-700 pt-8">
+                            <!-- Kolom Kiri (Kosong sebagai penyeimbang agar tombol tengah presisi) -->
+                            <div class="hidden md:block md:w-1/4"></div>
+                            
+                            <!-- Kolom Tengah (Singkap Kunci) -->
+                            <div class="w-full md:w-2/4 flex justify-center">
+                                <button onclick="tampilkanKunciBahasGrup(${startIndex}, ${endIndex})" class="bg-amber-400 hover:bg-amber-500 text-amber-950 px-8 py-3.5 rounded-[1.5rem] font-black text-lg shadow-lg shadow-amber-400/40 active:scale-95 transition-all flex items-center justify-center gap-3 w-full md:w-auto"><i class="ph ph-key text-2xl"></i> Singkap Kunci Jawaban</button>
+                            </div>
 
-                        <div class="mb-10 mt-6 text-justify">${teksSoal}${imgSoal}</div>
-                        
-                        <div class="space-y-4 text-lg md:text-xl">${opsiHtml}</div>
-                        
-                        <div class="mt-12 flex justify-center border-t-2 border-dashed border-slate-200 dark:border-slate-700 pt-8">
-                            <button onclick="tampilkanKunciBahas('${soal.id}')" class="bg-amber-400 hover:bg-amber-500 text-amber-950 px-10 py-4 rounded-[1.5rem] font-black text-xl shadow-lg shadow-amber-400/40 active:scale-95 transition-all flex items-center gap-3"><i class="ph ph-key text-3xl"></i> Singkap Kunci Jawaban</button>
+                            <!-- Kolom Kanan (Navigasi Baru) -->
+                            <div class="w-full md:w-1/4 flex items-center justify-center md:justify-end gap-2">
+                                <button onclick="pindahSoalBahas(${startIndex - 1})" class="bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-1 transition-colors text-slate-700 dark:text-slate-200 shadow-sm ${startIndex === 0 ? 'opacity-50 cursor-not-allowed' : ''}" ${startIndex === 0 ? 'disabled' : ''}><i class="ph ph-caret-left text-xl"></i></button>
+                                
+                                <div class="font-black text-sm bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400 px-4 py-3 rounded-xl shadow-inner border border-indigo-200 dark:border-indigo-700">
+                                    ${startIndex + 1}${endIndex > startIndex ? '-' + (endIndex + 1) : ''} / ${modulBahasAktif.soal_latihan.length}
+                                </div>
+                                
+                                <button onclick="pindahSoalBahas(${endIndex + 1})" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-1 transition-colors shadow-md ${endIndex === modulBahasAktif.soal_latihan.length - 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${endIndex === modulBahasAktif.soal_latihan.length - 1 ? 'disabled' : ''}><i class="ph ph-caret-right text-xl"></i></button>
+                            </div>
                         </div>
                         
-                        <div id="area-kunci-bahas" class="mt-8 hidden p-6 bg-emerald-50 border-2 border-emerald-300 dark:bg-emerald-900/30 dark:border-emerald-700 rounded-2xl text-center shadow-inner transform transition-all duration-500 scale-95 opacity-0"></div>
+                        <div id="area-kunci-bahas" class="mt-8 hidden p-6 bg-emerald-50 border-2 border-emerald-300 dark:bg-emerald-900/30 dark:border-emerald-700 rounded-2xl text-left shadow-inner transform transition-all duration-500 scale-95 opacity-0"></div>
                     
                     </div>
                 </div>
             `;
             
-            // Render MathJax secara universal untuk seluruh ekspresi matematika (termasuk PG, PGK, BS, Esai)
+            // Kita tidak butuh lagi rewiring (pencarian tombol manual) karena fungsi onClick di atas sudah otomatis terhubung ke soal grup selanjutnya/sebelumnya!
+
             if(window.MathJax) {
                 setTimeout(() => { MathJax.typesetPromise([wadah]); }, 50);
             }
         }
         
-        window.tampilkanKunciBahas = async function(idSoal) {
+        window.tampilkanKunciBahasGrup = async function(startIndex, endIndex) {
             const wadahKunci = document.getElementById('area-kunci-bahas');
-            const soal = modulBahasAktif.soal_latihan[indeksBahas];
-            
             wadahKunci.classList.remove('hidden');
             setTimeout(() => { wadahKunci.classList.remove('scale-95', 'opacity-0'); wadahKunci.classList.add('scale-100', 'opacity-100'); }, 50);
             
-            wadahKunci.innerHTML = `<i class="ph ph-spinner animate-spin text-4xl text-emerald-600 mb-2"></i><br><span class="font-bold text-slate-500 text-sm">Menghubungi Brankas Server...</span>`;
+            wadahKunci.innerHTML = `<div class="text-center"><i class="ph ph-spinner animate-spin text-4xl text-emerald-600 mb-2"></i><br><span class="font-bold text-slate-500 text-sm">Menghubungi Brankas Server...</span></div>`;
             
-            let kunci = kunciBahasCache[idSoal];
-            if(!kunci) {
-                try {
-                    const snap = await db.collection('bank_soal_privat').doc(idSoal).get();
-                    if(snap.exists) {
-                        kunci = snap.data().kunci;
-                        kunciBahasCache[idSoal] = kunci;
-                    }
-                } catch(e){}
-            }
-
-            if(kunci !== undefined && kunci !== null) {
-                let textDisplay = "Kunci Jawaban: " + kunci;
+            let htmlKunciSummary = `<h3 class="font-black text-xl text-emerald-800 dark:text-emerald-400 mb-4 border-b-2 border-emerald-200 pb-2">REKAP KUNCI KELOMPOK INI</h3>`;
+            
+            for(let i = startIndex; i <= endIndex; i++) {
+                const soal = modulBahasAktif.soal_latihan[i];
+                const idSoal = soal.id;
+                let kunci = kunciBahasCache[idSoal];
                 
-                if(!soal.type || soal.type === 'pg') {
-                    const elOpsiContainer = document.getElementById(`container-bahas-${kunci}`);
-                    const elIcon = document.getElementById(`icon-kunci-bahas-${kunci}`);
-                    if(elOpsiContainer) {
-                        elOpsiContainer.classList.replace('border-slate-200', 'border-emerald-500');
-                        elOpsiContainer.classList.replace('dark:border-slate-700', 'dark:border-emerald-500');
-                        elOpsiContainer.classList.replace('bg-white', 'bg-emerald-50');
-                        elOpsiContainer.classList.add('ring-4', 'ring-emerald-200', 'scale-[1.02]');
-                        elIcon.innerHTML = `<i class="ph ph-check-circle text-4xl text-emerald-600 animate-bounce"></i>`;
-                    }
-                    textDisplay = `JAWABAN YANG TEPAT ADALAH OPSI: <span class="text-3xl bg-emerald-200 text-emerald-800 px-3 py-1 rounded-xl ml-2 border border-emerald-400">${String.fromCharCode(65 + parseInt(kunci))}</span>`;
-                } else if (soal.type === 'pgk') {
-                     textDisplay = `Kunci Kombinasi Benar: <span class="bg-emerald-200 text-emerald-800 px-3 py-1 rounded-xl ml-2 font-bold">` + (Array.isArray(kunci) ? kunci.map(x=>String.fromCharCode(65+parseInt(x))).join(', ') : kunci) + `</span>`;
-                } else if (soal.type === 'bs') {
-                     let bsHtml = `<div class="text-left w-full mx-auto space-y-2 mt-3">`;
-                     (soal.opsi || []).forEach((opt, idx) => {
-                         let kSub = Array.isArray(kunci) ? kunci[idx] : (kunci[idx] || 'B');
-                         let txtOpt = typeof opt === 'object' ? opt.text : opt;
-                         let isBenar = String(kSub).toLowerCase()==='true'||String(kSub)==='B';
-                         bsHtml += `<div class="flex justify-between bg-white dark:bg-slate-900 p-3 rounded-xl border border-emerald-200 shadow-sm"><span class="text-base font-medium">${window.formatTextAman(txtOpt)}</span><span class="font-bold px-4 py-1 rounded-lg ${isBenar ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}">${isBenar ? 'BENAR' : 'SALAH'}</span></div>`;
-                         
-                         // Efek Animasi Melompat pada Tabel di Atas
-                         const tdBenar = document.getElementById(`bs-benar-${idx}`);
-                         const tdSalah = document.getElementById(`bs-salah-${idx}`);
-                         if(isBenar && tdBenar) { tdBenar.innerHTML = `<div class="w-10 h-10 mx-auto rounded-full bg-emerald-500 border border-emerald-600 flex items-center justify-center font-black text-white shadow-md animate-bounce">B</div>`; }
-                         if(!isBenar && tdSalah) { tdSalah.innerHTML = `<div class="w-10 h-10 mx-auto rounded-full bg-red-500 border border-red-600 flex items-center justify-center font-black text-white shadow-md animate-bounce">S</div>`; }
-                     });
-                     bsHtml += `</div>`;
-                     textDisplay = `Rekapitulasi Kunci B/S:<br>${bsHtml}`;
-                } else if (soal.type === 'esai-singkat' || soal.type === 'esai-kompleks') {
-                     textDisplay = `Kunci Jawaban Esai:<br><span class="text-2xl font-bold bg-emerald-100 text-emerald-900 px-6 py-2 rounded-2xl inline-block mt-2 border border-emerald-300">${window.formatTextAman ? window.formatTextAman(String(kunci)) : kunci}</span>`;
+                if(!kunci) {
+                    try {
+                        const snap = await db.collection('bank_soal_privat').doc(idSoal).get();
+                        if(snap.exists) {
+                            kunci = snap.data().kunci;
+                            kunciBahasCache[idSoal] = kunci;
+                        }
+                    } catch(e){}
                 }
-                
-                wadahKunci.innerHTML = `<div class="font-bold text-lg md:text-xl text-emerald-700 dark:text-emerald-400">${textDisplay}</div>`;
-                
-                // Pastikan MathJax langsung memproses ulang teks kunci jika ada rumus LaTeX
-                if(window.MathJax) MathJax.typesetPromise([wadahKunci]);
-            } else {
-                wadahKunci.innerHTML = `<span class="font-bold text-red-500 text-xl"><i class="ph ph-warning-circle text-3xl"></i> Kunci tidak ditemukan di brankas server.</span>`;
+
+                if(kunci !== undefined && kunci !== null) {
+                    // Update Visual Opsi
+                    if(!soal.type || soal.type === 'pg') {
+                        const elOpsiContainer = document.getElementById(`container-bahas-${i}-${kunci}`);
+                        const elIcon = document.getElementById(`icon-kunci-bahas-${i}-${kunci}`);
+                        if(elOpsiContainer) {
+                            elOpsiContainer.classList.replace('border-slate-200', 'border-emerald-500');
+                            elOpsiContainer.classList.replace('dark:border-slate-700', 'dark:border-emerald-500');
+                            elOpsiContainer.classList.replace('bg-white', 'bg-emerald-50');
+                            elOpsiContainer.classList.add('ring-4', 'ring-emerald-200', 'scale-[1.02]');
+                            if(elIcon) elIcon.innerHTML = `<i class="ph ph-check-circle text-4xl text-emerald-600 animate-bounce"></i>`;
+                        }
+                        let hurufKunci = String.fromCharCode(65 + parseInt(kunci));
+                        htmlKunciSummary += `<div class="mb-2 font-bold text-emerald-700 text-lg"><span class="inline-block w-20">Soal ${i+1}:</span> <span class="bg-emerald-200 text-emerald-900 px-3 py-1 rounded-lg ml-2 border border-emerald-400">Opsi ${hurufKunci}</span></div>`;
+                    } else if (soal.type === 'pgk') {
+                        let hurufKunciArr = Array.isArray(kunci) ? kunci.map(x=>String.fromCharCode(65+parseInt(x))) : [kunci];
+                        if (Array.isArray(kunci)) {
+                            kunci.forEach(k => {
+                                const elOpsiContainer = document.getElementById(`container-bahas-${i}-${k}`);
+                                const elIcon = document.getElementById(`icon-kunci-bahas-${i}-${k}`);
+                                if(elOpsiContainer) {
+                                    elOpsiContainer.classList.replace('border-slate-200', 'border-emerald-500');
+                                    elOpsiContainer.classList.replace('dark:border-slate-700', 'dark:border-emerald-500');
+                                    elOpsiContainer.classList.replace('bg-white', 'bg-emerald-50');
+                                    elOpsiContainer.classList.add('ring-4', 'ring-emerald-200');
+                                    if(elIcon) elIcon.innerHTML = `<i class="ph ph-check-circle text-4xl text-emerald-600 animate-bounce"></i>`;
+                                }
+                            });
+                        }
+                        htmlKunciSummary += `<div class="mb-2 font-bold text-emerald-700 text-lg"><span class="inline-block w-20">Soal ${i+1}:</span> <span class="bg-emerald-200 text-emerald-900 px-3 py-1 rounded-lg ml-2 border border-emerald-400">Kombinasi: ${hurufKunciArr.join(', ')}</span></div>`;
+                    } else if (soal.type === 'bs') {
+                        (soal.opsi || []).forEach((opt, idx) => {
+                            let kSub = Array.isArray(kunci) ? kunci[idx] : (kunci[idx] || 'B');
+                            let isBenar = String(kSub).toLowerCase()==='true'||String(kSub)==='B';
+                            const tdBenar = document.getElementById(`bs-benar-${i}-${idx}`);
+                            const tdSalah = document.getElementById(`bs-salah-${i}-${idx}`);
+                            if(isBenar && tdBenar) { tdBenar.innerHTML = `<div class="w-10 h-10 mx-auto rounded-full bg-emerald-500 border border-emerald-600 flex items-center justify-center font-black text-white shadow-md animate-bounce">B</div>`; }
+                            if(!isBenar && tdSalah) { tdSalah.innerHTML = `<div class="w-10 h-10 mx-auto rounded-full bg-red-500 border border-red-600 flex items-center justify-center font-black text-white shadow-md animate-bounce">S</div>`; }
+                        });
+                        htmlKunciSummary += `<div class="mb-2 font-bold text-emerald-700 text-lg"><span class="inline-block w-20">Soal ${i+1}:</span> <span class="bg-emerald-200 text-emerald-900 px-3 py-1 rounded-lg ml-2 font-mono border border-emerald-400">${Array.isArray(kunci)?kunci.map(k=>(String(k).toLowerCase()==='true'||String(k)==='B'?'B':'S')).join(', '):kunci}</span></div>`;
+                    } else if (soal.type === 'esai-singkat' || soal.type === 'esai-kompleks') {
+                        htmlKunciSummary += `<div class="mb-2 font-bold text-emerald-700 text-lg"><span class="inline-block w-20">Soal ${i+1}:</span> <span class="bg-emerald-200 text-emerald-900 px-3 py-1 rounded-lg ml-2 font-medium border border-emerald-400">${window.formatTextAman ? window.formatTextAman(String(kunci)) : kunci}</span></div>`;
+                    }
+                } else {
+                    htmlKunciSummary += `<div class="mb-2 font-bold text-red-500 text-lg"><span class="inline-block w-20">Soal ${i+1}:</span> Kunci tidak ditemukan.</div>`;
+                }
+
+                // Munculkan kolom pembahasan untuk setiap soal di dalam grup
+                const elPembahasan = document.getElementById(`pembahasan-soal-${i}`);
+                if (elPembahasan) elPembahasan.classList.remove('hidden');
             }
+            
+            wadahKunci.innerHTML = htmlKunciSummary;
+            if(window.MathJax) MathJax.typesetPromise([wadahKunci]);
         }
 		// --- MESIN MODERASI & PENGHAPUS PESAN ---
         window.hapusPesanSatu = async function(docId, namaKoleksi) {

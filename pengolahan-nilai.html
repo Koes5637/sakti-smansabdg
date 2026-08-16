@@ -988,8 +988,12 @@
 				// --- INTEGRASI SILUMAN: MENARIK TUGAS DARI MODUL SAKTI ---
                 let qModul = collection(db, 'modul_sakti');
                 if (currentGuruMapel !== 'ADMIN PUSAT') {
-                    qModul = query(qModul, where('mapel', '==', currentGuruMapel), where('tipe_konten', '==', 'tugas'));
+                    // Hanya tarik tugas (latihan) yang kategorinya murni KBM Harian Reguler
+                    qModul = query(qModul, where('mapel', '==', currentGuruMapel), where('tipe_konten', '==', 'tugas'), where('kategori', '==', 'KBM_Harian'));
+                } else {
+                    qModul = query(qModul, where('tipe_konten', '==', 'tugas'), where('kategori', '==', 'KBM_Harian'));
                 }
+                
                 const mSnap = await getDocs(qModul);
                 
                 mSnap.forEach(d => {

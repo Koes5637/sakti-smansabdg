@@ -1226,9 +1226,23 @@
 
         window.setStatus = async (studentId, status) => {
             if(!currentClass || !currentDate) return;
+            
+            // --- LOGIKA TOGGLE (KLIK 2 KALI UNTUK BATAL) ---
+            let statusSaatIni = '';
+            if (currentLocalData[studentId] && currentLocalData[studentId].status) {
+                statusSaatIni = currentLocalData[studentId].status.toLowerCase();
+            }
+            
+            // Jika status yang diklik SAMA dengan status saat ini, jadikan kosong (batal)
+            if (status === statusSaatIni) {
+                status = '';
+            }
+            // ----------------------------------------------
+
             const docRef = doc(db, 'presensi', `${currentClass}_${currentGuruMapel}_${currentDate}`);
             const time = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
             const updateData = {};
+            
             if(status === '') updateData[studentId] = { status: '', time: '', method: 'manual' };
             else updateData[studentId] = { status: status, time: time, method: 'manual' };
             

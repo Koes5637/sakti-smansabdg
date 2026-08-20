@@ -491,7 +491,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, setDoc, doc, getDoc, deleteDoc, getDocs, query, where, serverTimestamp, updateDoc, runTransaction, deleteField } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, setDoc, doc, getDoc, deleteDoc, getDocs, query, where, serverTimestamp, updateDoc, runTransaction, deleteField, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         let db, auth;
         let currentGuruId = null;
@@ -1667,7 +1667,9 @@
                  renderActiveExams();
             });
 
-            document.getElementById('fetch-active-exams-btn').addEventListener('click', async () => {
+            let radarUjianAktif = null; // Menyimpan radar agar tidak dobel
+
+            document.getElementById('fetch-active-exams-btn').addEventListener('click', () => {
                 const c = document.getElementById('active-exam-list');
                 c.innerHTML = '<div class="text-center py-4">Loading...</div>';
                 
@@ -1678,27 +1680,28 @@
                          q = query(q, where('dibuatOleh', '==', currentGuruId));
                     }
                     
-                    const snap = await getDocs(q);
-                    
-                    allActiveExams = []; 
-                    snap.forEach(d => {
-                        const data = d.data();
-                        
-                        // Perbaikan Case Sensitivity
-                        const dataMapel = data.mapel ? data.mapel.toUpperCase() : '';
-                        
-                        // Skip if it doesn't match the current mapel strictly
-                        if (currentGuruMapel !== 'ADMIN PUSAT' && dataMapel.trim() !== (currentGuruMapel||'').trim()) {
-                            return; 
-                        }
-                        // Skip if it's explicitly deleted
-                        if (data.status === 'dihapus') return; 
-                        
-                        allActiveExams.push({ id: d.id, ...data });
-                    });
+                    // Bersihkan radar lama jika tombol ditekan ulang
+                    if (radarUjianAktif) radarUjianAktif(); 
 
-                    populateKelolaKelasFilter();
-                    renderActiveExams();
+                    // Gunakan Radar (onSnapshot) alih-alih getDocs
+                    radarUjianAktif = onSnapshot(q, (snap) => {
+                        allActiveExams = []; 
+                        snap.forEach(d => {
+                            const data = d.data();
+                            const dataMapel = data.mapel ? data.mapel.toUpperCase() : '';
+                            
+                            if (currentGuruMapel !== 'ADMIN PUSAT' && dataMapel.trim() !== (currentGuruMapel||'').trim()) return; 
+                            if (data.status === 'dihapus') return; 
+                            
+                            allActiveExams.push({ id: d.id, ...data });
+                        });
+
+                        populateKelolaKelasFilter();
+                        renderActiveExams();
+                    }, (error) => {
+                        c.innerHTML = 'Error: ' + error.message; 
+                        console.error(error);
+                    });
                     
                 } catch(e) { 
                     c.innerHTML = 'Error: '+e.message; 

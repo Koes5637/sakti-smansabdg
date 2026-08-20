@@ -195,6 +195,16 @@
             </div>
         </div>
         
+        <!-- EXAM WIDE SETTINGS -->
+        <div id="exam-settings-bar" class="hidden flex-col md:flex-row items-center justify-between bg-slate-100 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700 mb-4">
+            <div class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 md:mb-0">
+                Pengaturan Ujian Saat Ini
+            </div>
+            <button id="btn-toggle-score" onclick="window.toggleLiveScore()" data-val="false" class="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-lg text-xs font-bold flex items-center gap-2 transition-all shadow-sm border border-slate-300 dark:border-slate-600">
+                <span>⏳</span> Menghubungkan...
+            </button>
+        </div>
+        
         <!-- MASSIVE ACTION BAR -->
         <div id="mass-action-container" class="hidden flex-col md:flex-row gap-3 items-start md:items-center">
             <button onclick="window.sendMessageAll()" class="px-5 py-2.5 bg-gradient-to-r from-sky-600 to-sky-500 hover:from-sky-500 hover:to-sky-400 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-sky-500/20 transition-all transform hover:-translate-y-0.5 border border-sky-400/30">
@@ -538,6 +548,8 @@
 
             document.getElementById('cards-container').innerHTML = '<div class="col-span-full text-center py-20 text-slate-500 dark:text-slate-400">Pilih kode ujian untuk memulai pemantauan.</div>';
             document.getElementById('mass-action-container').classList.add('hidden');
+            document.getElementById('exam-settings-bar').classList.add('hidden');
+            document.getElementById('exam-settings-bar').classList.remove('flex');
             resetStats();
         }
 
@@ -555,6 +567,10 @@
 
             document.getElementById('cards-container').innerHTML = '<div class="col-span-full text-center py-20 text-primary animate-pulse">Menghubungkan ke data live...</div>';
 
+            // Munculkan Bar Pengaturan
+            document.getElementById('exam-settings-bar').classList.remove('hidden');
+            document.getElementById('exam-settings-bar').classList.add('flex');
+
             // --- 1. RADAR PENGATURAN UJIAN (100% AKURAT DARI DATABASE) ---
             currentExamListener = onSnapshot(doc(db, 'ujian_terjadwal', examCode), (docSnap) => {
                 if (docSnap.exists()) {
@@ -565,6 +581,19 @@
                     const ekstra = parseInt(data.ekstraWaktu) || 0;
                     
                     currentExamDuration = durasiDasar + ekstra;
+                    
+                    // Update UI Tombol Mata (Toggle Nilai) secara Real-time
+                    const btnScore = document.getElementById('btn-toggle-score');
+                    if (btnScore) {
+                        btnScore.dataset.val = data.settingTampilNilai ? 'true' : 'false';
+                        if (data.settingTampilNilai) {
+                            btnScore.innerHTML = '<span class="text-lg">👁️</span> <span class="uppercase tracking-wider">Nilai Tampil di Siswa</span>';
+                            btnScore.className = 'px-4 py-2 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-lg text-xs font-bold flex items-center gap-2 transition-all shadow-sm border border-emerald-300 dark:border-emerald-600';
+                        } else {
+                            btnScore.innerHTML = '<span class="text-lg">🙈</span> <span class="uppercase tracking-wider">Nilai Disembunyikan</span>';
+                            btnScore.className = 'px-4 py-2 bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 rounded-lg text-xs font-bold flex items-center gap-2 transition-all shadow-sm border border-slate-300 dark:border-slate-600 opacity-80 hover:opacity-100';
+                        }
+                    }
                     
                     // Refresh tampilan jika data siswa sudah masuk duluan
                     if (latestStudentsData.length > 0) {
@@ -627,7 +656,26 @@
                 if(hintText) hintText.classList.add('hidden');
             }
         }
-
+		
+		// --- TOGGLE TAMPIL NILAI ---
+        window.toggleLiveScore = async () => {
+            if (!activeExamCode) return;
+            const btn = document.getElementById('btn-toggle-score');
+            const currentVal = btn.dataset.val === 'true';
+            const newVal = !currentVal;
+            
+            try {
+                btn.innerHTML = '<span class="animate-spin text-lg">⏳</span> Memproses...';
+                await updateDoc(doc(db, 'ujian_terjadwal', activeExamCode), {
+                    settingTampilNilai: newVal
+                });
+                // Kita tidak perlu mengubah desain tombol secara manual di sini, 
+                // karena Radar (onSnapshot) yang kita buat di Tahap 3 akan langsung 
+                // mendeteksi perubahan dari database dan mewarnai ulang tombolnya seketika!
+            } catch (e) {
+                alert("Gagal merubah status nilai: " + e.message);
+            }
+        };
         // --- TAMBAH WAKTU ---
         window.addExtraTime = async () => {
             if (!activeExamCode) return alert("Pilih ujian terlebih dahulu!");
@@ -711,6 +759,10 @@
                 return;
             }
 
+            // --- SENSOR DETEKSI STATUS TAMPIL NILAI ---
+            const btnScore = document.getElementById('btn-toggle-score');
+            const isScoreVisible = btnScore ? (btnScore.dataset.val === 'true') : false;
+
             students.forEach(s => {
                 const isOnline = s.lastHeartbeat && (Date.now() - s.lastHeartbeat.toMillis() < 60000); 
                 const statusColor = s.status === 'selesai' ? 'text-emerald-600 bg-emerald-100 border-emerald-200' : 
@@ -722,6 +774,9 @@
                 let violationBadge = s.pelanggaran > 0 ? 
                     `<div class="px-3 py-1 rounded-lg bg-red-100 text-red-600 text-xs font-bold animate-pulse">${s.pelanggaran}x Curang</div>` : 
                     `<div class="px-3 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-xs font-bold opacity-50">Aman</div>`;
+
+                // --- TENTUKAN TAMPILAN SKOR (ANGKA ATAU GEMBOK) ---
+                let teksSkor = isScoreVisible ? (s.skor || 0) : '<span class="text-base" title="Nilai Rahasia">🔒</span>';
 
                 const card = document.createElement('div');
                 card.className = `glass-panel rounded-2xl p-5 student-card flex flex-col relative overflow-hidden group ${s.pelanggaran > 0 ? 'border-red-300' : 'border-slate-200'}`;
@@ -745,7 +800,7 @@
                     <div class="relative z-10 grid grid-cols-2 gap-3 mb-4">
                         <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 text-center border border-slate-100 dark:border-slate-700/50 flex flex-col justify-center">
                             <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Skor</p>
-                            <p class="text-xl font-black text-slate-700 dark:text-white mt-0.5">${s.skor || 0}</p>
+                            <p class="text-xl font-black text-slate-700 dark:text-white mt-0.5">${teksSkor}</p>
                         </div>
                         <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 text-center border border-slate-100 dark:border-slate-700/50 flex flex-col justify-center">
                             <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Kelas</p>

@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizer Geometri Ruang SMA</title>
+    <!-- Tailwind CSS untuk styling UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #f8fafc; font-family: 'Inter', sans-serif; }
+        #canvas-container { width: 100vw; height: 100vh; display: block; }
+        
+        /* Styling untuk UI Panel melayang */
+        #ui-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            width: 340px;
+            max-height: 90vh;
+            overflow-y: auto;
+            z-index: 10;
+            transition: transform 0.3s ease-in-out;
+        }
+
+        #ui-panel.hidden-panel {
+            transform: translateX(-120%);
+        }
+
+        /* Scrollbar kustom untuk panel */
+        #ui-panel::-webkit-scrollbar { width: 6px; }
+        #ui-panel::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+        /* Styling label titik sudut 3D */
+        .vertex-label {
+            color: #0f172a;
+            font-weight: 800;
+            font-size: 16px;
+            padding: 2px;
+            pointer-events: none;
+            /* Outline putih tebal agar teks tidak menyatu dengan garis hitam */
+            text-shadow: 
+                -2px -2px 0 #fff, 2px -2px 0 #fff,
+                -2px 2px 0 #fff, 2px 2px 0 #fff;
+        }
+
+        /* Label untuk jarak (cm) di atas garis */
+        .distance-label {
+            color: #b91c1c; /* Merah gelap */
+            font-size: 13px;
+            font-weight: 700;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 2px 8px;
+            border-radius: 6px;
+            pointer-events: none;
+            border: 1px solid #fca5a5;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transform: translateY(-15px); /* Geser sedikit ke atas dari garis */
+        }
+
+        /* Label titik potong kustom */
+        .intersect-label {
+            color: #dc2626;
+            font-weight: 800;
+            font-size: 14px;
+            pointer-events: none;
+            text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Tombol Toggle UI Panel -->
+    <button id="btn-toggle-ui" class="absolute top-4 left-4 z-20 bg-white p-2 rounded-md shadow-lg text-slate-700 hover:text-slate-900 border border-slate-200 transition-colors" title="Sembunyikan/Tampilkan Menu">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+    </button>
+
+    <!-- Panel Antarmuka Pengguna -->
+    <div id="ui-panel" class="border border-slate-200 mt-12">
+        <h1 class="text-xl font-extrabold text-slate-800 mb-1">Geometri Ruang</h1>
+        <p class="text-xs text-slate-500 mb-4 border-b border-slate-200 pb-3">Mode Pembelajaran Jarak Dimensi Tiga</p>
+        
+        <!-- BAGIAN 1: BANGUN RUANG DASAR -->
+        <div class="mb-4">
+            <label class="block text-[11px] font-bold text-slate-700 uppercase mb-2 border-b pb-1">Jenis Bangun</label>
+            <select id="shape-type" class="w-full mb-3 px-2 py-2 border border-slate-300 rounded-md text-sm font-bold text-blue-700 bg-white outline-none cursor-pointer">
+                <option value="BALOK">Kubus / Balok</option>
+                <option value="LIMAS">Limas</option>
+            </select>
+
+            <!-- Parameter Balok/Kubus -->
+            <div id="params-balok">
+                <div class="flex gap-2 mb-2">
+                    <div class="flex-1">
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Nama (Alas.Atap)</label>
+                        <input type="text" id="cube-name" value="ABCD.EFGH" class="w-full px-2 py-1.5 border border-slate-300 rounded text-sm uppercase outline-none">
+                    </div>
+                </div>
+                <div class="flex gap-2 mb-2">
+                    <div class="flex-1">
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Panjang(p)</label>
+                        <input type="number" id="input-p" value="12" min="1" class="w-full px-2 py-1.5 border border-slate-300 rounded text-sm outline-none">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Lebar(l)</label>
+                        <input type="number" id="input-l" value="12" min="1" class="w-full px-2 py-1.5 border border-slate-300 rounded text-sm outline-none">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tinggi(t)</label>
+                        <input type="number" id="input-t" value="12" min="1" class="w-full px-2 py-1.5 border border-slate-300 rounded text-sm outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Parameter Limas -->
+            <div id="params-limas" class="hidden">
+                <div class="flex gap-2 mb-2">
+                    <div class="flex-1">
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Nama (Puncak.Alas)</label>
+                        <input type="text" id="limas-name" value="T.ABCD" placeholder="T.ABCD" class="w-full px-2 py-1.5 border border-slate-300 rounded text-sm uppercase outline-none">
+                    </div>
+                </div>
+                <div class="flex gap-2 mb-2">
+                    <div class="flex-1">
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Alas(p)</label>
+                        <input type="number" id="input-limas-p" value="10" min="1" class="w-full px-2 py-1.5 border border-slate-300 rounded text-sm outline-none">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Alas(l)</label>
+                        <input type="number" id="input-limas-l" value="10" min="1" class="w-full px-2 py-1.5 border border-slate-300 rounded text-sm outline-none" title="Abaikan untuk alas Segitiga & Segienam">
+                    </div>
+                </div>
+                <div class="flex gap-2 mb-2">
+                    <div class="w-1/2">
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Nilai Tegak</label>
+                        <input type="number" id="input-limas-t" value="12" min="1" class="w-full px-2 py-1.5 border border-slate-300 rounded text-sm outline-none">
+                    </div>
+                    <div class="w-1/2">
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Sifat Tegak</label>
+                        <select id="limas-t-type" class="w-full px-2 py-1.5 border border-slate-300 rounded text-sm outline-none bg-white">
+                            <option value="rusuk">Panjang Rusuk</option>
+                            <option value="tinggi">Tinggi Limas</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <button id="btn-generate" class="w-full mt-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold py-2 rounded transition shadow-sm">
+                Terapkan Bangun Baru
+            </button>
+        </div>
+
+        <!-- BAGIAN 2: ELEMEN BANTU BEBAS (Opsional) -->
+        <div class="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+            <h2 class="text-xs font-bold text-blue-800 mb-2">Tambahan Elemen Bebas</h2>
+            
+            <!-- Tambah Titik -->
+            <div class="flex gap-1 items-center mb-2">
+                <input type="text" id="point-name" placeholder="Titik(K)" class="w-16 px-1 py-1 text-[10px] border border-blue-200 rounded uppercase outline-none">
+                <span class="text-[10px] text-blue-600">di</span>
+                <input type="text" id="point-edge" placeholder="Garis(CG)" class="w-16 px-1 py-1 text-[10px] border border-blue-200 rounded uppercase outline-none">
+                <input type="number" id="point-ratio" placeholder="Rasio 0.5" step="0.1" min="0" max="1" class="w-16 px-1 py-1 text-[10px] border border-blue-200 rounded outline-none">
+                <button id="btn-add-point" class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold py-1 px-2 rounded ml-auto">Titik</button>
+            </div>
+
+            <!-- Tambah Garis & Warna -->
+            <div class="flex gap-1 items-center mb-2">
+                <input type="text" id="custom-line" placeholder="Garis (misal: AK)" class="w-full px-2 py-1 text-[10px] border border-blue-200 rounded uppercase outline-none">
+                <input type="color" id="custom-line-color" value="#d946ef" class="w-8 h-6 p-0 border-0 rounded cursor-pointer" title="Pilih warna garis">
+                <button id="btn-add-line" class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold py-1 px-2 rounded">Garis</button>
+            </div>
+
+            <!-- Tambah Keterangan Angka/Huruf di Garis -->
+            <div class="flex gap-1 items-center mb-2">
+                <input type="text" id="label-line-target" placeholder="Garis(TC)" class="w-16 px-1 py-1 text-[10px] border border-blue-200 rounded uppercase outline-none">
+                <input type="text" id="label-line-text" placeholder="Teks (misal: t atau 5cm)" class="w-full px-2 py-1 text-[10px] border border-blue-200 rounded outline-none">
+                <button id="btn-add-line-label" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold py-1 px-2 rounded">Label</button>
+            </div>
+			
+			<!-- Tambah Sudut -->
+            <div class="flex gap-1 items-center mb-2">
+                <input type="text" id="angle-points" placeholder="Sudut(ABC)" class="w-16 px-1 py-1 text-[10px] border border-blue-200 rounded uppercase outline-none" title="3 Huruf: Huruf tengah adalah titik sudut">
+                <select id="angle-symbol" class="w-12 px-1 py-1 text-[14px] border border-blue-200 rounded outline-none bg-white cursor-pointer" style="font-family: 'Times New Roman', serif; font-style: italic;">
+                    <option value="α">α</option>
+                    <option value="β">β</option>
+                    <option value="γ">γ</option>
+                    <option value="θ">θ</option>
+                </select>
+                <select id="angle-display" class="w-16 px-1 py-1 text-[10px] border border-blue-200 rounded outline-none bg-white cursor-pointer" title="Tampilan Teks">
+                    <option value="angka">Angka</option>
+                    <option value="simbol">Simbol</option>
+                </select>
+                <input type="color" id="angle-color" value="#ef4444" class="w-8 h-6 p-0 border-0 rounded cursor-pointer" title="Warna busur">
+                <button id="btn-add-angle" class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold py-1 px-2 rounded ml-auto">Sudut</button>
+            </div>
+			
+            <!-- Tambah Bidang -->
+            <div class="flex gap-1 items-center">
+                <input type="text" id="custom-plane" placeholder="Bidang/Sisi (misal: BDG)" class="w-full px-2 py-1 text-[10px] border border-blue-200 rounded uppercase outline-none">
+                <input type="color" id="custom-color" value="#f59e0b" class="w-8 h-6 p-0 border-0 rounded cursor-pointer" title="Pilih warna bidang">
+                <button id="btn-add-plane" class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold py-1 px-2 rounded">Bidang</button>
+            </div>
+            
+            <div class="flex justify-between items-center mt-3">
+                <p class="text-[9px] text-blue-600 italic m-0">*Elemen bebas ini bersifat permanen.</p>
+                <button id="btn-undo" class="bg-amber-100 hover:bg-amber-200 text-amber-700 border border-amber-300 text-[10px] font-bold py-1.5 px-3 rounded shadow-sm transition-colors">
+                    ↩ Undo Terakhir
+                </button>
+            </div>
+        </div>
+
+        <!-- BAGIAN 3: MATERI SMA (Skenario Jarak) -->
+        <div class="mb-2 border-t border-slate-200 pt-4">
+            <h2 class="text-sm font-bold text-slate-800 mb-2">Materi Perhitungan Jarak</h2>
+            
+            <select id="mode-selector" class="w-full mb-3 px-2 py-2 border border-slate-300 rounded-md text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer">
+                <option value="1">1. Jarak Titik ke Titik</option>
+                <option value="2">2. Jarak Titik ke Garis</option>
+                <option value="3">3. Jarak Titik ke Bidang</option>
+                <option value="4">4. Jarak Garis ke Bidang</option>
+                <option value="5">5. Jarak Bidang ke Bidang</option>
+            </select>
+
+            <!-- Wadah Input Dinamis Tergantung Mode -->
+            <div id="dynamic-inputs" class="p-3 bg-slate-50 rounded-lg border border-slate-200 mb-3">
+                <!-- Diisi oleh JavaScript -->
+            </div>
+
+            <div class="flex gap-2">
+                <button id="btn-visualize" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold py-2 rounded shadow-md transition">
+                    Visualisasi
+                </button>
+                <button id="btn-calculate" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold py-2 rounded shadow-md transition">
+                    Hitung
+                </button>
+            </div>
+            <button id="btn-clear" class="w-full mt-2 bg-rose-100 hover:bg-rose-200 text-rose-700 text-sm font-bold py-2 rounded shadow-sm transition" title="Hapus semua titik, garis, & bidang buatan">
+                Bersihkan Semua
+            </button>
+			<!-- Tombol Unduh Gambar -->
+            <div class="flex gap-2 mt-2">
+                <select id="bg-download-3d" class="w-1/3 px-1 border border-emerald-200 rounded text-[11px] font-bold text-emerald-700 bg-emerald-50 outline-none cursor-pointer">
+                    <option value="transparan">Transparan</option>
+                    <option value="putih">Putih Solid</option>
+                </select>
+                <button id="btn-download-3d" class="w-2/3 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-sm font-bold py-2 rounded shadow-sm transition">
+                    Unduh Gambar
+                </button>
+            </div>
+            
+            <!-- Hasil Perhitungan -->
+            <div id="result-box" class="mt-3 hidden p-3 bg-green-50 border border-green-200 rounded-lg text-center">
+                <span class="block text-xs font-semibold text-green-700 uppercase tracking-wider mb-1">Hasil Jarak Sebenarnya</span>
+                <span id="result-value" class="text-xl font-extrabold text-green-900">0 cm</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Container untuk Canvas 3D -->
+    <div id="canvas-container"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+        // Variabel Global Three.js
+        let scene, camera, renderer, labelRenderer, controls;
+        let baseCubeGroup; 
+        let helpersGroup;  
+        
+		const CUBE_SIZE = 10;
+        let currentMaxEdge = 12; // Menyimpan nilai rusuk terpanjang untuk skala proporsi
+        let verticesData = {}; 
+        let actionHistory = []; // Memori untuk fitur Undo
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf8fafc);
+
+            const aspect = window.innerWidth / window.innerHeight;
+            const viewSize = 25; 
+            camera = new THREE.OrthographicCamera(
+                viewSize * aspect / -2, viewSize * aspect / 2, 
+                viewSize / 2, viewSize / -2, 
+                0.1, 1000
+            );
+            camera.position.set(20, 15, 30); 
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            labelRenderer = new CSS2DRenderer();
+            labelRenderer.setSize(window.innerWidth, window.innerHeight);
+            labelRenderer.domElement.style.position = 'absolute';
+            labelRenderer.domElement.style.top = '0px';
+            labelRenderer.domElement.style.pointerEvents = 'none';
+            container.appendChild(labelRenderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            window.addEventListener('resize', onWindowResize);
+
+            setupUI();
+
+            baseCubeGroup = new THREE.Group();
+            helpersGroup = new THREE.Group();
+            scene.add(baseCubeGroup);
+            scene.add(helpersGroup);
+            
+            generateShape(); // Memanggil Master Fungsi Pembentuk
+            updateDynamicInputs(); 
+        }
+
+        // Fungsi Master: Mendeteksi dan Membentuk Balok/Kubus/Limas
+        function generateShape() {
+            baseCubeGroup.clear();
+            helpersGroup.clear();
+            verticesData = {}; 
+            actionHistory = []; 
+
+            const shapeType = document.getElementById('shape-type').value;
+            const materialGaris = new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 2 }); 
+            
+            // Fungsi internal untuk menggambar rusuk
+            const drawLine = (p1Name, p2Name) => {
+                const points = [verticesData[p1Name], verticesData[p2Name]];
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                baseCubeGroup.add(new THREE.Line(geometry, materialGaris));
+            };
+
+            if (shapeType === 'BALOK') {
+                const nameInput = document.getElementById('cube-name').value.toUpperCase().trim();
+                const parts = nameInput.split('.');
+                if (parts.length !== 2 || parts[0].length !== 4 || parts[1].length !== 4) {
+                    alert("Format nama Balok salah. Gunakan 4huruf.4huruf (Misal ABCD.EFGH)"); return;
+                }
+
+                const p = parseFloat(document.getElementById('input-p').value) || 12;
+                const l = parseFloat(document.getElementById('input-l').value) || 12;
+                const t = parseFloat(document.getElementById('input-t').value) || 12;
+                
+                currentMaxEdge = Math.max(p, l, t);
+                const visP = (p / currentMaxEdge) * CUBE_SIZE;
+                const visL = (l / currentMaxEdge) * CUBE_SIZE;
+                const visT = (t / currentMaxEdge) * CUBE_SIZE;
+
+                const alas = parts[0].split(''); const atap = parts[1].split('');
+                const halfP = visP / 2; const halfL = visL / 2;
+
+                const baseCoords = [
+                    new THREE.Vector3(-halfP, -visT/2, halfL),  
+                    new THREE.Vector3(halfP, -visT/2, halfL),   
+                    new THREE.Vector3(halfP, -visT/2, -halfL),  
+                    new THREE.Vector3(-halfP, -visT/2, -halfL)  
+                ];
+
+                for (let i = 0; i < 4; i++) {
+                    verticesData[alas[i]] = baseCoords[i].clone();
+                    let atapCoord = baseCoords[i].clone();
+                    atapCoord.y += visT; 
+                    verticesData[atap[i]] = atapCoord;
+                }
+
+                // Gambar Rusuk Balok
+                drawLine(alas[0], alas[1]); drawLine(alas[1], alas[2]); 
+                drawLine(alas[2], alas[3]); drawLine(alas[3], alas[0]);
+                drawLine(atap[0], atap[1]); drawLine(atap[1], atap[2]); 
+                drawLine(atap[2], atap[3]); drawLine(atap[3], atap[0]);
+                drawLine(alas[0], atap[0]); drawLine(alas[1], atap[1]); 
+                drawLine(alas[2], atap[2]); drawLine(alas[3], atap[3]);
+
+            } else {
+                // LOGIKA CERDAS LIMAS
+                const nameInput = document.getElementById('limas-name').value.toUpperCase().trim();
+                const parts = nameInput.split('.');
+                if (parts.length !== 2 || parts[0].length !== 1) {
+                    alert("Format Limas salah. Gunakan 1huruf.Alas (Misal T.ABCD)"); return;
+                }
+                
+                const puncak = parts[0];
+                const alas = parts[1].split('');
+                const n = alas.length;
+
+                if (n !== 3 && n !== 4 && n !== 6) {
+                    alert("Aplikasi saat ini mendukung Limas Segitiga (3 huruf), Segiempat (4 huruf), & Segienam (6 huruf)."); return;
+                }
+
+                const p = parseFloat(document.getElementById('input-limas-p').value) || 12;
+                let l = parseFloat(document.getElementById('input-limas-l').value) || p;
+                if (n === 3 || n === 6) l = p; // Segitiga/Segienam beraturan mengabaikan lebar
+
+                const tVal = parseFloat(document.getElementById('input-limas-t').value) || 12;
+                const tType = document.getElementById('limas-t-type').value;
+
+                let baseCoords = [];
+                let rDist = 0; // Jarak dari titik tengah alas ke titik sudut alas
+
+                // Rumus pembentuk koordinat alas
+                if (n === 4) {
+                    rDist = Math.sqrt((p/2)**2 + (l/2)**2); // Phytagoras ke sudut persegipanjang
+                    baseCoords = [
+                        new THREE.Vector3(-p/2, 0, l/2), new THREE.Vector3(p/2, 0, l/2),
+                        new THREE.Vector3(p/2, 0, -l/2), new THREE.Vector3(-p/2, 0, -l/2)
+                    ];
+                } else if (n === 3) {
+                    rDist = p / Math.sqrt(3); // Jari-jari lingkaran luar segitiga sama sisi
+                    baseCoords = [
+                        new THREE.Vector3(-p/2, 0, rDist/2), new THREE.Vector3(p/2, 0, rDist/2),
+                        new THREE.Vector3(0, 0, -rDist)
+                    ];
+                } else if (n === 6) {
+                    rDist = p; // Segienam beraturan
+                    for (let i = 0; i < 6; i++) {
+                        const angle = (Math.PI / 3) * i + (Math.PI / 6); 
+                        baseCoords.push(new THREE.Vector3(Math.cos(angle)*p, 0, Math.sin(angle)*p));
+                    }
+                }
+
+                // Kalkulasi Tinggi jika yang diinput adalah Rusuk Miring
+                let t = tVal;
+                if (tType === 'rusuk') {
+                    if (tVal <= rDist) {
+                        alert("Panjang Rusuk Tegak tidak valid (terlalu pendek untuk menopang alas tersebut)."); return;
+                    }
+                    t = Math.sqrt(tVal**2 - rDist**2); // Theorema Phytagoras Cerdas
+                }
+
+                // Normalisasi skala visual agar tidak kebesaran/kekecilan di layar
+                currentMaxEdge = Math.max(p, l, t);
+                const scale = CUBE_SIZE / currentMaxEdge;
+
+                // Terapkan koordinat Alas
+                for (let i = 0; i < n; i++) {
+                    let v = baseCoords[i].clone();
+                    v.multiplyScalar(scale);
+                    v.y = -(t * scale) / 2; // Digeser ke bawah agar layarnya seimbang
+                    verticesData[alas[i]] = v;
+                }
+
+                // Terapkan koordinat Puncak
+                const peakCoord = new THREE.Vector3(0, (t * scale) / 2, 0);
+                verticesData[puncak] = peakCoord;
+
+                // Gambar Rusuk Limas
+                for (let i = 0; i < n; i++) {
+                    drawLine(alas[i], alas[(i+1)%n]); // Garis Alas melingkar
+                    drawLine(puncak, alas[i]); // Garis Tegak dari puncak ke tiap sudut
+                }
+            }
+
+            // Tempelkan Label (Huruf) ke seluruh Titik Sudut
+            for (const [name, coord] of Object.entries(verticesData)) {
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'vertex-label';
+                labelDiv.textContent = name;
+                const labelObj = new CSS2DObject(labelDiv);
+                
+                const offset = coord.clone().normalize().multiplyScalar(1.2);
+                if (offset.lengthSq() < 0.01) offset.y = 1.5; // Mencegah huruf tertumpuk di tengah persis
+                labelObj.position.copy(coord).add(offset);
+                baseCubeGroup.add(labelObj);
+            }
+        }
+
+        function setupUI() {
+            document.getElementById('btn-toggle-ui').addEventListener('click', () => {
+                document.getElementById('ui-panel').classList.toggle('hidden-panel');
+            });
+            document.getElementById('btn-generate').addEventListener('click', () => {
+                generateShape();
+                hideResult();
+            });
+            document.getElementById('btn-clear').addEventListener('click', () => {
+                generateShape();
+                hideResult();
+            });
+            document.getElementById('btn-add-point').addEventListener('click', handleAddHelperPoint);
+            document.getElementById('btn-add-line').addEventListener('click', handleAddCustomLine);
+            document.getElementById('btn-add-plane').addEventListener('click', handleAddCustomPlane);
+			document.getElementById('btn-add-angle').addEventListener('click', handleAddAngle);
+			document.getElementById('btn-add-line-label').addEventListener('click', handleAddLineLabel);
+            
+            document.getElementById('btn-undo').addEventListener('click', handleUndo);
+
+            // MESIN UNDUH GAMBAR 3D SUPER (GABUNGAN WEBGL + TEKS HTML)
+            // MESIN UNDUH GAMBAR 3D SUPER (UKURAN FONT DINAMIS PROPORSIONAL)
+            document.getElementById('btn-download-3d').onclick = function() {
+                const bgMode = document.getElementById('bg-download-3d').value;
+                const originalBg = scene.background;
+                
+                // 1. Siapkan warna latar 3D
+                if (bgMode === 'transparan') {
+                    scene.background = null;
+                } else {
+                    scene.background = new THREE.Color(0xffffff);
+                }
+                renderer.render(scene, camera);
+                
+                // 2. Buat Kanvas Bayangan (Temp Canvas) untuk menjiplak
+                const canvas3D = renderer.domElement;
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = canvas3D.width;
+                tempCanvas.height = canvas3D.height;
+                const ctx = tempCanvas.getContext('2d');
+
+                if (bgMode === 'putih') {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                }
+                
+                // 3. Fotokopi gambar bangun 3D ke kanvas bayangan
+                ctx.drawImage(canvas3D, 0, 0);
+                
+                // --- PERBAIKAN: UKURAN FONT DINAMIS ---
+                // Menghitung ukuran font proporsional berdasarkan resolusi layar (3.5% dari tinggi layar)
+                // Jika layar 1080p, huruf akan berukuran sekitar 35-40px.
+                const baseFontSize = Math.max(24, Math.floor(tempCanvas.height * 0.035));
+                
+                // 4. Cari semua elemen teks dan tulis ulang
+                scene.traverse(function(child) {
+                    if (child.isCSS2DObject) {
+                        const el = child.element;
+                        const text = el.textContent;
+                        
+                        const pos = new THREE.Vector3();
+                        child.getWorldPosition(pos);
+                        pos.project(camera); 
+                        
+                        const x = (pos.x * 0.5 + 0.5) * tempCanvas.width;
+                        const y = (pos.y * -0.5 + 0.5) * tempCanvas.height;
+                        
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        
+                        // Sesuaikan ketebalan outline putih agar seimbang dengan huruf besar
+                        const outlineWeight = Math.max(4, baseFontSize * 0.15);
+                        
+                        if (el.classList.contains('vertex-label')) {
+                            // Gaya Huruf Utama (A, B, C...)
+                            ctx.font = `800 ${baseFontSize}px Arial, sans-serif`;
+                            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = outlineWeight; 
+                            ctx.strokeText(text, x, y);
+                            ctx.fillStyle = '#0f172a'; ctx.fillText(text, x, y);
+                        } 
+                        else if (el.classList.contains('distance-label')) {
+                            // Gaya Kotak Jarak (Misal: 5 cm)
+                            const distSize = Math.floor(baseFontSize * 0.8); // Sedikit lebih kecil dari huruf utama
+                            ctx.font = `700 ${distSize}px Arial, sans-serif`;
+                            const tw = ctx.measureText(text).width;
+                            const padX = distSize * 0.6;
+                            const padY = distSize * 0.5;
+                            const offsetY = distSize * 1.2; 
+                            
+                            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                            ctx.fillRect(x - (tw/2) - padX, y - offsetY - padY, tw + (padX*2), distSize + (padY*1.5));
+                            ctx.strokeStyle = '#fca5a5'; ctx.lineWidth = 2; 
+                            ctx.strokeRect(x - (tw/2) - padX, y - offsetY - padY, tw + (padX*2), distSize + (padY*1.5));
+                            ctx.fillStyle = '#b91c1c'; ctx.fillText(text, x, y - offsetY + (padY*0.2));
+                        } 
+                        else {
+                            // Gaya Sudut (Yunani) / Titik Potong / Garis Bebas
+                            if (el.style.fontStyle === 'italic') {
+                                ctx.font = `italic 800 ${baseFontSize}px "Times New Roman", serif`;
+                            } else {
+                                ctx.font = `800 ${baseFontSize}px Arial, sans-serif`;
+                            }
+                            ctx.fillStyle = el.style.color || '#dc2626';
+                            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = outlineWeight; 
+                            ctx.strokeText(text, x, y);
+                            ctx.fillText(text, x, y);
+                        }
+                    }
+                });
+                
+                scene.background = originalBg; 
+                renderer.render(scene, camera);
+                
+                tempCanvas.toBlob(function(blob) {
+                    if (!blob) return;
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.style.display = 'none'; 
+                    link.href = url;
+                    link.download = 'Gambar_BangunRuang_SAKTI.png';
+                    
+                    document.body.appendChild(link);
+                    link.click();
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(link);
+                        window.URL.revokeObjectURL(url);
+                    }, 100);
+                }, 'image/png');
+            };
+            document.getElementById('mode-selector').addEventListener('change', updateDynamicInputs);
+            
+            document.getElementById('btn-visualize').addEventListener('click', () => executeMode(false));
+            document.getElementById('btn-calculate').addEventListener('click', () => executeMode(true));
+
+            document.getElementById('shape-type').addEventListener('change', (e) => {
+                if (e.target.value === 'BALOK') {
+                    document.getElementById('params-balok').classList.remove('hidden');
+                    document.getElementById('params-limas').classList.add('hidden');
+                } else {
+                    document.getElementById('params-balok').classList.add('hidden');
+                    document.getElementById('params-limas').classList.remove('hidden');
+                }
+            });
+        }
+
+        function handleUndo() {
+            if (actionHistory.length === 0) return;
+            const lastAction = actionHistory.pop();
+            
+            // Mencabut objek fisik dari kanvas 3D
+            lastAction.objects.forEach(obj => {
+                if (obj && obj.parent) obj.parent.remove(obj);
+                if (obj && obj.geometry) obj.geometry.dispose();
+                if (obj && obj.material) obj.material.dispose();
+            });
+
+            // Menghapus data koordinat jika yang dibatalkan adalah sebuah titik
+            if (lastAction.type === 'point') {
+                delete verticesData[lastAction.name];
+            }
+        }
+
+        function updateDynamicInputs() {
+            const mode = document.getElementById('mode-selector').value;
+            const container = document.getElementById('dynamic-inputs');
+            container.innerHTML = ''; 
+            hideResult();
+
+            let html = '';
+            if (mode === '1') {
+                html = `
+                    <div class="flex gap-2">
+                        <div class="w-1/2"><label class="text-[10px] uppercase font-bold text-slate-500">Titik 1</label>
+                        <input type="text" id="input-p1" placeholder="A" class="w-full uppercase p-1.5 border rounded text-sm text-center"></div>
+                        <div class="w-1/2"><label class="text-[10px] uppercase font-bold text-slate-500">Titik 2</label>
+                        <input type="text" id="input-p2" placeholder="G" class="w-full uppercase p-1.5 border rounded text-sm text-center"></div>
+                    </div>
+                `;
+            } else if (mode === '2') {
+                html = `
+                    <div class="mb-2"><label class="text-[10px] uppercase font-bold text-slate-500">Dari Titik</label>
+                    <input type="text" id="input-pt" placeholder="C" class="w-full uppercase p-1.5 border rounded text-sm"></div>
+                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Ke Garis (2 Titik)</label>
+                    <input type="text" id="input-line" placeholder="AG" class="w-full uppercase p-1.5 border rounded text-sm"></div>
+                `;
+            } else if (mode === '3') {
+                html = `
+                    <div class="mb-2"><label class="text-[10px] uppercase font-bold text-slate-500">Dari Titik</label>
+                    <input type="text" id="input-pt" placeholder="E" class="w-full uppercase p-1.5 border rounded text-sm"></div>
+                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Ke Bidang (3/4 Titik)</label>
+                    <input type="text" id="input-plane" placeholder="BDG" class="w-full uppercase p-1.5 border rounded text-sm"></div>
+                `;
+            } else if (mode === '4') {
+                html = `
+                    <div class="mb-2"><label class="text-[10px] uppercase font-bold text-slate-500">Garis (2 Titik)</label>
+                    <input type="text" id="input-line" placeholder="EG" class="w-full uppercase p-1.5 border rounded text-sm"></div>
+                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Ke Bidang (3/4 Titik)</label>
+                    <input type="text" id="input-plane" placeholder="BDG" class="w-full uppercase p-1.5 border rounded text-sm"></div>
+                `;
+            } else if (mode === '5') {
+                html = `
+                    <div class="mb-2"><label class="text-[10px] uppercase font-bold text-slate-500">Bidang 1 (3/4 Titik)</label>
+                    <input type="text" id="input-plane1" placeholder="AFH" class="w-full uppercase p-1.5 border rounded text-sm"></div>
+                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Bidang 2 (3/4 Titik)</label>
+                    <input type="text" id="input-plane2" placeholder="BDG" class="w-full uppercase p-1.5 border rounded text-sm"></div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+
+        function executeMode(showHitung) {
+            helpersGroup.clear(); 
+            hideResult();
+            const mode = document.getElementById('mode-selector').value;
+            
+            // Menggunakan skala terpanjang yang sudah disimpan sebelumnya
+            const scaleFactor = currentMaxEdge; 
+
+            try {
+                if (mode === '1') calcMode1(scaleFactor, showHitung);
+                else if (mode === '2') calcMode2(scaleFactor, showHitung);
+                else if (mode === '3') calcMode3(scaleFactor, showHitung);
+                else if (mode === '4') calcMode4(scaleFactor, showHitung);
+                else if (mode === '5') calcMode5(scaleFactor, showHitung);
+            } catch (err) {
+                alert(err.message);
+                hideResult();
+            }
+        }
+
+        function calcMode1(realEdge, showHitung) {
+            const p1Name = getVal('input-p1', 1); const p2Name = getVal('input-p2', 1);
+            const v1 = getCoord(p1Name); const v2 = getCoord(p2Name);
+            drawDashedLine(v1, v2, 0x4f46e5); 
+            if(showHitung) renderResult(v1, v2, realEdge);
+        }
+
+        function calcMode2(realEdge, showHitung) {
+            const ptName = getVal('input-pt', 1); const lineName = getVal('input-line', 2);
+            const P = getCoord(ptName);
+            const A = getCoord(lineName[0]); const B = getCoord(lineName[1]);
+
+            drawDashedLine(A, B, 0x64748b); 
+            const line = new THREE.Line3(A, B);
+            const Q = new THREE.Vector3();
+            line.closestPointToPoint(P, false, Q); 
+
+            drawDashedLine(P, Q, 0xdc2626); 
+            drawSikuSiku(Q, P, A); 
+            
+            // PERBAIKAN: Nama titik proyeksi mengikuti nama titik asal (Misal K menjadi K')
+            addCustomLabel(Q, ptName + "'"); 
+            
+            if(showHitung) renderResult(P, Q, realEdge);
+        }
+
+        function calcMode3(realEdge, showHitung) {
+            const ptName = getVal('input-pt', 1); const planeName = getVal('input-plane'); 
+            const P = getCoord(ptName);
+            const planeVertices = planeName.split('').map(n => getCoord(n));
+            
+            drawPlane(planeVertices, 0x3b82f6);
+            const mathPlane = new THREE.Plane().setFromCoplanarPoints(planeVertices[0], planeVertices[1], planeVertices[2]);
+            const Q = new THREE.Vector3();
+            mathPlane.projectPoint(P, Q); 
+
+            drawDashedLine(P, Q, 0xdc2626); 
+            drawSikuSiku(Q, P, planeVertices[0]);
+            
+            // PERBAIKAN: Nama titik proyeksi mengikuti nama titik asal (Misal E menjadi E')
+            addCustomLabel(Q, ptName + "'"); 
+            
+            if(showHitung) renderResult(P, Q, realEdge);
+        }
+
+        function calcMode4(realEdge, showHitung) {
+            const lineName = getVal('input-line', 2); const planeName = getVal('input-plane');
+            const A = getCoord(lineName[0]); const B = getCoord(lineName[1]);
+            const planeVerts = planeName.split('').map(n => getCoord(n));
+
+            drawDashedLine(A, B, 0x64748b);
+            drawPlane(planeVerts, 0x3b82f6);
+
+            const lineDir = new THREE.Vector3().subVectors(B, A).normalize();
+            const mathPlane = new THREE.Plane().setFromCoplanarPoints(planeVerts[0], planeVerts[1], planeVerts[2]);
+            if (Math.abs(mathPlane.normal.dot(lineDir)) > 0.01) {
+                alert("Garis memotong bidang (tidak sejajar). Jaraknya 0."); return;
+            }
+
+            const Q = new THREE.Vector3();
+            mathPlane.projectPoint(A, Q);
+
+            drawDashedLine(A, Q, 0xdc2626);
+            drawSikuSiku(Q, A, planeVerts[0]);
+            
+            // PERBAIKAN: Nama titik proyeksi mengikuti huruf pertama dari garis asal (Misal EG menjadi E')
+            addCustomLabel(Q, lineName[0] + "'"); 
+            
+            if(showHitung) renderResult(A, Q, realEdge);
+        }
+
+        function calcMode5(realEdge, showHitung) {
+            const p1Name = getVal('input-plane1'); const p2Name = getVal('input-plane2');
+            const verts1 = p1Name.split('').map(n => getCoord(n));
+            const verts2 = p2Name.split('').map(n => getCoord(n));
+
+            drawPlane(verts1, 0x8b5cf6); 
+            drawPlane(verts2, 0x10b981); 
+
+            const mathPlane1 = new THREE.Plane().setFromCoplanarPoints(verts1[0], verts1[1], verts1[2]);
+            const mathPlane2 = new THREE.Plane().setFromCoplanarPoints(verts2[0], verts2[1], verts2[2]);
+
+            const cross = new THREE.Vector3().crossVectors(mathPlane1.normal, mathPlane2.normal);
+            if (cross.lengthSq() > 0.01) {
+                alert("Kedua bidang tidak sejajar, sehingga saling berpotongan."); return;
+            }
+
+            let centroid = new THREE.Vector3(0,0,0);
+            verts1.forEach(v => centroid.add(v));
+            centroid.divideScalar(verts1.length);
+
+            const Q = new THREE.Vector3();
+            mathPlane2.projectPoint(centroid, Q);
+
+            drawDashedLine(centroid, Q, 0xdc2626);
+            drawSikuSiku(centroid, Q, verts1[0]);
+            drawSikuSiku(Q, centroid, verts2[0]);
+            if(showHitung) renderResult(centroid, Q, realEdge);
+        }
+
+        function renderResult(p1, p2, realEdge) {
+            const distSq = getRealDistanceSq(p1, p2, realEdge);
+            const textSurd = formatDistanceAsSurd(distSq);
+            showResult(textSurd);
+            addDistanceLabel(p1, p2, `${textSurd} cm`);
+        }
+
+        function getRealDistanceSq(vecA, vecB, scaleFactor) {
+            const dist3DSq = vecA.distanceToSquared(vecB);
+            // Mengembalikan jarak visual proporsional ke ukuran centi meter aslinya
+            const scaleRatio = scaleFactor / CUBE_SIZE;
+            return dist3DSq * (scaleRatio * scaleRatio);
+        }
+
+        function formatDistanceAsSurd(valSq) {
+            let realSq = Math.round(valSq * 10000) / 10000;
+            if (realSq === 0) return "0";
+
+            let bestDenom = 1; let bestNum = realSq;
+            for(let denom = 1; denom <= 16; denom++) {
+                let tryNum = realSq * denom * denom;
+                if(Math.abs(tryNum - Math.round(tryNum)) < 0.001) {
+                    bestNum = Math.round(tryNum); bestDenom = denom; break;
+                }
+            }
+
+            let outside = 1; let inside = bestNum;
+            for (let i = 2; i * i <= inside; i++) {
+                while (inside % (i * i) === 0) {
+                    outside *= i; inside /= (i * i);
+                }
+            }
+
+            const fpb = (a, b) => b === 0 ? a : fpb(b, a % b);
+            let g = fpb(outside, bestDenom);
+            outside /= g; bestDenom /= g;
+
+            let numStr = "";
+            if (inside === 1) numStr = `${outside}`;
+            else if (outside === 1) numStr = `√${inside}`;
+            else numStr = `${outside}√${inside}`;
+
+            if (bestDenom === 1) return numStr;
+            return `${numStr}/${bestDenom}`;
+        }
+
+        function handleAddHelperPoint() {
+            const ptName = document.getElementById('point-name').value.toUpperCase().trim();
+            const edgeName = document.getElementById('point-edge').value.toUpperCase().trim();
+            const ratio = parseFloat(document.getElementById('point-ratio').value);
+
+            if (ptName.length !== 1) { alert("Nama titik harus 1 huruf."); return; }
+            if (edgeName.length !== 2) { alert("Rusuk/Garis harus 2 huruf."); return; }
+            if (verticesData[ptName]) { alert("Titik sudah ada, pilih huruf lain."); return; }
+            
+            try {
+                const v1 = getCoord(edgeName[0]);
+                const v2 = getCoord(edgeName[1]);
+                const newCoord = new THREE.Vector3().lerpVectors(v1, v2, ratio);
+                verticesData[ptName] = newCoord;
+
+                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 16), new THREE.MeshBasicMaterial({ color: 0x2563eb }));
+                dot.position.copy(newCoord);
+                baseCubeGroup.add(dot); 
+
+                const div = document.createElement('div');
+                div.className = 'vertex-label'; 
+                div.style.color = '#2563eb';
+                div.textContent = ptName;
+                
+                const labelObj = new CSS2DObject(div);
+                labelObj.position.copy(newCoord);
+                labelObj.position.y += 0.8;
+                labelObj.position.x += 0.5;
+                
+                baseCubeGroup.add(labelObj);
+                
+                // MEREKAM TINDAKAN UNDO
+                actionHistory.push({ type: 'point', name: ptName, objects: [dot, labelObj] });
+            } catch (err) { alert(err.message); }
+        }
+
+        function handleAddCustomLine() {
+            try {
+                const lineName = getVal('custom-line', 2);
+                const v1 = getCoord(lineName[0]);
+                const v2 = getCoord(lineName[1]);
+                const colorHex = new THREE.Color(document.getElementById('custom-line-color').value).getHex();
+                
+                const lineObj = drawDashedLine(v1, v2, colorHex, baseCubeGroup); 
+                actionHistory.push({ type: 'line', objects: [lineObj] });
+            } catch(err) { alert(err.message); }
+        }
+
+        function handleAddLineLabel() {
+            try {
+                const lineName = getVal('label-line-target', 2);
+                const rawText = document.getElementById('label-line-text').value.trim();
+                
+                if (!rawText) throw new Error("Teks label tidak boleh kosong.");
+                const labelText = rawText.replace(/v/gi, '√');
+                const v1 = getCoord(lineName[0]);
+                const v2 = getCoord(lineName[1]);
+                const mid = new THREE.Vector3().lerpVectors(v1, v2, 0.5);
+                
+                const div = document.createElement('div');
+                div.style.color = '#0f172a';
+                div.style.fontWeight = 'bold';
+                div.style.fontSize = '15px';
+                div.style.pointerEvents = 'none';
+                div.style.textShadow = '-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff'; 
+                div.textContent = labelText;
+                
+                const obj = new CSS2DObject(div);
+                obj.position.copy(mid);
+                obj.position.y += 0.7; 
+                obj.position.x += 0.5; 
+                
+                baseCubeGroup.add(obj); 
+                actionHistory.push({ type: 'label', objects: [obj] });
+            } catch(err) { alert(err.message); }
+        }
+
+        function handleAddCustomPlane() {
+            try {
+                const planeName = getVal('custom-plane');
+                if (planeName.length < 3) throw new Error("Bidang minimal 3 huruf.");
+                const verts = planeName.split('').map(n => getCoord(n));
+                const colorHex = new THREE.Color(document.getElementById('custom-color').value).getHex();
+                
+                const planeObj = drawPlane(verts, colorHex, baseCubeGroup);
+                actionHistory.push({ type: 'plane', objects: [planeObj] });
+            } catch(err) { alert(err.message); }
+        }
+
+        function handleAddAngle() {
+            try {
+                const pts = getVal('angle-points', 3);
+                const vA = getCoord(pts[0]);
+                const vB = getCoord(pts[1]); 
+                const vC = getCoord(pts[2]);
+                const colorHex = new THREE.Color(document.getElementById('angle-color').value).getHex();
+                const symbol = document.getElementById('angle-symbol').value;
+                const displayMode = document.getElementById('angle-display').value;
+                
+                const isGuru = true; 
+                const angleObjs = drawAngleArc(vA, vB, vC, colorHex, symbol, isGuru, displayMode);
+                actionHistory.push({ type: 'angle', objects: angleObjs });
+            } catch(err) { alert(err.message); }
+        }
+
+        function drawAngleArc(vA, vB, vC, colorHex, symbol, isGuru, displayMode = 'simbol') {
+            const vecBA = new THREE.Vector3().subVectors(vA, vB).normalize();
+            const vecBC = new THREE.Vector3().subVectors(vC, vB).normalize();
+            
+            const angleRad = vecBA.angleTo(vecBC);
+            const angleDeg = Math.round(THREE.MathUtils.radToDeg(angleRad));
+            
+            if (angleDeg === 0 || angleDeg === 180) throw new Error("Ketiga titik berada pada satu garis lurus.");
+
+            const radius = 1.5; 
+            const arcPoints = [];
+            const segments = 20;
+            const centerPt = vB.clone();
+            
+            for(let i = 0; i <= segments; i++) {
+                const t = i / segments;
+                const dir = vecBA.clone().lerp(vecBC, t).normalize();
+                arcPoints.push(centerPt.clone().add(dir.multiplyScalar(radius)));
+            }
+            
+            // 1. Gambar Garis Busur Luar
+            const geom = new THREE.BufferGeometry().setFromPoints(arcPoints);
+            const mat = new THREE.LineBasicMaterial({ color: colorHex, linewidth: 2 });
+            const lineArc = new THREE.Line(geom, mat);
+            helpersGroup.add(lineArc);
+
+            // 2. Gambar Area Juring Transparan
+            const shapePoints = [centerPt, ...arcPoints];
+            const posArray = [];
+            for (let i = 1; i < shapePoints.length - 1; i++) {
+                posArray.push(
+                    shapePoints[0].x, shapePoints[0].y, shapePoints[0].z,
+                    shapePoints[i].x, shapePoints[i].y, shapePoints[i].z,
+                    shapePoints[i+1].x, shapePoints[i+1].y, shapePoints[i+1].z
+                );
+            }
+            const shapeGeom = new THREE.BufferGeometry();
+            shapeGeom.setAttribute('position', new THREE.Float32BufferAttribute(posArray, 3));
+            shapeGeom.computeVertexNormals();
+            
+            // Set opacity 0.3 agar warnanya tembus pandang (transparan)
+            const shapeMat = new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide, transparent: true, opacity: 0.3 });
+            const meshJuring = new THREE.Mesh(shapeGeom, shapeMat);
+            helpersGroup.add(meshJuring);
+            
+            // 3. Label Melayang di Dalam Juring (Ditarik ke dalam menjadi 60% radius)
+            const midDir = vecBA.clone().lerp(vecBC, 0.5).normalize().multiplyScalar(radius * 0.6);
+            const labelPos = centerPt.clone().add(midDir);
+            
+            const div = document.createElement('div');
+            div.className = 'intersect-label';
+            div.style.color = '#' + new THREE.Color(colorHex).getHexString();
+			// FONT MATEMATIKA: Agar Gamma (γ) tidak mirip huruf 'y'
+            div.style.fontFamily = "'Times New Roman', serif";
+            div.style.fontStyle = "italic";
+            div.style.fontSize = "16px";
+            
+            // Cek pilihan Guru: Angka (90°) atau Simbol (α)
+            if (isGuru && displayMode === 'angka') {
+                div.textContent = `${angleDeg}°`;
+            } else {
+                div.textContent = symbol;
+            }
+            
+            const obj = new CSS2DObject(div);
+            obj.position.copy(labelPos);
+            helpersGroup.add(obj);
+
+            return [lineArc, meshJuring, obj];
+        }
+
+        function getVal(id, expectedLen = null) {
+            const val = document.getElementById(id).value.toUpperCase().trim();
+            if (!val) throw new Error("Input tidak boleh kosong.");
+            if (expectedLen && val.length !== expectedLen) throw new Error(`Input harus terdiri dari ${expectedLen} huruf.`);
+            return val;
+        }
+
+        function getCoord(name) {
+            if (!verticesData[name]) throw new Error(`Titik '${name}' tidak ditemukan.`);
+            return verticesData[name];
+        }
+
+        // Menggambar garis (Nama fungsi tetap drawDashedLine agar kompatibel, tapi isinya diubah jadi SOLID)
+        function drawDashedLine(p1, p2, colorHex, group = helpersGroup) {
+            const material = new THREE.LineBasicMaterial({ color: colorHex, linewidth: 2 });
+            const geom = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+            const line = new THREE.Line(geom, material);
+            group.add(line);
+            return line;
+        }
+
+        // Menggambar Bidang Transparan (Support semua poligon mulai dari 3 hingga 6 titik)
+        function drawPlane(vertices, colorHex, group = helpersGroup) {
+            const geom = new THREE.BufferGeometry();
+            const pos = [];
+            // Teknik Triangle Fan: Membuat bidang kompleks dari banyak segitiga
+            for (let i = 1; i < vertices.length - 1; i++) {
+                pos.push(
+                    vertices[0].x, vertices[0].y, vertices[0].z,
+                    vertices[i].x, vertices[i].y, vertices[i].z,
+                    vertices[i+1].x, vertices[i+1].y, vertices[i+1].z
+                );
+            }
+            if (pos.length === 0) throw new Error("Gagal membuat bidang.");
+            
+            geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+            geom.computeVertexNormals();
+            // Opacity diatur 0.5 agar transparan
+            const mat = new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide, transparent: true, opacity: 0.5 });
+            const mesh = new THREE.Mesh(geom, mat);
+            group.add(mesh);
+            return mesh;
+        }
+
+        function drawSikuSiku(root, dirNormal, dirPlane) {
+            const size = 0.8;
+            const vN = dirNormal.clone().sub(root).normalize().multiplyScalar(size);
+            const vP_raw = dirPlane.clone().sub(root).normalize();
+            const tmp = new THREE.Vector3().crossVectors(vN, vP_raw);
+            let vP;
+            if (tmp.lengthSq() < 0.0001) { 
+                vP = new THREE.Vector3(1,0,0);
+            } else {
+                vP = new THREE.Vector3().crossVectors(tmp, vN).normalize().multiplyScalar(size);
+            }
+            const p1 = root.clone().add(vN);
+            const p2 = root.clone().add(vP);
+            const p3 = root.clone().add(vN).add(vP);
+
+            const mat = new THREE.LineBasicMaterial({ color: 0xdc2626, linewidth: 2 });
+            const geom = new THREE.BufferGeometry().setFromPoints([p1, p3, p2]);
+            helpersGroup.add(new THREE.Line(geom, mat));
+        }
+
+        function addDistanceLabel(p1, p2, text) {
+            const mid = new THREE.Vector3().lerpVectors(p1, p2, 0.5);
+            const div = document.createElement('div');
+            div.className = 'distance-label'; div.textContent = text;
+            const obj = new CSS2DObject(div);
+            obj.position.copy(mid);
+            helpersGroup.add(obj);
+        }
+
+        function addCustomLabel(pos, text, group = helpersGroup, color = '#dc2626') {
+            const div = document.createElement('div');
+            div.className = 'intersect-label'; 
+            div.style.color = color;
+            div.textContent = text;
+            const obj = new CSS2DObject(div);
+            obj.position.copy(pos).add(new THREE.Vector3(1,1,1).normalize().multiplyScalar(0.8)); 
+            group.add(obj);
+        }
+
+        function showResult(value) {
+            const box = document.getElementById('result-box');
+            document.getElementById('result-value').innerText = `${value} cm`;
+            box.classList.remove('hidden');
+        }
+
+        function hideResult() { 
+            document.getElementById('result-box').classList.add('hidden'); 
+        }
+
+        function onWindowResize() {
+            const aspect = window.innerWidth / window.innerHeight;
+            const viewSize = 25;
+            camera.left = -viewSize * aspect / 2; camera.right = viewSize * aspect / 2;
+            camera.top = viewSize / 2; camera.bottom = -viewSize / 2;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+        }
+
+        window.onload = function() {
+            init();
+            animate();
+        };
+    </script>
+</body>
+</html>

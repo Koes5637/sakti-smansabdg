@@ -78,6 +78,9 @@
 			<button onclick="switchTab('forum')" id="tab-btn-forum" class="tab-btn py-3 font-medium text-sm text-slate-500 whitespace-nowrap transition-colors flex items-center gap-2">
                 <i class="ph ph-chalkboard-teacher text-lg"></i> Mading Kelas
             </button>
+			<button onclick="switchTab('media')" id="tab-btn-media" class="tab-btn py-3 font-medium text-sm text-slate-500 whitespace-nowrap transition-colors flex items-center gap-2">
+                <i class="ph ph-cube text-lg"></i> Alat Peraga 3D
+            </button>
         </div>
     </header>
 
@@ -260,6 +263,36 @@
                 <div id="list-pesan-global-guru" class="space-y-5 pb-10">
                     <!-- Pesan dirender di sini -->
                 </div>
+            </div>
+        </div>
+		<!-- ========================================== -->
+        <!-- TAB 5: ALAT PERAGA 3D (MEDIA PEMBELAJARAN) -->
+        <!-- ========================================== -->
+        <div id="tab-content-media" class="tab-content space-y-6">
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col" style="height: 85vh;">
+                
+                <!-- Header & Tombol -->
+                <div class="flex items-center justify-between mb-4 border-b border-slate-100 dark:border-slate-700 pb-4 shrink-0">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-sky-100 text-sky-600 rounded-lg flex items-center justify-center font-bold text-xl"><i class="ph ph-cube"></i></div>
+                        <div>
+                            <h2 class="text-lg font-bold">Laboratorium Virtual & Alat Peraga 3D</h2>
+                            <p class="text-xs text-slate-500">Gunakan interaktif 3D ini untuk demonstrasi kelas. Dapat disalin menjadi gambar untuk naskah soal.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Tombol Fullscreen -->
+                    <button onclick="bukaFullscreen3D()" class="bg-sky-100 hover:bg-sky-200 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300 px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 shadow-sm border border-sky-200 dark:border-sky-800">
+                        <i class="ph ph-corners-out text-lg"></i> Layar Penuh
+                    </button>
+                </div>
+                
+                <!-- Wadah Iframe (Diberi ID agar bisa Fullscreen) -->
+                <div id="wadah-3d-guru" class="flex-1 w-full bg-slate-50 dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 relative">
+                    <!-- PEMANGGILAN APLIKASI 3D GURU -->
+                    <iframe src="visual 3d-guru.html" class="absolute inset-0 w-full h-full border-none bg-transparent" allowfullscreen></iframe>
+                </div>
+
             </div>
         </div>
     </main>
@@ -1311,6 +1344,18 @@
             document.getElementById('konten-tampilkan-materi').innerHTML = '';
             if(document.fullscreenElement) document.exitFullscreen();
         }
+		
+		// --- MESIN FULLSCREEN UNTUK ALAT PERAGA 3D ---
+        window.bukaFullscreen3D = function() {
+            const wadah3D = document.getElementById('wadah-3d-guru');
+            if (wadah3D) {
+                if (wadah3D.requestFullscreen) {
+                    wadah3D.requestFullscreen();
+                } else if (wadah3D.webkitRequestFullscreen) { /* Untuk browser Safari */
+                    wadah3D.webkitRequestFullscreen();
+                }
+            }
+        };
 
         // --- MESIN BAHAS SOAL, ZOOM & KANVAS PENA ---
         let modulBahasAktif = null;

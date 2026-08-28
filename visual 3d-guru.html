@@ -164,7 +164,7 @@
                 <input type="text" id="point-name" placeholder="Titik(K)" class="w-16 px-1 py-1 text-[10px] border border-blue-200 rounded uppercase outline-none">
                 <span class="text-[10px] text-blue-600">di</span>
                 <input type="text" id="point-edge" placeholder="Garis(CG)" class="w-16 px-1 py-1 text-[10px] border border-blue-200 rounded uppercase outline-none">
-                <input type="number" id="point-ratio" placeholder="Rasio 0.5" step="0.1" min="0" max="1" class="w-16 px-1 py-1 text-[10px] border border-blue-200 rounded outline-none">
+                <input type="text" id="point-ratio" placeholder="Rasio (1.5 atau 3/2)" class="w-24 px-1 py-1 text-[10px] border border-blue-200 rounded outline-none" title="Bisa ketik desimal (1.5) atau pecahan (3/2, -1/2)">
                 <button id="btn-add-point" class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold py-1 px-2 rounded ml-auto">Titik</button>
             </div>
 
@@ -863,7 +863,14 @@
         function handleAddHelperPoint() {
             const ptName = document.getElementById('point-name').value.toUpperCase().trim();
             const edgeName = document.getElementById('point-edge').value.toUpperCase().trim();
-            const ratio = parseFloat(document.getElementById('point-ratio').value);
+            let ratioRaw = document.getElementById('point-ratio').value.trim();
+            let ratio = 0;
+            if (ratioRaw.includes('/')) {
+                const parts = ratioRaw.split('/');
+                ratio = parseFloat(parts[0]) / parseFloat(parts[1]);
+            } else {
+                ratio = parseFloat(ratioRaw);
+            }
 
             if (ptName.length !== 1) { alert("Nama titik harus 1 huruf."); return; }
             if (edgeName.length !== 2) { alert("Rusuk/Garis harus 2 huruf."); return; }
@@ -875,7 +882,7 @@
                 const newCoord = new THREE.Vector3().lerpVectors(v1, v2, ratio);
                 verticesData[ptName] = newCoord;
 
-                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 16), new THREE.MeshBasicMaterial({ color: 0x2563eb }));
+                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({ color: 0x2563eb }));
                 dot.position.copy(newCoord);
                 baseCubeGroup.add(dot); 
 

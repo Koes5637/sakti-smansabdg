@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizer Lingkaran 2D - SAKTI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #f8fafc; font-family: 'Inter', sans-serif; }
+        #canvas-container { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
+        
+        /* Transisi halus untuk panel saat disembunyikan */
+        #ui-panel {
+            position: absolute; top: 20px; left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px; border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            width: 350px; max-height: 90vh; overflow-y: auto; z-index: 10;
+            transition: transform 0.3s ease-in-out;
+        }
+
+        #ui-panel.hidden-panel {
+            transform: translateX(-120%);
+        }
+        
+        #ui-panel::-webkit-scrollbar { width: 6px; }
+        #ui-panel::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+        input[type=range] { width: 100%; margin: 6px 0; accent-color: #4f46e5; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <!-- Tombol Saklar UI Melayang (Seperti di 3D) -->
+    <button id="btn-toggle-ui" class="absolute top-4 left-4 z-20 bg-white p-2 rounded-md shadow-md text-slate-700 hover:text-slate-900 border border-slate-200 transition-colors" title="Sembunyikan/Tampilkan Panel">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+    </button>
+
+    <!-- UI Panel (Bergeser sedikit ke bawah agar tidak menabrak tombol toggle) -->
+    <div id="ui-panel" class="border border-slate-200 mt-12">
+        <h1 class="text-xl font-extrabold text-slate-800 mb-1">Geometri Lingkaran 2D</h1>
+        
+        <!-- Pemilih Mode Materi -->
+        <label class="block text-[10px] font-bold text-slate-500 uppercase mt-4 mb-2 border-b pb-1">Mode Materi</label>
+        <select id="mode-selector" class="w-full mb-4 px-2 py-2 border border-slate-300 rounded-md text-sm font-bold text-blue-700 bg-white outline-none cursor-pointer">
+            <option value="UNSUR">1. Anatomi & Teorema Sudut</option>
+            <option value="SEGITIGA">2. Lingkaran & Segitiga</option>
+            <option value="SINGGUNG">3. Garis Singgung Luar</option>
+            <option value="PERSEKUTUAN">4. Persekutuan 2 Lingkaran</option>
+        </select>
+
+        <!-- WADAH DINAMIS MODE 1 -->
+        <div id="mode-unsur-container">
+            
+            <div class="mb-3 p-3 bg-indigo-50 border border-indigo-100 rounded-lg shadow-sm">
+                <label class="block text-[11px] font-bold text-indigo-700 mb-2">Set Sudut Bebas (Pusat/Keliling)</label>
+                <div class="flex items-center gap-2">
+                    <input type="text" id="input-angle-letters" placeholder="Misal: AOB" class="w-16 px-1 py-1.5 text-center border border-indigo-300 rounded text-xs font-bold uppercase outline-none" maxlength="3">
+                    <span class="text-xs font-bold text-indigo-700">=</span>
+                    <input type="number" id="input-angle-value" placeholder="120.5" class="w-16 px-1 py-1.5 text-center border border-indigo-300 rounded text-xs font-bold outline-none" step="0.1" min="0" max="360">
+                    <span class="text-xs font-bold text-indigo-700">°</span>
+                    <button id="btn-set-angle" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold py-1.5 px-3 rounded-md ml-auto">Terapkan</button>
+                </div>
+            </div>
+
+            <div class="mb-4 space-y-2">
+                <div>
+                    <div class="flex justify-between"><label class="text-xs font-bold text-red-600">Titik A</label><span id="valA" class="text-xs font-mono">210°</span></div>
+                    <input type="range" id="sliderA" min="0" max="360" step="0.1" value="210" class="accent-red-500">
+                </div>
+                <div>
+                    <div class="flex justify-between"><label class="text-xs font-bold text-blue-600">Titik B</label><span id="valB" class="text-xs font-mono">330°</span></div>
+                    <input type="range" id="sliderB" min="0" max="360" step="0.1" value="330" class="accent-blue-500">
+                </div>
+                <div>
+                    <div class="flex justify-between"><label class="text-xs font-bold text-emerald-600">Titik C</label><span id="valC" class="text-xs font-mono">90°</span></div>
+                    <input type="range" id="sliderC" min="0" max="360" step="0.1" value="90" class="accent-emerald-500">
+                </div>
+                <div>
+                    <div class="flex justify-between"><label class="text-xs font-bold text-amber-600">Titik D</label><span id="valD" class="text-xs font-mono">150°</span></div>
+                    <input type="range" id="sliderD" min="0" max="360" step="0.1" value="150" class="accent-amber-500">
+                </div>
+                <div id="wadah-slider-bebas"></div>
+            </div>
+
+            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2 border-b pb-1">Tampilkan Elemen Dasar</label>
+            <div class="flex gap-3 mb-2">
+                <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="cb-titikA" checked class="w-3 h-3 accent-red-500"><span class="text-[10px] font-semibold text-red-600">A</span></label>
+                <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="cb-titikB" checked class="w-3 h-3 accent-blue-500"><span class="text-[10px] font-semibold text-blue-600">B</span></label>
+                <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="cb-titikC" checked class="w-3 h-3 accent-emerald-500"><span class="text-[10px] font-semibold text-emerald-600">C</span></label>
+                <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="cb-titikD" checked class="w-3 h-3 accent-amber-500"><span class="text-[10px] font-semibold text-amber-600">D</span></label>
+            </div>
+			<div class="space-y-2 mb-4">
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="cb-pusatO" checked class="w-4 h-4 accent-slate-800"><span class="text-xs font-semibold text-slate-700">Titik Pusat (O)</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="cb-jari" checked class="w-4 h-4 accent-slate-800"><span class="text-xs font-semibold text-slate-700">Jari-jari (OA, OB)</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="cb-taliAB" checked class="w-4 h-4 accent-purple-600"><span class="text-xs font-semibold text-purple-700">Tali Busur AB & Apotema</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="cb-juring" class="w-4 h-4 accent-blue-500"><span class="text-xs font-semibold text-blue-600">Juring (Sector) AOB</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="cb-tembereng" class="w-4 h-4 accent-red-500"><span class="text-xs font-semibold text-red-600">Tembereng (Segment) AB</span></label>
+            </div>
+
+            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2 border-b pb-1">Teorema Sudut & Bangun</label>
+            <div class="space-y-2 mb-4">
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="cb-sudutPusat" checked class="w-4 h-4 accent-indigo-600"><span class="text-xs font-semibold text-indigo-700">Sudut Pusat (∠AOB)</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="cb-sudutKeliling1" checked class="w-4 h-4 accent-teal-600"><span class="text-xs font-semibold text-teal-700">Sudut Keliling (∠ACB)</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="cb-sudutKeliling2" class="w-4 h-4 accent-teal-600"><span class="text-xs font-semibold text-teal-700">Sudut Keliling 2 (∠ADB)</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="cb-segiempat" class="w-4 h-4 accent-rose-600"><span class="text-xs font-semibold text-rose-700">Segi Empat Tali Busur (ACBD)</span></label>
+            </div>
+        </div>
+
+        <!-- WADAH DINAMIS MODE 2 -->
+        <div id="mode-segitiga-container" class="hidden">
+            <div class="mb-4 p-3 bg-teal-50 border border-teal-100 rounded-lg shadow-sm">
+                <label class="block text-[11px] font-bold text-teal-800 mb-2">Panjang Sisi Segitiga ABC</label>
+                <div class="flex gap-2">
+                    <div class="flex-1"><label class="block text-[9px] font-bold text-teal-600 text-center mb-1">a (BC)</label>
+                    <input type="number" id="sisi-a" value="3" min="1" class="w-full px-1 py-1 text-sm border border-teal-200 rounded outline-none text-center font-mono"></div>
+                    
+                    <div class="flex-1"><label class="block text-[9px] font-bold text-teal-600 text-center mb-1">b (AC)</label>
+                    <input type="number" id="sisi-b" value="4" min="1" class="w-full px-1 py-1 text-sm border border-teal-200 rounded outline-none text-center font-mono"></div>
+                    
+                    <div class="flex-1"><label class="block text-[9px] font-bold text-teal-600 text-center mb-1">c (AB)</label>
+                    <input type="number" id="sisi-c" value="5" min="1" class="w-full px-1 py-1 text-sm border border-teal-200 rounded outline-none text-center font-mono"></div>
+                </div>
+                <p id="segitiga-error" class="text-[10px] text-red-600 font-bold mt-2 hidden text-center">Ukuran sisi tidak valid!</p>
+            </div>
+            
+            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2 border-b pb-1">Jenis Lingkaran</label>
+            <select id="jenis-lingkaran" class="w-full mb-4 px-2 py-2 border border-slate-300 rounded-md text-sm font-bold text-slate-700 bg-white outline-none cursor-pointer">
+                <option value="LUAR">Lingkaran Luar (Circumcircle)</option>
+                <option value="DALAM">Lingkaran Dalam (Incircle)</option>
+            </select>
+            
+            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2 border-b pb-1">Tampilkan Elemen Bantu</label>
+            <div class="space-y-2 mb-2">
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="cb-jari-segitiga" checked class="w-4 h-4 accent-teal-600"><span class="text-xs font-semibold text-slate-700">Jari-jari Lingkaran (r / R)</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="cb-garis-bantu" class="w-4 h-4 accent-indigo-500"><span class="text-xs font-semibold text-indigo-700">Garis Bantu (Sumbu / Bagi)</span></label>
+            </div>
+            
+            <!-- PANEL PENYUSUP (Sudah diamankan ke kandang Mode 2) -->
+            <div class="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-center">
+                <span class="block text-[10px] font-bold text-emerald-700 uppercase mb-1">Hasil Perhitungan Otomatis</span>
+                <div class="grid grid-cols-2 gap-2 text-xs font-mono text-emerald-900">
+                    <div class="bg-white p-1 rounded border border-emerald-100">Luas (L): <br><b id="calc-luas">-</b></div>
+                    <div class="bg-white p-1 rounded border border-emerald-100">Jari (r/R): <br><b id="calc-jari">-</b></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- WADAH DINAMIS MODE 3 (GARIS SINGGUNG LUAR) -->
+        <div id="mode-singgung-container" class="hidden">
+            <div class="mb-4 p-3 bg-amber-50 border border-amber-100 rounded-lg shadow-sm">
+                <label class="block text-[11px] font-bold text-amber-800 mb-2">Parameter Garis Singgung</label>
+                <div class="flex gap-2 mb-2">
+                    <div class="flex-1">
+                        <label class="block text-[9px] font-bold text-amber-600 mb-1">Jari-jari (r)</label>
+                        <input type="number" id="singgung-r" value="5" min="1" class="w-full px-1 py-1 text-sm border border-amber-200 rounded outline-none font-mono text-center">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-[9px] font-bold text-amber-600 mb-1">Jarak Pusat OP (d)</label>
+                        <input type="number" id="singgung-d" value="13" min="1" class="w-full px-1 py-1 text-sm border border-amber-200 rounded outline-none font-mono text-center">
+                    </div>
+                </div>
+                <p id="singgung-error" class="text-[10px] text-red-600 font-bold mt-2 hidden text-center">Jarak (d) harus lebih besar dari Jari-jari (r)!</p>
+            </div>
+
+            <div class="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-center">
+                <span class="block text-[10px] font-bold text-emerald-700 uppercase mb-1">Panjang Garis Singgung (PA / PB)</span>
+                <div class="text-lg font-extrabold text-emerald-900" id="calc-singgung">-</div>
+            </div>
+			
+			<label class="block text-[10px] font-bold text-slate-500 uppercase mb-2 border-b pb-1">Tampilan Sisi Garis</label>
+            <select id="singgung-sisi" class="w-full mb-3 px-2 py-2 border border-slate-300 rounded-md text-sm font-bold bg-white cursor-pointer">
+                <option value="KEDUANYA">Tampilkan Keduanya</option>
+                <option value="SISI1">Hanya Sisi 1 (Atas)</option>
+                <option value="SISI2">Hanya Sisi 2 (Bawah)</option>
+            </select>
+			
+            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2 border-b pb-1">Tampilkan Elemen</label>
+            <div class="space-y-2 mb-4">
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="cb-singgung-garis" checked class="w-4 h-4 accent-amber-600"><span class="text-xs font-semibold text-slate-700">Garis Singgung (PA, PB)</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="cb-singgung-jari" checked class="w-4 h-4 accent-slate-800"><span class="text-xs font-semibold text-slate-700">Jari-jari (OA, OB) & Siku</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="cb-singgung-pusat" checked class="w-4 h-4 accent-indigo-600"><span class="text-xs font-semibold text-indigo-700">Jarak Pusat (OP)</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="cb-singgung-layang" class="w-4 h-4 accent-rose-600"><span class="text-xs font-semibold text-rose-700">Layang-layang (OAPB)</span></label>
+            </div>
+        </div>
+		
+		<!-- WADAH DINAMIS MODE 4 (PERSEKUTUAN 2 LINGKARAN) -->
+        <div id="mode-persekutuan-container" class="hidden">
+            <div class="mb-4 p-3 bg-purple-50 border border-purple-100 rounded-lg shadow-sm">
+                <label class="block text-[11px] font-bold text-purple-800 mb-2">Parameter Dua Lingkaran</label>
+                <div class="flex gap-2">
+                    <div class="flex-1">
+                        <label class="block text-[9px] font-bold text-purple-600 mb-1 text-center">Jari Besar(R)</label>
+                        <input type="number" id="ps-R" value="7" min="1" class="w-full px-1 py-1 text-sm border border-purple-200 rounded outline-none text-center">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-[9px] font-bold text-purple-600 mb-1 text-center">Jari Kecil(r)</label>
+                        <input type="number" id="ps-r" value="2" min="1" class="w-full px-1 py-1 text-sm border border-purple-200 rounded outline-none text-center">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-[9px] font-bold text-purple-600 mb-1 text-center">Jarak Pst(d)</label>
+                        <input type="number" id="ps-d" value="13" min="1" class="w-full px-1 py-1 text-sm border border-purple-200 rounded outline-none text-center">
+                    </div>
+                </div>
+                <p id="ps-error" class="text-[10px] text-red-600 font-bold mt-2 hidden text-center">Lingkaran beririsan! (d harus > R + r)</p>
+            </div>
+
+            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2 border-b pb-1">Jenis Persekutuan</label>
+            <select id="ps-jenis" class="w-full mb-3 px-2 py-2 border border-slate-300 rounded-md text-sm font-bold bg-white cursor-pointer">
+                <option value="LUAR">Persekutuan Luar</option>
+                <option value="DALAM">Persekutuan Dalam</option>
+            </select>
+			
+			<label class="block text-[10px] font-bold text-slate-500 uppercase mb-2 border-b pb-1 mt-3">Tampilan Sisi Garis</label>
+            <select id="ps-sisi" class="w-full mb-3 px-2 py-2 border border-slate-300 rounded-md text-sm font-bold bg-white cursor-pointer">
+                <option value="KEDUANYA">Tampilkan Keduanya</option>
+                <option value="SISI1">Hanya Sisi 1 (Atas)</option>
+                <option value="SISI2">Hanya Sisi 2 (Bawah)</option>
+            </select>
+
+            <div class="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-center">
+                <span class="block text-[10px] font-bold text-emerald-700 uppercase mb-1">Panjang Garis Singgung</span>
+                <b id="calc-ps" class="text-xl text-emerald-900">-</b>
+            </div>
+
+            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2 border-b pb-1">Tampilkan Elemen</label>
+            <div class="space-y-2 mb-4">
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="cb-ps-garis" checked class="w-4 h-4 accent-purple-600"><span class="text-xs font-semibold text-slate-700">Garis Singgung (AB, CD)</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="cb-ps-jari" checked class="w-4 h-4 accent-slate-800"><span class="text-xs font-semibold text-slate-700">Jari-jari (R, r) & Siku</span></label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="cb-ps-pusat" checked class="w-4 h-4 accent-indigo-600"><span class="text-xs font-semibold text-indigo-700">Jarak Pusat (d)</span></label>
+            </div>
+        </div>
+
+        <!-- WADAH GLOBAL (Bebas, Reset, Unduh) -->
+        <div id="global-tools-container">
+		<div class="mb-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                <label class="block text-[10px] font-bold text-slate-700 uppercase mb-1">Tampilan Sudut Pusat/Keliling</label>
+                <select id="angle-display" class="w-full px-2 py-1.5 border border-slate-300 rounded text-sm outline-none bg-white cursor-pointer">
+                    <option value="angka">Angka (Misal: 90.5°)</option>
+                    <option value="simbol">Simbol (Misal: α, β)</option>
+                    <option value="warna">Hanya Warna (Kosong)</option>
+                </select>
+            </div>
+            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-2 border-b pb-1">Tambahan Elemen Bebas</label>
+            <div class="mb-4 p-2 bg-slate-100 border border-slate-200 rounded-lg">
+                
+                <!-- 1. Tambah Titik -->
+                <div class="flex gap-1 items-center mb-2">
+                    <input type="text" id="custom-pt-name" placeholder="Ttk(P)" class="w-12 px-1 py-1 text-[10px] border border-slate-300 rounded uppercase outline-none text-center" maxlength="1">
+                    <input type="number" id="custom-pt-deg" placeholder="Drjt(45)" class="w-12 px-1 py-1 text-[10px] border border-slate-300 rounded outline-none text-center" step="0.1" min="0" max="360">
+                    <input type="number" id="custom-pt-dist" placeholder="Jrk(1.5)" value="1.0" class="w-12 px-1 py-1 text-[10px] border border-slate-300 rounded outline-none text-center" step="0.1" title="1.0=Di garis, 1.5=Di luar, 0.5=Di dalam">
+                    <button id="btn-add-pt" class="bg-slate-600 hover:bg-slate-700 text-white text-[10px] font-bold py-1 px-2 rounded ml-auto">Tambah Titik</button>
+                </div>
+                
+                <!-- 2. Tambah Garis -->
+                <div class="flex gap-1 items-center mb-2">
+                    <input type="text" id="custom-line-name" placeholder="Grs(DC)" class="w-16 px-1 py-1 text-[10px] border border-slate-300 rounded uppercase outline-none text-center" maxlength="2">
+                    <input type="color" id="custom-line-color" value="#0ea5e9" class="w-12 h-6 p-0 border-0 rounded cursor-pointer">
+                    <button id="btn-add-line" class="bg-slate-600 hover:bg-slate-700 text-white text-[10px] font-bold py-1 px-2 rounded ml-auto">Tambah Garis</button>
+                </div>
+                
+                <!-- 3. Titik Potong (Yang Sebelumnya Hilang) -->
+                <div class="flex gap-1 items-center mb-2">
+                    <input type="text" id="intersect-l1" placeholder="Grs1(LK)" class="w-14 px-1 py-1 text-[10px] border border-slate-300 rounded uppercase outline-none text-center" maxlength="2">
+                    <input type="text" id="intersect-l2" placeholder="Grs2(MN)" class="w-14 px-1 py-1 text-[10px] border border-slate-300 rounded uppercase outline-none text-center" maxlength="2">
+                    <input type="text" id="intersect-name" placeholder="Nma(P)" class="w-12 px-1 py-1 text-[10px] border border-slate-300 rounded uppercase outline-none text-center" maxlength="1">
+                    <button id="btn-add-intersect" class="bg-slate-600 hover:bg-slate-700 text-white text-[10px] font-bold py-1 px-2 rounded ml-auto">Titik Potong</button>
+                </div>
+                
+                <!-- 4. Garis Singgung (UI Diperbaiki agar tidak terpotong) -->
+                <div class="flex flex-wrap gap-1 items-center mb-2 p-1.5 bg-pink-50 border border-pink-200 rounded">
+                    <input type="text" id="tangent-ref" placeholder="Ttk(C)" class="w-12 px-1 py-1 text-[10px] border border-pink-300 rounded uppercase outline-none text-center" maxlength="1" title="Titik Singgung">
+                    <input type="number" id="tangent-len" placeholder="Pnjg(2)" value="1.5" class="w-14 px-1 py-1 text-[10px] border border-pink-300 rounded outline-none text-center" step="0.1" title="Panjang Garis">
+                    <input type="text" id="tangent-p1" placeholder="Ujg1(M)" class="w-14 px-1 py-1 text-[10px] border border-pink-300 rounded uppercase outline-none text-center" maxlength="1">
+                    <input type="text" id="tangent-p2" placeholder="Ujg2(N)" class="w-14 px-1 py-1 text-[10px] border border-pink-300 rounded uppercase outline-none text-center" maxlength="1">
+                    <label class="flex items-center gap-1 mt-1 cursor-pointer w-full"><input type="checkbox" id="cb-sembunyi-ujung" class="w-3 h-3 accent-pink-500"><span class="text-[9px] font-semibold text-pink-600">Sembunyikan Titik & Huruf Ujung</span></label>
+					<button id="btn-add-tangent" class="w-full mt-1 bg-pink-600 hover:bg-pink-700 text-white text-[10px] font-bold py-1.5 px-2 rounded shadow-sm">Buat Garis Singgung</button>
+                </div>
+                
+                <!-- 5. Gambar Sudut -->
+                <div class="flex gap-1 items-center">
+                    <input type="text" id="custom-ang-name" placeholder="Sdt(BCD)" class="w-[72px] px-1 py-1 text-[10px] border border-slate-300 rounded uppercase outline-none text-center" maxlength="3">
+                    <input type="color" id="custom-ang-color" value="#ec4899" class="w-12 h-6 p-0 border-0 rounded cursor-pointer">
+                    <button id="btn-add-ang" class="bg-slate-600 hover:bg-slate-700 text-white text-[10px] font-bold py-1 px-2 rounded ml-auto">Gambar Sudut</button>
+                </div>
+            </div>
+
+            <div class="flex gap-2">
+                <button id="btn-undo" class="w-1/3 bg-amber-100 hover:bg-amber-200 text-amber-700 text-xs font-bold py-2.5 rounded-lg shadow-sm transition-colors border border-amber-200">
+                    Undo Terakhir
+                </button>
+                <button id="btn-reset" class="w-2/3 bg-rose-100 hover:bg-rose-200 text-rose-700 text-xs font-bold py-2.5 rounded-lg shadow-sm transition-colors border border-rose-200">
+                    Bersihkan & Reset
+                </button>
+            </div>
+            
+            <div class="flex gap-2 mt-2">
+                <select id="bg-download-2d" class="w-1/3 px-1 border border-emerald-200 rounded-lg text-[11px] font-bold text-emerald-700 bg-emerald-50 outline-none cursor-pointer">
+                    <option value="transparan">Transparan</option>
+                    <option value="putih">Putih Solid</option>
+                </select>
+                <button id="btn-download" class="w-2/3 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-xs font-bold py-2.5 rounded-lg shadow-sm transition-colors border border-emerald-200">
+                    Unduh Gambar (PNG)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kanvas HTML5 -->
+    <canvas id="myCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // VARIABEL ZOOM & KOORDINAT
+        let cx, cy, base_r, r_canvas;
+        let zoomLevel = 1;
+
+        // Ambil elemen UI Mode 1
+        const sliders = ['A', 'B', 'C', 'D'].map(id => document.getElementById('slider' + id));
+        const vals = ['A', 'B', 'C', 'D'].map(id => document.getElementById('val' + id));
+        const cbs = ['cb-jari', 'cb-taliAB', 'cb-juring', 'cb-tembereng', 'cb-sudutPusat', 'cb-sudutKeliling1', 'cb-sudutKeliling2', 'cb-segiempat'];
+        const displayMode = document.getElementById('angle-display');
+        
+        // Ambil elemen UI Mode 2
+        const sisiInputs = ['sisi-a', 'sisi-b', 'sisi-c'].map(id => document.getElementById(id));
+        const jenisLingkaran = document.getElementById('jenis-lingkaran');
+        const cbJariSegitiga = document.getElementById('cb-jari-segitiga');
+        const cbGarisBantu = document.getElementById('cb-garis-bantu');
+		// UI Mode 4 (Persekutuan 2 Lingkaran)
+		const psInputs = ['ps-R', 'ps-r', 'ps-d'].map(id => document.getElementById(id));
+        const psJenis = document.getElementById('ps-jenis');
+        const psSisi = document.getElementById('ps-sisi'); // VARIABEL BARU
+
+        // Ambil elemen UI Mode 3
+        const singgungInputs = ['singgung-r', 'singgung-d'].map(id => document.getElementById(id));
+        const singgungCbs = ['cb-singgung-garis', 'cb-singgung-jari', 'cb-singgung-pusat', 'cb-singgung-layang'].map(id => document.getElementById(id));
+		const singgungSisi = document.getElementById('singgung-sisi'); // VARIABEL BARU
+
+        // DATABASE UNTUK ELEMEN BEBAS
+        let customPointsData = {}; 
+        let customLinesData = [];  
+        let customIntersectsData = []; 
+        let customAnglesData = [];
+		let customTangentsData = [];
+		let actionHistory = [];
+
+        // Fungsi Hitung Dimensi Dasar & Zoom
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            cx = canvas.width / 2;
+            cy = canvas.height / 2;
+            base_r = Math.min(cx, cy) * 0.55; 
+            r_canvas = base_r * zoomLevel; // Terapkan level zoom
+            draw();
+        }
+
+        // ==========================================
+        // MESIN GAMBAR UTAMA & DELEGASI MODE
+        // ==========================================
+        // MESIN PUSAT KANVAS
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const mode = document.getElementById('mode-selector').value;
+            
+            let allPts = {};
+            let activeCircle = { x: cx, y: cy, r: r_canvas }; // Posisi orbit default
+            
+            if (mode === 'UNSUR') { let res = drawModeUnsur(); if(res){ allPts = res; activeCircle = res.CIRCLE || activeCircle; } }
+            else if (mode === 'SEGITIGA') { let res = drawModeSegitiga(); if(res){ allPts = res; activeCircle = res.CIRCLE || activeCircle; } }
+            else if (mode === 'SINGGUNG') { let res = drawModeSinggung(); if(res){ allPts = res; activeCircle = res.CIRCLE || activeCircle; } }
+            else if (mode === 'PERSEKUTUAN') { let res = drawModePersekutuan(); if(res){ allPts = res; activeCircle = res.CIRCLE || activeCircle; } }
+
+            if (!allPts) return;
+
+            // 1. Integrasi Kalkulasi Titik Bebas & Jarak
+            for (let name in customPointsData) {
+                let pt = customPointsData[name];
+                let deg = typeof pt === 'object' ? pt.deg : pt;
+                let dist = typeof pt === 'object' ? pt.dist : 1.0;
+                const rad = deg * Math.PI / 180;
+                allPts[name] = { 
+                    x: activeCircle.x + (activeCircle.r * dist) * Math.cos(rad), 
+                    y: activeCircle.y + (activeCircle.r * dist) * Math.sin(rad) 
+                };
+            }
+
+            // 2. MESIN GARIS SINGGUNG BEBAS
+            customTangentsData.forEach(tan => {
+                const ptRef = allPts[tan.ref];
+                if(ptRef) {
+                    let dx = ptRef.x - activeCircle.x;
+                    let dy = ptRef.y - activeCircle.y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+                    if(dist === 0) return;
+                    
+                    let perpX = -dy / dist;
+                    let perpY = dx / dist;
+                    
+                    let p1 = { x: ptRef.x + perpX * (tan.len * activeCircle.r), y: ptRef.y + perpY * (tan.len * activeCircle.r) };
+                    let p2 = { x: ptRef.x - perpX * (tan.len * activeCircle.r), y: ptRef.y - perpY * (tan.len * activeCircle.r) };
+                    
+                    ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+                    ctx.strokeStyle = '#ec4899'; ctx.lineWidth = 2.5; ctx.stroke(); 
+                    
+                    let lenSiku = 15 * zoomLevel;
+                    let dxO = -dx / dist * lenSiku; 
+                    let dyO = -dy / dist * lenSiku;
+                    let dxT = perpX * lenSiku; 
+                    let dyT = perpY * lenSiku;
+                    
+                    ctx.beginPath(); ctx.moveTo(ptRef.x + dxO, ptRef.y + dyO);
+                    ctx.lineTo(ptRef.x + dxO + dxT, ptRef.y + dyO + dyT); ctx.lineTo(ptRef.x + dxT, ptRef.y + dyT);
+                    ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1.5; ctx.stroke();
+
+                    // --- Logika Saklar Gaib ---
+                    const sembunyiUjung = document.getElementById('cb-sembunyi-ujung') && document.getElementById('cb-sembunyi-ujung').checked;
+                    if (tan.p1 && !sembunyiUjung) drawDot(p1, tan.p1, '#ec4899');
+                    if (tan.p2 && !sembunyiUjung) drawDot(p2, tan.p2, '#ec4899');
+                    
+                    // --- BAGIAN INI SANGAT PENTING (Perekam Memori) ---
+                    // Mendaftarkan ke allPts agar Mesin Titik Potong tidak buta
+                    if (tan.p1) allPts[tan.p1] = p1;
+                    if (tan.p2) allPts[tan.p2] = p2;
+                }
+            });
+
+            // 3. Titik Potong
+            customIntersectsData.forEach(item => {
+                const p1 = allPts[item.l1[0]], p2 = allPts[item.l1[1]];
+                const p3 = allPts[item.l2[0]], p4 = allPts[item.l2[1]];
+                if(p1 && p2 && p3 && p4) {
+                    const denom = (p1.x - p2.x)*(p3.y - p4.y) - (p1.y - p2.y)*(p3.x - p4.x);
+                    if (denom !== 0) {
+                        const t = ((p1.x - p3.x)*(p3.y - p4.y) - (p1.y - p3.y)*(p3.x - p4.x)) / denom;
+                        allPts[item.name] = { x: p1.x + t * (p2.x - p1.x), y: p1.y + t * (p2.y - p1.y) };
+                    }
+                }
+            });
+
+            // 4. Garis Bebas
+            customLinesData.forEach(line => {
+                const pt1 = allPts[line.p1], pt2 = allPts[line.p2];
+                if(pt1 && pt2) {
+                    ctx.beginPath(); ctx.moveTo(pt1.x, pt1.y); ctx.lineTo(pt2.x, pt2.y);
+                    ctx.lineWidth = 2.5; ctx.strokeStyle = line.color; ctx.stroke();
+                }
+            });
+
+            // 5. Sudut Bebas
+            const listSimbol = ['θ', 'φ', 'ω', 'λ', 'μ', 'ε', 'η'];
+            customAnglesData.forEach((ang, idx) => {
+                const pt1 = allPts[ang.p1], ptMid = allPts[ang.pMid], pt2 = allPts[ang.p2];
+                if(pt1 && ptMid && pt2) {
+                    drawAngleEngine(ptMid, pt1, pt2, 35 * zoomLevel, listSimbol[idx % listSimbol.length], ang.color);
+                }
+            });
+
+            // 6. Merender Bulatan Titik
+            for (let name in customPointsData) drawDot(allPts[name], name, '#64748b');
+            customIntersectsData.forEach(item => {
+                if(allPts[item.name]) drawDot(allPts[item.name], item.name, '#0ea5e9');
+            });
+        }
+
+        // ==========================================
+        // LOGIKA MODE 1 (ANATOMI & TEOREMA) - ASLI
+        // ==========================================
+        function drawModeUnsur() {
+            let deg = [parseFloat(sliders[0].value), parseFloat(sliders[1].value), parseFloat(sliders[2].value), parseFloat(sliders[3].value)];
+            sliders.forEach((s, i) => vals[i].innerText = parseFloat(deg[i].toFixed(1)) + '°');
+            
+            const getCrd = d => ({ x: cx + r_canvas * Math.cos(d * Math.PI / 180), y: cy + r_canvas * Math.sin(d * Math.PI / 180) });
+            let A = getCrd(deg[0]), B = getCrd(deg[1]), C = getCrd(deg[2]), D = getCrd(deg[3]);
+            let O = { x: cx, y: cy };
+
+            let startAB = Math.min(deg[0], deg[1]) * Math.PI / 180;
+            let endAB = Math.max(deg[0], deg[1]) * Math.PI / 180;
+            if (Math.abs(deg[0] - deg[1]) > 180) { 
+                startAB = Math.max(deg[0], deg[1]) * Math.PI / 180;
+                endAB = Math.min(deg[0], deg[1]) * Math.PI / 180 + 2*Math.PI;
+            }
+
+            if (document.getElementById('cb-juring').checked) {
+                ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, r_canvas, startAB, endAB, false); ctx.closePath();
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.2)'; ctx.fill();
+            }
+            if (document.getElementById('cb-tembereng').checked) {
+                ctx.beginPath(); ctx.arc(cx, cy, r_canvas, startAB, endAB, false); ctx.closePath();
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.3)'; ctx.fill();
+            }
+
+            if (document.getElementById('cb-segiempat').checked) {
+                let pts = [A, B, C, D].sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
+                ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+                for(let i=1; i<4; i++) ctx.lineTo(pts[i].x, pts[i].y);
+                ctx.closePath();
+                ctx.lineWidth = 2; ctx.strokeStyle = '#e11d48'; ctx.stroke();
+                ctx.fillStyle = 'rgba(225, 29, 72, 0.1)'; ctx.fill();
+            }
+
+            ctx.beginPath(); ctx.arc(cx, cy, r_canvas, 0, 2 * Math.PI);
+            ctx.lineWidth = 3; ctx.strokeStyle = '#334155'; ctx.stroke();
+
+            const drawLine = (p1, p2, color, width, dash=[]) => {
+                ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+                ctx.lineWidth = width; ctx.strokeStyle = color; ctx.setLineDash(dash); ctx.stroke(); ctx.setLineDash([]);
+            };
+
+            if (document.getElementById('cb-jari').checked) {
+                drawLine(O, A, '#475569', 2); drawLine(O, B, '#475569', 2);
+            }
+            if (document.getElementById('cb-taliAB').checked) {
+                drawLine(A, B, '#9333ea', 2);
+                drawLine(O, {x: (A.x + B.x)/2, y: (A.y + B.y)/2}, '#10b981', 2, [5,5]); 
+            }
+            if (document.getElementById('cb-sudutKeliling1').checked) {
+                drawLine(A, C, '#0d9488', 2); drawLine(B, C, '#0d9488', 2);
+                drawAngleEngine(C, A, B, 40 * zoomLevel, 'γ', 'rgba(13, 148, 136, 0.3)'); 
+            }
+            if (document.getElementById('cb-sudutKeliling2').checked) {
+                drawLine(A, D, '#d97706', 2); drawLine(B, D, '#d97706', 2);
+                drawAngleEngine(D, A, B, 40 * zoomLevel, 'θ', 'rgba(217, 119, 6, 0.3)'); 
+            }
+            if (document.getElementById('cb-sudutPusat').checked) {
+                drawLine(O, A, '#4f46e5', 2); drawLine(O, B, '#4f46e5', 2);
+                drawAngleEngine(O, A, B, 30 * zoomLevel, 'α', 'rgba(79, 70, 229, 0.3)'); 
+            }
+			
+            if (document.getElementById('cb-pusatO').checked) drawDot(O, 'O', '#1e293b');
+            if (!document.getElementById('cb-titikA') || document.getElementById('cb-titikA').checked) drawDot(A, 'A', '#ef4444');
+            if (!document.getElementById('cb-titikB') || document.getElementById('cb-titikB').checked) drawDot(B, 'B', '#3b82f6');
+            if (!document.getElementById('cb-titikC') || document.getElementById('cb-titikC').checked) drawDot(C, 'C', '#10b981');
+            if (!document.getElementById('cb-titikD') || document.getElementById('cb-titikD').checked) drawDot(D, 'D', '#f59e0b');
+			if(document.getElementById('cb-sembunyi-ujung')) document.getElementById('cb-sembunyi-ujung').addEventListener('change', draw);	
+				
+            return { 'A': A, 'B': B, 'C': C, 'D': D, 'O': O, CIRCLE: {x: cx, y: cy, r: r_canvas} };
+        }
+
+        // ==========================================
+        // LOGIKA MODE 2 (LINGKARAN & SEGITIGA) - ASLI
+        // ==========================================
+        function drawModeSegitiga() {
+            const a = parseFloat(sisiInputs[0].value);
+            const b = parseFloat(sisiInputs[1].value);
+            const c = parseFloat(sisiInputs[2].value);
+            const errLabel = document.getElementById('segitiga-error');
+
+            if (isNaN(a) || isNaN(b) || isNaN(c) || a + b <= c || a + c <= b || b + c <= a) {
+                errLabel.classList.remove('hidden'); return null; 
+            }
+            errLabel.classList.add('hidden');
+
+            let A_loc = {x: 0, y: 0}, B_loc = {x: c, y: 0};
+            let xC = (c*c + b*b - a*a) / (2*c);
+            let yC = -Math.sqrt(Math.abs(b*b - xC*xC));
+            let C_loc = {x: xC, y: yC};
+
+            let s = (a+b+c)/2;
+            let area = Math.sqrt(s*(s-a)*(s-b)*(s-c));
+            let R = (a*b*c) / (4*area);
+            let r_in = area / s;        
+
+            // Pembaruan Kalkulasi di Panel yang sekarang aman di dalam kandang Mode 2
+            document.getElementById('calc-luas').innerText = area.toFixed(2);
+            document.getElementById('calc-jari').innerText = (jenisLingkaran.value === 'LUAR' ? R : r_in).toFixed(2);
+
+            let D = 2 * (A_loc.x*(B_loc.y - C_loc.y) + B_loc.x*(C_loc.y - A_loc.y) + C_loc.x*(A_loc.y - B_loc.y));
+            let Ux = ((A_loc.x*A_loc.x + A_loc.y*A_loc.y)*(B_loc.y - C_loc.y) + (B_loc.x*B_loc.x + B_loc.y*B_loc.y)*(C_loc.y - A_loc.y) + (C_loc.x*C_loc.x + C_loc.y*C_loc.y)*(A_loc.y - B_loc.y)) / D;
+            let Uy = ((A_loc.x*A_loc.x + A_loc.y*A_loc.y)*(C_loc.x - B_loc.x) + (B_loc.x*B_loc.x + B_loc.y*B_loc.y)*(A_loc.x - C_loc.x) + (C_loc.x*C_loc.x + C_loc.y*C_loc.y)*(B_loc.x - A_loc.x)) / D;
+            let U_loc = {x: Ux, y: Uy}; 
+
+            let Ix = (a*A_loc.x + b*B_loc.x + c*C_loc.x) / (a+b+c);
+            let Iy = (a*A_loc.y + b*B_loc.y + c*C_loc.y) / (a+b+c);
+            let I_loc = {x: Ix, y: Iy}; 
+
+            const jenis = jenisLingkaran.value;
+            let center_loc = jenis === 'LUAR' ? U_loc : I_loc;
+            
+            let scale = r_canvas / (jenis === 'LUAR' ? R : r_in);
+            let transform = (pt) => ({ x: cx + (pt.x - center_loc.x) * scale, y: cy + (pt.y - center_loc.y) * scale });
+
+            let A = transform(A_loc), B = transform(B_loc), C = transform(C_loc), O = {x: cx, y: cy}; 
+
+            ctx.beginPath(); ctx.arc(cx, cy, r_canvas, 0, 2 * Math.PI);
+            ctx.lineWidth = 3; ctx.strokeStyle = '#334155'; ctx.stroke();
+            
+            ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.lineTo(C.x, C.y); ctx.closePath();
+            ctx.lineWidth = 2.5; ctx.strokeStyle = '#0284c7'; ctx.stroke();
+            ctx.fillStyle = 'rgba(2, 132, 199, 0.1)'; ctx.fill();
+
+            if (cbGarisBantu.checked) {
+                ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5; ctx.strokeStyle = '#64748b';
+                if (jenis === 'LUAR') {
+                    ctx.beginPath(); ctx.moveTo(O.x, O.y); ctx.lineTo((A.x+B.x)/2, (A.y+B.y)/2); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(O.x, O.y); ctx.lineTo((B.x+C.x)/2, (B.y+C.y)/2); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(O.x, O.y); ctx.lineTo((A.x+C.x)/2, (A.y+C.y)/2); ctx.stroke();
+                } else {
+                    ctx.beginPath(); ctx.moveTo(O.x, O.y); ctx.lineTo(A.x, A.y); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(O.x, O.y); ctx.lineTo(B.x, B.y); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(O.x, O.y); ctx.lineTo(C.x, C.y); ctx.stroke();
+                }
+                ctx.setLineDash([]);
+            }
+
+            if (cbJariSegitiga.checked) {
+                ctx.lineWidth = 2; ctx.strokeStyle = '#e11d48';
+                if (jenis === 'LUAR') {
+                    ctx.beginPath(); ctx.moveTo(O.x, O.y); ctx.lineTo(A.x, A.y); ctx.stroke();
+                    drawAngleEngine(O, A, {x: A.x, y: O.y}, 30 * zoomLevel, 'R', 'transparent', true);
+                } else {
+                    const getProj = (P, p1, p2) => {
+                        let dx = p2.x - p1.x, dy = p2.y - p1.y, t = ((P.x - p1.x)*dx + (P.y - p1.y)*dy) / (dx*dx + dy*dy);
+                        return { x: p1.x + t*dx, y: p1.y + t*dy };
+                    };
+                    let E = getProj(O, B, C), F = getProj(O, A, C), G = getProj(O, A, B);
+                    [E, F, G].forEach(pt => { ctx.beginPath(); ctx.moveTo(O.x, O.y); ctx.lineTo(pt.x, pt.y); ctx.stroke(); });
+                    drawDot(E, 'E', '#f59e0b'); drawDot(F, 'F', '#f59e0b'); drawDot(G, 'G', '#f59e0b');
+                }
+            }
+
+            drawDot(O, 'O', '#1e293b'); drawDot(A, 'A', '#ef4444'); drawDot(B, 'B', '#3b82f6'); drawDot(C, 'C', '#10b981');
+
+            return { 'A': A, 'B': B, 'C': C, 'O': O, CIRCLE: {x: cx, y: cy, r: r_canvas} };
+        }
+
+        // ==========================================
+        // LOGIKA MODE 3 (GARIS SINGGUNG LUAR) - BARU
+        // ==========================================
+        function drawModeSinggung() {
+            const r_val = parseFloat(document.getElementById('singgung-r').value);
+            const d_val = parseFloat(document.getElementById('singgung-d').value);
+            const errLabel = document.getElementById('singgung-error');
+
+            if (isNaN(r_val) || isNaN(d_val) || d_val <= r_val) {
+                errLabel.classList.remove('hidden'); return null;
+            }
+            errLabel.classList.add('hidden');
+
+            const pg = Math.sqrt(d_val*d_val - r_val*r_val);
+            document.getElementById('calc-singgung').innerText = pg.toFixed(2);
+
+            const visual_d = r_canvas * 1.3;
+            const visual_r = visual_d * (r_val / d_val);
+
+            const O = { x: cx - (visual_d * 0.4), y: cy }; 
+            const P = { x: O.x + visual_d, y: cy };
+
+            const theta = Math.acos(r_val / d_val);
+            const A = { x: O.x + visual_r * Math.cos(-theta), y: O.y + visual_r * Math.sin(-theta) };
+            const B = { x: O.x + visual_r * Math.cos(theta), y: O.y + visual_r * Math.sin(theta) };
+
+            const sisiMode = document.getElementById('singgung-sisi').value;
+
+            if (document.getElementById('cb-singgung-layang').checked) {
+                ctx.beginPath(); ctx.moveTo(O.x, O.y);
+                if (sisiMode === 'KEDUANYA' || sisiMode === 'SISI1') { ctx.lineTo(A.x, A.y); ctx.lineTo(P.x, P.y); }
+                else { ctx.lineTo(P.x, P.y); }
+                if (sisiMode === 'KEDUANYA' || sisiMode === 'SISI2') { ctx.lineTo(B.x, B.y); }
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(244, 63, 94, 0.1)'; ctx.fill();
+                ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(244, 63, 94, 0.3)'; ctx.stroke();
+            }
+
+            ctx.beginPath(); ctx.arc(O.x, O.y, visual_r, 0, 2 * Math.PI);
+            ctx.lineWidth = 3; ctx.strokeStyle = '#334155'; ctx.stroke();
+
+            const drawLine = (p1, p2, color, width, dash=[]) => {
+                ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+                ctx.lineWidth = width; ctx.strokeStyle = color; ctx.setLineDash(dash); ctx.stroke(); ctx.setLineDash([]);
+            };
+
+            const drawSiku = (pCorner, pDir1, pDir2) => {
+                let v1 = {x: pDir1.x - pCorner.x, y: pDir1.y - pCorner.y}, len1 = Math.sqrt(v1.x**2 + v1.y**2);
+                let v2 = {x: pDir2.x - pCorner.x, y: pDir2.y - pCorner.y}, len2 = Math.sqrt(v2.x**2 + v2.y**2);
+                // Ukuran 7.5 yang sudah rapi
+                let u1 = {x: (v1.x/len1)*7.5*zoomLevel, y: (v1.y/len1)*7.5*zoomLevel};
+                let u2 = {x: (v2.x/len2)*7.5*zoomLevel, y: (v2.y/len2)*7.5*zoomLevel};
+                ctx.beginPath();
+                ctx.moveTo(pCorner.x + u1.x, pCorner.y + u1.y);
+                ctx.lineTo(pCorner.x + u1.x + u2.x, pCorner.y + u1.y + u2.y);
+                ctx.lineTo(pCorner.x + u2.x, pCorner.y + u2.y);
+                ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1.5; ctx.stroke();
+            };
+
+            if (document.getElementById('cb-singgung-pusat').checked) drawLine(O, P, '#4f46e5', 2, [5, 5]);
+            
+            if (document.getElementById('cb-singgung-jari').checked) {
+                if (sisiMode === 'KEDUANYA' || sisiMode === 'SISI1') { drawLine(O, A, '#475569', 2); drawSiku(A, O, P); }
+                if (sisiMode === 'KEDUANYA' || sisiMode === 'SISI2') { drawLine(O, B, '#475569', 2); drawSiku(B, O, P); }
+            }
+            
+            if (document.getElementById('cb-singgung-garis').checked) {
+                if (sisiMode === 'KEDUANYA' || sisiMode === 'SISI1') drawLine(P, A, '#d97706', 2.5);
+                if (sisiMode === 'KEDUANYA' || sisiMode === 'SISI2') drawLine(P, B, '#d97706', 2.5);
+            }
+
+            drawDot(O, 'O', '#1e293b'); drawDot(P, 'P', '#8b5cf6');
+            if (sisiMode === 'KEDUANYA' || sisiMode === 'SISI1') drawDot(A, 'A', '#ef4444');
+            if (sisiMode === 'KEDUANYA' || sisiMode === 'SISI2') drawDot(B, 'B', '#3b82f6');
+
+            return { 'O': O, 'P': P, 'A': A, 'B': B, CIRCLE: {x: O.x, y: O.y, r: visual_r} };
+        }
+
+		// ==========================================
+        // LOGIKA MODE 4 (PERSEKUTUAN DUA LINGKARAN)
+        // ==========================================
+        function drawModePersekutuan() {
+            let R_val = parseFloat(psInputs[0].value);
+            let r_val = parseFloat(psInputs[1].value);
+            const d_val = parseFloat(psInputs[2].value);
+            const jenis = psJenis.value;
+            const errLabel = document.getElementById('ps-error');
+
+            if (R_val < r_val) { let temp = R_val; R_val = r_val; r_val = temp; }
+
+            // Validasi tabrakan lingkaran
+            if (isNaN(R_val) || isNaN(r_val) || isNaN(d_val) || d_val <= (R_val + r_val)) {
+                errLabel.classList.remove('hidden'); return null;
+            }
+            errLabel.classList.add('hidden');
+
+            let pg;
+            if (jenis === 'LUAR') pg = Math.sqrt(d_val*d_val - Math.pow(R_val - r_val, 2));
+            else pg = Math.sqrt(d_val*d_val - Math.pow(R_val + r_val, 2));
+            
+            document.getElementById('calc-ps').innerText = pg.toFixed(2);
+
+            // Auto-scaling agar muat di layar
+            const totalWidth = d_val + R_val + r_val;
+            const scale = ((base_r * 2) / totalWidth) * zoomLevel * 0.9; 
+
+            const vR = R_val * scale, vr = r_val * scale, vd = d_val * scale;
+            const O = { x: cx - (vd / 2) + ((vR-vr)/2), y: cy };
+            const P = { x: O.x + vd, y: cy };
+
+            ctx.beginPath(); ctx.arc(O.x, O.y, vR, 0, 2*Math.PI); ctx.lineWidth = 3; ctx.strokeStyle = '#1e293b'; ctx.stroke();
+            ctx.beginPath(); ctx.arc(P.x, P.y, vr, 0, 2*Math.PI); ctx.lineWidth = 3; ctx.strokeStyle = '#334155'; ctx.stroke();
+
+            let A, B, C, D;
+            if (jenis === 'LUAR') {
+                const alpha = Math.acos((R_val - r_val) / d_val);
+                A = { x: O.x + vR * Math.cos(-alpha), y: O.y + vR * Math.sin(-alpha) };
+                B = { x: O.x + vR * Math.cos(alpha), y: O.y + vR * Math.sin(alpha) };
+                C = { x: P.x + vr * Math.cos(-alpha), y: P.y + vr * Math.sin(-alpha) };
+                D = { x: P.x + vr * Math.cos(alpha), y: P.y + vr * Math.sin(alpha) };
+            } else { 
+                const alpha = Math.acos((R_val + r_val) / d_val);
+                A = { x: O.x + vR * Math.cos(-alpha), y: O.y + vR * Math.sin(-alpha) };
+                B = { x: O.x + vR * Math.cos(alpha), y: O.y + vR * Math.sin(alpha) };
+                C = { x: P.x + vr * Math.cos(-alpha + Math.PI), y: P.y + vr * Math.sin(-alpha + Math.PI) };
+                D = { x: P.x + vr * Math.cos(alpha - Math.PI), y: P.y + vr * Math.sin(alpha - Math.PI) };
+            }
+
+            const drawLine = (p1, p2, color, width, dash=[]) => {
+                ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+                ctx.lineWidth = width; ctx.strokeStyle = color; ctx.setLineDash(dash); ctx.stroke(); ctx.setLineDash([]);
+            };
+
+            const drawSiku = (pCorner, pDir1, pDir2) => {
+                let v1 = {x: pDir1.x - pCorner.x, y: pDir1.y - pCorner.y}, len1 = Math.sqrt(v1.x**2 + v1.y**2);
+                let v2 = {x: pDir2.x - pCorner.x, y: pDir2.y - pCorner.y}, len2 = Math.sqrt(v2.x**2 + v2.y**2);
+                let u1 = {x: (v1.x/len1)*7.5*zoomLevel, y: (v1.y/len1)*7.5*zoomLevel};
+                let u2 = {x: (v2.x/len2)*7.5*zoomLevel, y: (v2.y/len2)*7.5*zoomLevel};
+                ctx.beginPath(); ctx.moveTo(pCorner.x + u1.x, pCorner.y + u1.y);
+                ctx.lineTo(pCorner.x + u1.x + u2.x, pCorner.y + u1.y + u2.y);
+                ctx.lineTo(pCorner.x + u2.x, pCorner.y + u2.y);
+                ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1.5; ctx.stroke();
+            };
+
+            const sisiMode = document.getElementById('ps-sisi').value;
+
+            if (document.getElementById('cb-ps-pusat').checked) drawLine(O, P, '#4f46e5', 2, [5,5]);
+            
+            if (document.getElementById('cb-ps-jari').checked) {
+                if (sisiMode === 'KEDUANYA' || sisiMode === 'SISI1') {
+                    drawLine(O, A, '#64748b', 2); drawLine(P, C, '#64748b', 2);
+                    drawSiku(A, O, C); drawSiku(C, P, A);
+                }
+                if (sisiMode === 'KEDUANYA' || sisiMode === 'SISI2') {
+                    drawLine(O, B, '#64748b', 2); drawLine(P, D, '#64748b', 2);
+                    drawSiku(B, O, D); drawSiku(D, P, B);
+                }
+            }
+
+            if (document.getElementById('cb-ps-garis').checked) {
+                if (sisiMode === 'KEDUANYA' || sisiMode === 'SISI1') drawLine(A, C, '#d946ef', 2.5); 
+                if (sisiMode === 'KEDUANYA' || sisiMode === 'SISI2') drawLine(B, D, '#d946ef', 2.5);
+            }
+
+            // Tanda Titik Pusat & Titik Singgung
+            drawDot(O, 'O', '#ef4444'); drawDot(P, 'P', '#3b82f6');
+            
+            if (sisiMode === 'KEDUANYA' || sisiMode === 'SISI1') {
+                drawDot(A, 'A', '#10b981'); drawDot(C, 'C', '#f59e0b');
+            }
+            if (sisiMode === 'KEDUANYA' || sisiMode === 'SISI2') {
+                drawDot(B, 'B', '#10b981'); drawDot(D, 'D', '#f59e0b');
+            }
+
+            return { 'O': O, 'P': P, 'A': A, 'B': B, 'C': C, 'D': D, CIRCLE: {x: O.x, y: O.y, r: vR} };
+        }
+
+        // ==========================================
+        // ALAT BANTU (UTILS) & PENYESUAIAN UKURAN
+        // ==========================================
+        function drawDot(p, label, color) {
+            ctx.beginPath(); 
+            // PERBAIKAN: Titik dikecilkan menjadi 3.5
+            ctx.arc(p.x, p.y, 3.5, 0, 2*Math.PI); 
+            ctx.fillStyle = color; ctx.fill();
+            
+            // PERBAIKAN: Font disesuaikan menjadi 15px
+            ctx.fillStyle = '#0f172a'; 
+            ctx.font = 'bold 15px "Times New Roman"'; 
+            let dx = p.x - cx, dy = p.y - cy;
+            let len = Math.sqrt(dx*dx + dy*dy);
+            if(len === 0) ctx.fillText(label, p.x - 10, p.y + 20);
+            else ctx.fillText(label, p.x + (dx/len)*20 - 5, p.y + (dy/len)*20 + 5);
+        }
+
+        function drawAngleEngine(pCenter, p1, p2, radiusOffset, symbol, color, hideArc = false) {
+            let a1 = Math.atan2(p1.y - pCenter.y, p1.x - pCenter.x);
+            let a2 = Math.atan2(p2.y - pCenter.y, p2.x - pCenter.x);
+            let diff = (a2 - a1) * 180 / Math.PI;
+            if (diff < 0) diff += 360;
+            if (diff > 180) { let temp = a1; a1 = a2; a2 = temp; diff = 360 - diff; }
+            
+            if(!hideArc) {
+                ctx.beginPath(); ctx.moveTo(pCenter.x, pCenter.y);
+                ctx.arc(pCenter.x, pCenter.y, radiusOffset, a1, a2, false); ctx.closePath();
+                ctx.fillStyle = color; ctx.fill();
+                ctx.lineWidth = 1; ctx.strokeStyle = color.replace(/[^,]+(?=\))/, '1'); ctx.stroke();
+            }
+
+            const mode = displayMode.value; 
+            if (mode !== 'warna' || hideArc) {
+                let midAngle = a1 + ((a2 < a1 ? a2 + 2*Math.PI : a2) - a1) / 2;
+                let distance = (mode === 'simbol' || hideArc) ? (radiusOffset * 0.6) : (radiusOffset + 15);
+                let textX = pCenter.x + distance * Math.cos(midAngle);
+                let textY = pCenter.y + distance * Math.sin(midAngle);
+                
+                let text = (mode === 'angka' && !hideArc) ? `${parseFloat(diff.toFixed(1))}°` : symbol;
+                
+                ctx.fillStyle = '#0f172a'; ctx.font = 'italic bold 16px "Times New Roman", serif';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                let metrics = ctx.measureText(text);
+                ctx.fillStyle = (mode === 'simbol' || hideArc) ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.7)';
+                ctx.fillRect(textX - metrics.width/2 - 2, textY - 10, metrics.width + 4, 20);
+                ctx.fillStyle = '#0f172a'; ctx.fillText(text, textX, textY);
+            }
+        }
+
+        // ==========================================
+        // EVENT LISTENER MANAJEMEN UI & ZOOM
+        // ==========================================
+        window.addEventListener('resize', resizeCanvas);
+        
+        document.getElementById('btn-toggle-ui').addEventListener('click', () => {
+            document.getElementById('ui-panel').classList.toggle('hidden-panel');
+        });
+
+        canvas.addEventListener('wheel', function(e) {
+            e.preventDefault(); 
+            if (e.deltaY < 0) zoomLevel *= 1.1; 
+            else zoomLevel /= 1.1;              
+            zoomLevel = Math.max(0.3, Math.min(zoomLevel, 4)); 
+            r_canvas = base_r * zoomLevel;
+            draw();
+        });
+        
+        document.getElementById('mode-selector').addEventListener('change', function() {
+			document.getElementById('btn-reset').click();
+            document.getElementById('mode-unsur-container').classList.add('hidden');
+            document.getElementById('mode-segitiga-container').classList.add('hidden');
+            if(document.getElementById('mode-singgung-container')) document.getElementById('mode-singgung-container').classList.add('hidden');
+            document.getElementById('mode-persekutuan-container').classList.add('hidden');
+
+            if (this.value === 'UNSUR') document.getElementById('mode-unsur-container').classList.remove('hidden');
+            else if (this.value === 'SEGITIGA') document.getElementById('mode-segitiga-container').classList.remove('hidden');
+            else if (this.value === 'SINGGUNG' && document.getElementById('mode-singgung-container')) document.getElementById('mode-singgung-container').classList.remove('hidden');
+            else if (this.value === 'PERSEKUTUAN') document.getElementById('mode-persekutuan-container').classList.remove('hidden');
+            draw();
+        });
+
+        displayMode.addEventListener('change', draw);
+        sliders.forEach(s => s.addEventListener('input', draw));
+        ['cb-titikA', 'cb-titikB', 'cb-titikC', 'cb-titikD'].forEach(id => {
+            if(document.getElementById(id)) document.getElementById(id).addEventListener('change', draw);
+        });
+		cbs.forEach(id => document.getElementById(id).addEventListener('change', draw));
+        
+        sisiInputs.forEach(input => input.addEventListener('input', draw));
+        jenisLingkaran.addEventListener('change', draw);
+        cbJariSegitiga.addEventListener('change', draw);
+        cbGarisBantu.addEventListener('change', draw);
+
+        singgungInputs.forEach(input => input.addEventListener('input', draw));
+        singgungCbs.forEach(cb => cb.addEventListener('change', draw));
+		singgungSisi.addEventListener('change', draw);
+
+        document.getElementById('btn-set-angle').addEventListener('click', function() {
+            const letters = document.getElementById('input-angle-letters').value.toUpperCase().trim();
+            const val = parseFloat(document.getElementById('input-angle-value').value);
+            if(letters.length !== 3) return alert("Masukkan tepat 3 huruf (misal: AOB)");
+            if(isNaN(val) || val < 0) return alert("Masukkan derajat yang valid");
+            const p1 = letters[0], pMid = letters[1], p2 = letters[2];
+            let arcNeeded = (pMid === 'O') ? val : (val * 2);
+            const mapIdx = {'A':0, 'B':1, 'C':2, 'D':3};
+            let deg1 = parseFloat(sliders[mapIdx[p1]].value);
+            sliders[mapIdx[p2]].value = (deg1 + arcNeeded) % 360;
+            const exists = customAnglesData.find(a => a.p1 === p1 && a.pMid === pMid && a.p2 === p2);
+            if(!exists) customAnglesData.push({ p1, pMid, p2, color: 'rgba(79, 70, 229, 0.3)' });
+            draw();
+        });
+
+        document.getElementById('btn-add-pt').addEventListener('click', function() {
+            const name = document.getElementById('custom-pt-name').value.toUpperCase().trim();
+            const deg = parseFloat(document.getElementById('custom-pt-deg').value);
+            const dist = parseFloat(document.getElementById('custom-pt-dist').value) || 1.0;
+            
+            if(name.length !== 1 || customPointsData[name] !== undefined || isNaN(deg)) return alert("Input Titik tidak valid");
+            
+            // Simpan derajat dan jaraknya
+            customPointsData[name] = { deg: deg, dist: dist };
+            
+            const wadah = document.getElementById('wadah-slider-bebas');
+            const div = document.createElement('div');
+            div.innerHTML = `<div class="flex justify-between mt-2"><label class="text-xs font-bold text-slate-600">Titik ${name}</label><span id="val${name}" class="text-xs font-mono">${deg}°</span></div>
+                <input type="range" id="slider${name}" min="0" max="360" step="0.1" value="${deg}" class="accent-slate-500">`;
+            wadah.appendChild(div);
+            
+            document.getElementById('slider' + name).addEventListener('input', function() {
+                customPointsData[name].deg = parseFloat(this.value);
+                document.getElementById('val' + name).innerText = parseFloat(this.value).toFixed(1) + '°';
+                draw(); 
+            });
+            actionHistory.push({ type: 'point', name: name });
+			draw();
+        });
+        document.getElementById('btn-add-line').addEventListener('click', function() {
+            const name = document.getElementById('custom-line-name').value.toUpperCase().trim();
+            if(name.length !== 2) return alert("Nama garis harus 2 huruf!");
+            customLinesData.push({ p1: name[0], p2: name[1], color: document.getElementById('custom-line-color').value });
+            actionHistory.push({ type: 'line' });
+			draw();
+        });
+
+        function hexToRgba(hex, alpha) {
+            let r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        document.getElementById('btn-add-intersect').addEventListener('click', function() {
+            const l1 = document.getElementById('intersect-l1').value.toUpperCase().trim();
+            const l2 = document.getElementById('intersect-l2').value.toUpperCase().trim();
+            const name = document.getElementById('intersect-name').value.toUpperCase().trim();
+            customIntersectsData.push({ l1, l2, name });
+            actionHistory.push({ type: 'intersect' });
+			draw();
+        });
+
+        document.getElementById('btn-add-ang').addEventListener('click', function() {
+            const name = document.getElementById('custom-ang-name').value.toUpperCase().trim();
+            customAnglesData.push({ p1: name[0], pMid: name[1], p2: name[2], color: hexToRgba(document.getElementById('custom-ang-color').value, 0.3) });
+            actionHistory.push({ type: 'angle' });
+			draw();
+        });
+		
+		document.getElementById('btn-add-tangent').addEventListener('click', function() {
+            const ref = document.getElementById('tangent-ref').value.toUpperCase().trim();
+            const len = parseFloat(document.getElementById('tangent-len').value) || 1.5;
+            const p1 = document.getElementById('tangent-p1').value.toUpperCase().trim();
+            const p2 = document.getElementById('tangent-p2').value.toUpperCase().trim();
+            const mode = document.getElementById('mode-selector').value;
+            
+            if(ref.length !== 1) return alert("Masukkan 1 nama titik singgung (misal: C)!");
+            
+            customTangentsData.push({ ref: ref, len: len, p1: p1, p2: p2, mode: mode });
+            actionHistory.push({ type: 'tangent' });
+            draw();
+        });
+
+        document.getElementById('btn-reset').addEventListener('click', function() {
+            customPointsData = {}; customLinesData = []; customIntersectsData = []; customAnglesData = [];
+			customTangentsData = customTangentsData.filter(x => x.mode !== mode);
+            document.getElementById('wadah-slider-bebas').innerHTML = '';
+            
+            // Kembalikan Mode 1
+            sliders[0].value = 210; sliders[1].value = 330; sliders[2].value = 90; sliders[3].value = 150;
+            // Kembalikan Mode 2
+            sisiInputs[0].value = 3; sisiInputs[1].value = 4; sisiInputs[2].value = 5;
+            // Kembalikan Mode 3
+            singgungInputs[0].value = 5; singgungInputs[1].value = 13;
+            
+            zoomLevel = 1; r_canvas = base_r; // Kembalikan zoom ke normal
+            actionHistory = [];
+			draw();
+        });
+
+        document.getElementById('btn-download').onclick = function() {
+            const bgMode = document.getElementById('bg-download-2d').value;
+            if (bgMode === 'putih') {
+                ctx.globalCompositeOperation = 'destination-over';
+                ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.globalCompositeOperation = 'source-over';
+            }
+            canvas.toBlob(function(blob) {
+                if (!blob) return;
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a'); link.style.display = 'none'; 
+                link.href = url; link.download = 'Gambar_Lingkaran_SAKTI.png';
+                document.body.appendChild(link); link.click();
+                setTimeout(() => { document.body.removeChild(link); window.URL.revokeObjectURL(url); }, 100);
+				document.getElementById('btn-reset').click();
+                if (bgMode === 'putih') draw(); 
+            }, 'image/png');
+        };
+		
+		psInputs.forEach(input => input.addEventListener('input', draw));
+        psJenis.addEventListener('change', draw);
+		psSisi.addEventListener('change', draw);
+        ['cb-ps-garis', 'cb-ps-jari', 'cb-ps-pusat'].forEach(id => {
+            document.getElementById(id).addEventListener('change', draw);
+        });
+        resizeCanvas();
+		
+		document.getElementById('btn-undo').addEventListener('click', function() {
+            if (actionHistory.length === 0) return;
+            const lastAction = actionHistory.pop();
+            
+            if (lastAction.type === 'point') {
+                delete customPointsData[lastAction.name];
+                const sliderDiv = document.getElementById('slider' + lastAction.name);
+                if (sliderDiv) sliderDiv.parentElement.remove(); // Cabut juga slidernya dari panel
+            } else if (lastAction.type === 'line') {
+                customLinesData.pop();
+            } else if (lastAction.type === 'intersect') {
+                customIntersectsData.pop();
+            } else if (lastAction.type === 'angle') {
+                customAnglesData.pop();
+			} else if (lastAction.type === 'tangent') {
+                customTangentsData.pop();
+            }
+            draw(); // Gambar ulang tanpa elemen terakhir
+        });
+    </script>
+</body>
+</html>

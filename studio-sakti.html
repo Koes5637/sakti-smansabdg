@@ -407,7 +407,18 @@
             <!-- Iframe PDF/Video masuk sini -->
         </div>
     </div>
-
+	
+	<!-- MODAL VISUAL 3D BAHAS -->
+	<div id="modal-bahas-3d" class="fixed inset-0 z-[200] bg-slate-900 flex-col hidden">
+		<div class="h-14 bg-slate-800 border-b border-slate-700 flex justify-between items-center px-4 shrink-0 text-white shadow-md">
+			<div class="font-bold flex items-center gap-2 text-sky-400"><i class="ph ph-cube text-2xl"></i> Alat Peraga 3D</div>
+			<button onclick="tutupVisual3DBahas()" class="bg-red-500 hover:bg-red-600 px-4 py-1.5 rounded-lg text-sm font-bold shadow-md transition-colors"><i class="ph ph-x"></i> Tutup 3D</button>
+		</div>
+		<div class="flex-1 w-full relative">
+			<iframe id="iframe-bahas-3d" src="" class="absolute inset-0 w-full h-full border-none bg-white"></iframe>
+		</div>
+	</div>
+	
     <!-- MODAL BAHAS SOAL (FULLSCREEN) -->
     <div id="modal-bahas-soal" class="fixed inset-0 z-[150] bg-slate-100 dark:bg-slate-900 flex-col hidden overflow-hidden">
         <div class="h-auto md:h-16 bg-white dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700 flex flex-col md:flex-row justify-between items-center px-4 md:px-6 py-2 md:py-0 shrink-0 shadow-sm z-30 gap-3 md:gap-0">
@@ -1395,6 +1406,19 @@
             }
         }
 
+		window.bukaVisual3DBahas = function(resepStr) {
+			localStorage.setItem('sakti_resep_3d_temp', resepStr); // Titip resep ke memori
+			document.getElementById('modal-bahas-3d').classList.remove('hidden');
+			document.getElementById('modal-bahas-3d').classList.add('flex');
+			document.getElementById('iframe-bahas-3d').src = 'Visual 3D-guru.html'; // Buka aplikasi
+		}
+
+		window.tutupVisual3DBahas = function() {
+			document.getElementById('modal-bahas-3d').classList.add('hidden');
+			document.getElementById('modal-bahas-3d').classList.remove('flex');
+			document.getElementById('iframe-bahas-3d').src = ''; // Matikan agar tidak berat
+		}
+
         window.bukaBahasSoal = function(id) {
             modulBahasAktif = semuaModulGlobal.find(x => x.id === id);
             if(!modulBahasAktif || !modulBahasAktif.soal_latihan || modulBahasAktif.soal_latihan.length === 0) return alert('Tidak ada soal dalam tugas ini.');
@@ -1571,8 +1595,16 @@
                 const idx = item.realIdx;
                 const noUrut = idx + 1;
                 
-                const teksSoal = window.formatTextAman ? window.formatTextAman(soal.soal_teks || soal.naskah) : (soal.soal_teks || soal.naskah);
-                let imgSoal = soal.naskahImage ? `<img src="${soal.naskahImage}" class="max-h-96 mx-auto mt-6 rounded-2xl shadow-md border border-slate-200">` : '';
+			const teksSoal = window.formatTextAman ? window.formatTextAman(soal.soal_teks || soal.naskah) : (soal.soal_teks || soal.naskah);
+
+            // --- DETEKSI RESEP 3D ---
+            let btn3DHtml = '';
+            if (soal.metadata && soal.metadata.resep3d) {
+                const safeResep = soal.metadata.resep3d.replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+                btn3DHtml = `<button onclick="bukaVisual3DBahas('${safeResep}')" class="mt-4 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md shadow-sky-500/30 flex items-center gap-2 transition-all active:scale-95 w-max"><i class="ph ph-cube text-xl"></i> Lihat Visual 3D Interaktif</button>`;
+            }
+
+            let imgSoal = soal.naskahImage ? `<img src="${soal.naskahImage}" class="max-h-96 mx-auto mt-6 rounded-2xl shadow-md border border-slate-200">` : '';
                 if(!soal.naskahImage && soal.gambar) imgSoal = `<img src="${soal.gambar}" class="max-h-96 mx-auto mt-6 rounded-2xl shadow-md">`;
                 
                 let opsiHtml = '';
@@ -1640,7 +1672,7 @@
                     <div class="absolute -top-4 -left-4 bg-emerald-600 text-white px-6 py-2 rounded-2xl font-black shadow-lg text-lg border-4 border-slate-100 dark:border-slate-900 z-10 flex items-center gap-2">
                         <i class="ph ph-books"></i> WACANA & SOAL NO ${noUrut}
                     </div>`}
-                    <div class="mb-8 mt-2 text-justify">${teksSoal}${imgSoal}</div>
+                    <div class="mb-8 mt-2 text-justify">${teksSoal}${imgSoal}${btn3DHtml}</div>
                     <div class="space-y-4 text-lg md:text-xl">${opsiHtml}</div>
                     ${pembahasanHtml}
                 </div>`;

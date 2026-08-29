@@ -252,6 +252,18 @@
                     Unduh Gambar
                 </button>
             </div>
+			<!-- Tombol Resep 3D (Eksport/Import) -->
+            <div class="mt-3 border-t border-slate-200 pt-3">
+                <p class="text-[10px] font-bold text-slate-500 uppercase mb-2">Integrasi Soal SAKTI</p>
+                <div class="flex gap-2">
+                    <button onclick="window.salinResep3D()" class="flex-1 bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs font-bold py-2 rounded shadow-sm border border-purple-200 transition">
+                        📄 Salin Kode Resep
+                    </button>
+                    <button onclick="window.bukaResep3D()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 rounded shadow-sm border border-slate-300 transition">
+                        📂 Buka Kode Resep
+                    </button>
+                </div>
+            </div>
             
             <!-- Hasil Perhitungan -->
             <div id="result-box" class="mt-3 hidden p-3 bg-green-50 border border-green-200 rounded-lg text-center">
@@ -635,15 +647,37 @@
             
             // Mencabut objek fisik dari kanvas 3D
             lastAction.objects.forEach(obj => {
+                // Cabut dari induknya
                 if (obj && obj.parent) obj.parent.remove(obj);
-                if (obj && obj.geometry) obj.geometry.dispose();
-                if (obj && obj.material) obj.material.dispose();
+                
+                // Menghancurkan memori Group (Mode Hitung)
+                if (obj && obj.isGroup) {
+                    obj.traverse(child => {
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) child.material.dispose();
+                        // PERBAIKAN: Hapus paksa elemen teks 3D (CSS2D) agar tidak menjadi hantu
+                        if (child.isCSS2DObject && child.element && child.element.parentNode) {
+                            child.element.parentNode.removeChild(child.element);
+                        }
+                    });
+                } else {
+                    // Menghancurkan memori objek tunggal
+                    if (obj && obj.geometry) obj.geometry.dispose();
+                    if (obj && obj.material) obj.material.dispose();
+                    // PERBAIKAN: Hapus paksa elemen teks 3D (CSS2D)
+                    if (obj && obj.isCSS2DObject && obj.element && obj.element.parentNode) {
+                        obj.element.parentNode.removeChild(obj.element);
+                    }
+                }
             });
 
-            // Menghapus data koordinat jika yang dibatalkan adalah sebuah titik
+            // Hapus data koordinat jika itu titik
             if (lastAction.type === 'point') {
                 delete verticesData[lastAction.name];
             }
+            
+            // PERBAIKAN: Sembunyikan kotak hijau hasil di layar
+            hideResult(); 
         }
 
         function updateDynamicInputs() {
@@ -695,111 +729,123 @@
         }
 
         function executeMode(showHitung) {
-            helpersGroup.clear(); 
             hideResult();
             const mode = document.getElementById('mode-selector').value;
-            
-            // Menggunakan skala terpanjang yang sudah disimpan sebelumnya
             const scaleFactor = currentMaxEdge; 
+            
+            // Membuat wadah khusus untuk perhitungan kali ini agar bisa di-Undo
+            const calcGroup = new THREE.Group();
+            helpersGroup.add(calcGroup);
 
             try {
-                if (mode === '1') calcMode1(scaleFactor, showHitung);
-                else if (mode === '2') calcMode2(scaleFactor, showHitung);
-                else if (mode === '3') calcMode3(scaleFactor, showHitung);
-                else if (mode === '4') calcMode4(scaleFactor, showHitung);
-                else if (mode === '5') calcMode5(scaleFactor, showHitung);
+                let inputs = {};
+                if (mode === '1') {
+                    inputs = { p1: getVal('input-p1', 1), p2: getVal('input-p2', 1) };
+                    calcMode1(inputs, scaleFactor, showHitung, calcGroup);
+                }
+                else if (mode === '2') {
+                    inputs = { pt: getVal('input-pt', 1), line: getVal('input-line', 2) };
+                    calcMode2(inputs, scaleFactor, showHitung, calcGroup);
+                }
+                else if (mode === '3') {
+                    inputs = { pt: getVal('input-pt', 1), plane: getVal('input-plane') };
+                    calcMode3(inputs, scaleFactor, showHitung, calcGroup);
+                }
+                else if (mode === '4') {
+                    inputs = { line: getVal('input-line', 2), plane: getVal('input-plane') };
+                    calcMode4(inputs, scaleFactor, showHitung, calcGroup);
+                }
+                else if (mode === '5') {
+                    inputs = { plane1: getVal('input-plane1'), plane2: getVal('input-plane2') };
+                    calcMode5(inputs, scaleFactor, showHitung, calcGroup);
+                }
+                
+                // Merekam tindakan perhitungan ke dalam memori Undo
+                actionHistory.push({
+                    type: 'calc',
+                    mode: mode,
+                    showHitung: showHitung,
+                    inputs: inputs,
+                    objects: [calcGroup]
+                });
             } catch (err) {
+                // Batalkan wadah jika perhitungan gagal (error)
+                helpersGroup.remove(calcGroup);
                 alert(err.message);
                 hideResult();
             }
         }
 
-        function calcMode1(realEdge, showHitung) {
-            const p1Name = getVal('input-p1', 1); const p2Name = getVal('input-p2', 1);
-            const v1 = getCoord(p1Name); const v2 = getCoord(p2Name);
-            drawDashedLine(v1, v2, 0x4f46e5); 
-            if(showHitung) renderResult(v1, v2, realEdge);
+        function calcMode1(inputs, realEdge, showHitung, group) {
+            const v1 = getCoord(inputs.p1); const v2 = getCoord(inputs.p2);
+            drawDashedLine(v1, v2, 0x4f46e5, group); 
+            if(showHitung) renderResult(v1, v2, realEdge, group);
         }
 
-        function calcMode2(realEdge, showHitung) {
-            const ptName = getVal('input-pt', 1); const lineName = getVal('input-line', 2);
-            const P = getCoord(ptName);
-            const A = getCoord(lineName[0]); const B = getCoord(lineName[1]);
+        function calcMode2(inputs, realEdge, showHitung, group) {
+            const P = getCoord(inputs.pt);
+            const A = getCoord(inputs.line[0]); const B = getCoord(inputs.line[1]);
 
-            drawDashedLine(A, B, 0x64748b); 
+            drawDashedLine(A, B, 0x64748b, group); 
             const line = new THREE.Line3(A, B);
             const Q = new THREE.Vector3();
             line.closestPointToPoint(P, false, Q); 
 
-            drawDashedLine(P, Q, 0xdc2626); 
-            drawSikuSiku(Q, P, A); 
+            drawDashedLine(P, Q, 0xdc2626, group); 
+            drawSikuSiku(Q, P, A, group); 
+            addCustomLabel(Q, inputs.pt + "'", group); 
             
-            // PERBAIKAN: Nama titik proyeksi mengikuti nama titik asal (Misal K menjadi K')
-            addCustomLabel(Q, ptName + "'"); 
-            
-            if(showHitung) renderResult(P, Q, realEdge);
+            if(showHitung) renderResult(P, Q, realEdge, group);
         }
 
-        function calcMode3(realEdge, showHitung) {
-            const ptName = getVal('input-pt', 1); const planeName = getVal('input-plane'); 
-            const P = getCoord(ptName);
-            const planeVertices = planeName.split('').map(n => getCoord(n));
+        function calcMode3(inputs, realEdge, showHitung, group) {
+            const P = getCoord(inputs.pt);
+            const planeVertices = inputs.plane.split('').map(n => getCoord(n));
             
-            drawPlane(planeVertices, 0x3b82f6);
+            // Perintah drawPlane dihapus agar tidak menimpa warna bidang asli
             const mathPlane = new THREE.Plane().setFromCoplanarPoints(planeVertices[0], planeVertices[1], planeVertices[2]);
             const Q = new THREE.Vector3();
             mathPlane.projectPoint(P, Q); 
 
-            drawDashedLine(P, Q, 0xdc2626); 
-            drawSikuSiku(Q, P, planeVertices[0]);
+            drawDashedLine(P, Q, 0xdc2626, group); 
+            drawSikuSiku(Q, P, planeVertices[0], group);
+            addCustomLabel(Q, inputs.pt + "'", group); 
             
-            // PERBAIKAN: Nama titik proyeksi mengikuti nama titik asal (Misal E menjadi E')
-            addCustomLabel(Q, ptName + "'"); 
-            
-            if(showHitung) renderResult(P, Q, realEdge);
+            if(showHitung) renderResult(P, Q, realEdge, group);
         }
 
-        function calcMode4(realEdge, showHitung) {
-            const lineName = getVal('input-line', 2); const planeName = getVal('input-plane');
-            const A = getCoord(lineName[0]); const B = getCoord(lineName[1]);
-            const planeVerts = planeName.split('').map(n => getCoord(n));
+        function calcMode4(inputs, realEdge, showHitung, group) {
+            const A = getCoord(inputs.line[0]); const B = getCoord(inputs.line[1]);
+            const planeVerts = inputs.plane.split('').map(n => getCoord(n));
 
-            drawDashedLine(A, B, 0x64748b);
-            drawPlane(planeVerts, 0x3b82f6);
+            drawDashedLine(A, B, 0x64748b, group);
+            // Perintah drawPlane dihapus
 
             const lineDir = new THREE.Vector3().subVectors(B, A).normalize();
             const mathPlane = new THREE.Plane().setFromCoplanarPoints(planeVerts[0], planeVerts[1], planeVerts[2]);
-            if (Math.abs(mathPlane.normal.dot(lineDir)) > 0.01) {
-                alert("Garis memotong bidang (tidak sejajar). Jaraknya 0."); return;
-            }
+            if (Math.abs(mathPlane.normal.dot(lineDir)) > 0.01) throw new Error("Garis memotong bidang (tidak sejajar). Jaraknya 0.");
 
             const Q = new THREE.Vector3();
             mathPlane.projectPoint(A, Q);
 
-            drawDashedLine(A, Q, 0xdc2626);
-            drawSikuSiku(Q, A, planeVerts[0]);
+            drawDashedLine(A, Q, 0xdc2626, group);
+            drawSikuSiku(Q, A, planeVerts[0], group);
+            addCustomLabel(Q, inputs.line[0] + "'", group); 
             
-            // PERBAIKAN: Nama titik proyeksi mengikuti huruf pertama dari garis asal (Misal EG menjadi E')
-            addCustomLabel(Q, lineName[0] + "'"); 
-            
-            if(showHitung) renderResult(A, Q, realEdge);
+            if(showHitung) renderResult(A, Q, realEdge, group);
         }
 
-        function calcMode5(realEdge, showHitung) {
-            const p1Name = getVal('input-plane1'); const p2Name = getVal('input-plane2');
-            const verts1 = p1Name.split('').map(n => getCoord(n));
-            const verts2 = p2Name.split('').map(n => getCoord(n));
+        function calcMode5(inputs, realEdge, showHitung, group) {
+            const verts1 = inputs.plane1.split('').map(n => getCoord(n));
+            const verts2 = inputs.plane2.split('').map(n => getCoord(n));
 
-            drawPlane(verts1, 0x8b5cf6); 
-            drawPlane(verts2, 0x10b981); 
+            // Perintah drawPlane dihapus
 
             const mathPlane1 = new THREE.Plane().setFromCoplanarPoints(verts1[0], verts1[1], verts1[2]);
             const mathPlane2 = new THREE.Plane().setFromCoplanarPoints(verts2[0], verts2[1], verts2[2]);
 
             const cross = new THREE.Vector3().crossVectors(mathPlane1.normal, mathPlane2.normal);
-            if (cross.lengthSq() > 0.01) {
-                alert("Kedua bidang tidak sejajar, sehingga saling berpotongan."); return;
-            }
+            if (cross.lengthSq() > 0.01) throw new Error("Kedua bidang tidak sejajar, saling berpotongan.");
 
             let centroid = new THREE.Vector3(0,0,0);
             verts1.forEach(v => centroid.add(v));
@@ -808,17 +854,17 @@
             const Q = new THREE.Vector3();
             mathPlane2.projectPoint(centroid, Q);
 
-            drawDashedLine(centroid, Q, 0xdc2626);
-            drawSikuSiku(centroid, Q, verts1[0]);
-            drawSikuSiku(Q, centroid, verts2[0]);
-            if(showHitung) renderResult(centroid, Q, realEdge);
+            drawDashedLine(centroid, Q, 0xdc2626, group);
+            drawSikuSiku(centroid, Q, verts1[0], group);
+            drawSikuSiku(Q, centroid, verts2[0], group);
+            if(showHitung) renderResult(centroid, Q, realEdge, group);
         }
 
-        function renderResult(p1, p2, realEdge) {
+        function renderResult(p1, p2, realEdge, group) {
             const distSq = getRealDistanceSq(p1, p2, realEdge);
             const textSurd = formatDistanceAsSurd(distSq);
             showResult(textSurd);
-            addDistanceLabel(p1, p2, `${textSurd} cm`);
+            addDistanceLabel(p1, p2, `${textSurd} cm`, group);
         }
 
         function getRealDistanceSq(vecA, vecB, scaleFactor) {
@@ -863,6 +909,7 @@
         function handleAddHelperPoint() {
             const ptName = document.getElementById('point-name').value.toUpperCase().trim();
             const edgeName = document.getElementById('point-edge').value.toUpperCase().trim();
+            
             let ratioRaw = document.getElementById('point-ratio').value.trim();
             let ratio = 0;
             if (ratioRaw.includes('/')) {
@@ -877,41 +924,30 @@
             if (verticesData[ptName]) { alert("Titik sudah ada, pilih huruf lain."); return; }
             
             try {
-                const v1 = getCoord(edgeName[0]);
-                const v2 = getCoord(edgeName[1]);
+                const v1 = getCoord(edgeName[0]); const v2 = getCoord(edgeName[1]);
                 const newCoord = new THREE.Vector3().lerpVectors(v1, v2, ratio);
                 verticesData[ptName] = newCoord;
 
                 const dot = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({ color: 0x2563eb }));
-                dot.position.copy(newCoord);
-                baseCubeGroup.add(dot); 
+                dot.position.copy(newCoord); baseCubeGroup.add(dot); 
 
                 const div = document.createElement('div');
-                div.className = 'vertex-label'; 
-                div.style.color = '#2563eb';
-                div.textContent = ptName;
+                div.className = 'vertex-label'; div.style.color = '#2563eb'; div.textContent = ptName;
                 
                 const labelObj = new CSS2DObject(div);
-                labelObj.position.copy(newCoord);
-                labelObj.position.y += 0.8;
-                labelObj.position.x += 0.5;
-                
+                labelObj.position.copy(newCoord); labelObj.position.y += 0.8; labelObj.position.x += 0.5;
                 baseCubeGroup.add(labelObj);
                 
-                // MEREKAM TINDAKAN UNDO
-                actionHistory.push({ type: 'point', name: ptName, objects: [dot, labelObj] });
+                actionHistory.push({ type: 'point', name: ptName, edge: edgeName, ratio: ratioRaw, objects: [dot, labelObj] });
             } catch (err) { alert(err.message); }
         }
 
         function handleAddCustomLine() {
             try {
                 const lineName = getVal('custom-line', 2);
-                const v1 = getCoord(lineName[0]);
-                const v2 = getCoord(lineName[1]);
-                const colorHex = new THREE.Color(document.getElementById('custom-line-color').value).getHex();
-                
-                const lineObj = drawDashedLine(v1, v2, colorHex, baseCubeGroup); 
-                actionHistory.push({ type: 'line', objects: [lineObj] });
+                const colorHex = document.getElementById('custom-line-color').value;
+                const lineObj = drawDashedLine(getCoord(lineName[0]), getCoord(lineName[1]), new THREE.Color(colorHex).getHex(), baseCubeGroup); 
+                actionHistory.push({ type: 'line', lineName: lineName, colorHex: colorHex, objects: [lineObj] });
             } catch(err) { alert(err.message); }
         }
 
@@ -919,28 +955,19 @@
             try {
                 const lineName = getVal('label-line-target', 2);
                 const rawText = document.getElementById('label-line-text').value.trim();
-                
                 if (!rawText) throw new Error("Teks label tidak boleh kosong.");
-                const labelText = rawText.replace(/v/gi, '√');
-                const v1 = getCoord(lineName[0]);
-                const v2 = getCoord(lineName[1]);
+                
+                const v1 = getCoord(lineName[0]); const v2 = getCoord(lineName[1]);
                 const mid = new THREE.Vector3().lerpVectors(v1, v2, 0.5);
                 
                 const div = document.createElement('div');
-                div.style.color = '#0f172a';
-                div.style.fontWeight = 'bold';
-                div.style.fontSize = '15px';
-                div.style.pointerEvents = 'none';
-                div.style.textShadow = '-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff'; 
-                div.textContent = labelText;
+                div.style.color = '#0f172a'; div.style.fontWeight = 'bold'; div.style.fontSize = '15px'; div.style.pointerEvents = 'none'; div.style.textShadow = '-1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff'; 
+                div.textContent = rawText.replace(/v/gi, '√');
                 
                 const obj = new CSS2DObject(div);
-                obj.position.copy(mid);
-                obj.position.y += 0.7; 
-                obj.position.x += 0.5; 
-                
+                obj.position.copy(mid); obj.position.y += 0.7; obj.position.x += 0.5; 
                 baseCubeGroup.add(obj); 
-                actionHistory.push({ type: 'label', objects: [obj] });
+                actionHistory.push({ type: 'label', lineName: lineName, rawText: rawText, objects: [obj] });
             } catch(err) { alert(err.message); }
         }
 
@@ -948,27 +975,21 @@
             try {
                 const planeName = getVal('custom-plane');
                 if (planeName.length < 3) throw new Error("Bidang minimal 3 huruf.");
-                const verts = planeName.split('').map(n => getCoord(n));
-                const colorHex = new THREE.Color(document.getElementById('custom-color').value).getHex();
-                
-                const planeObj = drawPlane(verts, colorHex, baseCubeGroup);
-                actionHistory.push({ type: 'plane', objects: [planeObj] });
+                const colorHex = document.getElementById('custom-color').value;
+                const planeObj = drawPlane(planeName.split('').map(n => getCoord(n)), new THREE.Color(colorHex).getHex(), baseCubeGroup);
+                actionHistory.push({ type: 'plane', planeName: planeName, colorHex: colorHex, objects: [planeObj] });
             } catch(err) { alert(err.message); }
         }
 
         function handleAddAngle() {
             try {
                 const pts = getVal('angle-points', 3);
-                const vA = getCoord(pts[0]);
-                const vB = getCoord(pts[1]); 
-                const vC = getCoord(pts[2]);
-                const colorHex = new THREE.Color(document.getElementById('angle-color').value).getHex();
+                const colorHex = document.getElementById('angle-color').value;
                 const symbol = document.getElementById('angle-symbol').value;
                 const displayMode = document.getElementById('angle-display').value;
                 
-                const isGuru = true; 
-                const angleObjs = drawAngleArc(vA, vB, vC, colorHex, symbol, isGuru, displayMode);
-                actionHistory.push({ type: 'angle', objects: angleObjs });
+                const angleObjs = drawAngleArc(getCoord(pts[0]), getCoord(pts[1]), getCoord(pts[2]), new THREE.Color(colorHex).getHex(), symbol, true, displayMode);
+                actionHistory.push({ type: 'angle', pts: pts, colorHex: colorHex, symbol: symbol, displayMode: displayMode, objects: angleObjs });
             } catch(err) { alert(err.message); }
         }
 
@@ -1087,7 +1108,7 @@
             return mesh;
         }
 
-        function drawSikuSiku(root, dirNormal, dirPlane) {
+        function drawSikuSiku(root, dirNormal, dirPlane, group = helpersGroup) {
             const size = 0.8;
             const vN = dirNormal.clone().sub(root).normalize().multiplyScalar(size);
             const vP_raw = dirPlane.clone().sub(root).normalize();
@@ -1104,16 +1125,16 @@
 
             const mat = new THREE.LineBasicMaterial({ color: 0xdc2626, linewidth: 2 });
             const geom = new THREE.BufferGeometry().setFromPoints([p1, p3, p2]);
-            helpersGroup.add(new THREE.Line(geom, mat));
+            group.add(new THREE.Line(geom, mat));
         }
 
-        function addDistanceLabel(p1, p2, text) {
+        function addDistanceLabel(p1, p2, text, group = helpersGroup) {
             const mid = new THREE.Vector3().lerpVectors(p1, p2, 0.5);
             const div = document.createElement('div');
             div.className = 'distance-label'; div.textContent = text;
             const obj = new CSS2DObject(div);
             obj.position.copy(mid);
-            helpersGroup.add(obj);
+            group.add(obj);
         }
 
         function addCustomLabel(pos, text, group = helpersGroup, color = '#dc2626') {
@@ -1152,11 +1173,165 @@
             renderer.render(scene, camera);
             labelRenderer.render(scene, camera);
         }
+		window.salinResep3D = function() {
+            const shapeType = document.getElementById('shape-type').value;
+            const recipe = {
+                shape: shapeType,
+                baseParams: {},
+                actions: actionHistory.map(a => {
+                    const { objects, ...rest } = a; // Mencabut fisik objek agar JSON tidak error
+                    return rest;
+                })
+            };
+
+            if (shapeType === 'BALOK') {
+                recipe.baseParams = {
+                    name: document.getElementById('cube-name').value, p: document.getElementById('input-p').value,
+                    l: document.getElementById('input-l').value, t: document.getElementById('input-t').value
+                };
+            } else {
+                recipe.baseParams = {
+                    name: document.getElementById('limas-name').value, p: document.getElementById('input-limas-p').value,
+                    l: document.getElementById('input-limas-l').value, t: document.getElementById('input-limas-t').value,
+                    tType: document.getElementById('limas-t-type').value
+                };
+            }
+
+            const jsonStr = JSON.stringify(recipe);
+            navigator.clipboard.writeText(jsonStr).then(() => {
+                alert("Berhasil! Kode resep 3D telah disalin. Silakan Paste (Ctrl+V) di Editor Soal SAKTI.");
+            }).catch(err => {
+                prompt("Browser memblokir penyalinan otomatis. Silakan Copy teks di bawah ini secara manual:", jsonStr);
+            });
+        };
+
+        window.bukaResep3D = function() {
+            const jsonStr = prompt("Paste (Ctrl+V) kode Resep 3D di kotak bawah ini:");
+            if (!jsonStr) return;
+
+            try {
+                const recipe = JSON.parse(jsonStr);
+                
+                // 1. Merakit Ulang Pondasi
+                document.getElementById('shape-type').value = recipe.shape;
+                document.getElementById('shape-type').dispatchEvent(new Event('change'));
+
+                if (recipe.shape === 'BALOK') {
+                    document.getElementById('cube-name').value = recipe.baseParams.name; document.getElementById('input-p').value = recipe.baseParams.p;
+                    document.getElementById('input-l').value = recipe.baseParams.l; document.getElementById('input-t').value = recipe.baseParams.t;
+                } else {
+                    document.getElementById('limas-name').value = recipe.baseParams.name; document.getElementById('input-limas-p').value = recipe.baseParams.p;
+                    document.getElementById('input-limas-l').value = recipe.baseParams.l; document.getElementById('input-limas-t').value = recipe.baseParams.t;
+                    document.getElementById('limas-t-type').value = recipe.baseParams.tType;
+                }
+                generateShape();
+
+                // 2. Merakit Ulang Elemen Bebas (Maju Cepat)
+                recipe.actions.forEach(a => {
+                    if (a.type === 'point') {
+                        document.getElementById('point-name').value = a.name; document.getElementById('point-edge').value = a.edge;
+                        document.getElementById('point-ratio').value = a.ratio; document.getElementById('btn-add-point').click();
+                    } else if (a.type === 'line') {
+                        document.getElementById('custom-line').value = a.lineName; document.getElementById('custom-line-color').value = a.colorHex;
+                        document.getElementById('btn-add-line').click();
+                    } else if (a.type === 'label') {
+                        document.getElementById('label-line-target').value = a.lineName; document.getElementById('label-line-text').value = a.rawText;
+                        document.getElementById('btn-add-line-label').click();
+                    } else if (a.type === 'plane') {
+                        document.getElementById('custom-plane').value = a.planeName; document.getElementById('custom-color').value = a.colorHex;
+                        document.getElementById('btn-add-plane').click();
+                    } else if (a.type === 'angle') {
+                        document.getElementById('angle-points').value = a.pts; document.getElementById('angle-color').value = a.colorHex;
+                        document.getElementById('angle-symbol').value = a.symbol; document.getElementById('angle-display').value = a.displayMode;
+                        document.getElementById('btn-add-angle').click();
+                    }
+					// ---> TAMBAHKAN BLOK KODE INI <---
+                    else if (a.type === 'calc') {
+                        document.getElementById('mode-selector').value = a.mode;
+                        document.getElementById('mode-selector').dispatchEvent(new Event('change'));
+                        
+                        if (a.mode === '1') {
+                            document.getElementById('input-p1').value = a.inputs.p1;
+                            document.getElementById('input-p2').value = a.inputs.p2;
+                        } else if (a.mode === '2') {
+                            document.getElementById('input-pt').value = a.inputs.pt;
+                            document.getElementById('input-line').value = a.inputs.line;
+                        } else if (a.mode === '3') {
+                            document.getElementById('input-pt').value = a.inputs.pt;
+                            document.getElementById('input-plane').value = a.inputs.plane;
+                        } else if (a.mode === '4') {
+                            document.getElementById('input-line').value = a.inputs.line;
+                            document.getElementById('input-plane').value = a.inputs.plane;
+                        } else if (a.mode === '5') {
+                            document.getElementById('input-plane1').value = a.inputs.plane1;
+                            document.getElementById('input-plane2').value = a.inputs.plane2;
+                        }
+                        executeMode(a.showHitung);
+                    }
+                    // ---------------------------------
+                });
+            } catch (err) { alert("Gagal membaca resep. Pastikan kode yang di-paste benar dan tidak terpotong!"); }
+        };
 
         window.onload = function() {
-            init();
-            animate();
-        };
-    </script>
+			init();
+			animate();
+
+			// MENDETEKSI TITIPAN RESEP DARI STUDIO SAKTI
+			const resepTitipan = localStorage.getItem('sakti_resep_3d_temp');
+			if (resepTitipan) {
+				// Sembunyikan panel UI agar layar presentasi proyektor bersih
+				document.getElementById('ui-panel').classList.add('hidden-panel');
+				muatResepOtomatis(resepTitipan);
+				localStorage.removeItem('sakti_resep_3d_temp'); // Hapus memori setelah dipakai
+			}
+		};
+
+		function muatResepOtomatis(jsonStr) {
+			try {
+				const recipe = JSON.parse(jsonStr);
+				document.getElementById('shape-type').value = recipe.shape;
+				document.getElementById('shape-type').dispatchEvent(new Event('change'));
+
+				if (recipe.shape === 'BALOK') {
+					document.getElementById('cube-name').value = recipe.baseParams.name; document.getElementById('input-p').value = recipe.baseParams.p;
+					document.getElementById('input-l').value = recipe.baseParams.l; document.getElementById('input-t').value = recipe.baseParams.t;
+				} else {
+					document.getElementById('limas-name').value = recipe.baseParams.name; document.getElementById('input-limas-p').value = recipe.baseParams.p;
+					document.getElementById('input-limas-l').value = recipe.baseParams.l; document.getElementById('input-limas-t').value = recipe.baseParams.t;
+					document.getElementById('limas-t-type').value = recipe.baseParams.tType;
+				}
+				generateShape();
+
+				recipe.actions.forEach(a => {
+					if (a.type === 'point') {
+						document.getElementById('point-name').value = a.name; document.getElementById('point-edge').value = a.edge;
+						document.getElementById('point-ratio').value = a.ratio; document.getElementById('btn-add-point').click();
+					} else if (a.type === 'line') {
+						document.getElementById('custom-line').value = a.lineName; document.getElementById('custom-line-color').value = a.colorHex;
+						document.getElementById('btn-add-line').click();
+					} else if (a.type === 'label') {
+						document.getElementById('label-line-target').value = a.lineName; document.getElementById('label-line-text').value = a.rawText;
+						document.getElementById('btn-add-line-label').click();
+					} else if (a.type === 'plane') {
+						document.getElementById('custom-plane').value = a.planeName; document.getElementById('custom-color').value = a.colorHex;
+						document.getElementById('btn-add-plane').click();
+					} else if (a.type === 'angle') {
+						document.getElementById('angle-points').value = a.pts; document.getElementById('angle-color').value = a.colorHex;
+						document.getElementById('angle-symbol').value = a.symbol; document.getElementById('angle-display').value = a.displayMode;
+						document.getElementById('btn-add-angle').click();
+					} else if (a.type === 'calc') {
+						document.getElementById('mode-selector').value = a.mode; document.getElementById('mode-selector').dispatchEvent(new Event('change'));
+						if (a.mode === '1') { document.getElementById('input-p1').value = a.inputs.p1; document.getElementById('input-p2').value = a.inputs.p2; }
+						else if (a.mode === '2') { document.getElementById('input-pt').value = a.inputs.pt; document.getElementById('input-line').value = a.inputs.line; }
+						else if (a.mode === '3') { document.getElementById('input-pt').value = a.inputs.pt; document.getElementById('input-plane').value = a.inputs.plane; }
+						else if (a.mode === '4') { document.getElementById('input-line').value = a.inputs.line; document.getElementById('input-plane').value = a.inputs.plane; }
+						else if (a.mode === '5') { document.getElementById('input-plane1').value = a.inputs.plane1; document.getElementById('input-plane2').value = a.inputs.plane2; }
+						executeMode(a.showHitung);
+					}
+				});
+			} catch (err) { console.error("Gagal muat otomatis", err); }
+		}
+	</script>
 </body>
 </html>

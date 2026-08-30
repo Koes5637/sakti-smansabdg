@@ -831,48 +831,61 @@
             let optionsText = "";
             let keyInfo = "Analisis soal ini dan tentukan jawaban yang paling tepat.";
 
+            let dbKeyStr = "";
+            
             if (type === 'pg') {
-                const textAreas = document.querySelectorAll(`#options-pg textarea`);
+                const textAreas = document.querySelectorAll('#options-pg textarea');
                 textAreas.forEach((area, index) => optionsText += `\nOpsi ${String.fromCharCode(65 + index)}: ${area.value}`);
                 const checked = document.querySelector('input[name="pg-correct"]:checked');
                 if (checked) {
                     const index = Array.from(document.querySelectorAll('input[name="pg-correct"]')).indexOf(checked);
-                    keyInfo = `Kunci jawaban benar adalah Opsi ${String.fromCharCode(65 + index)}. Jelaskan mengapa benar.`;
+                    dbKeyStr = `Opsi ${String.fromCharCode(65 + index)}`;
                 }
             } else if (type === 'pgk') {
-                const textAreas = document.querySelectorAll(`#options-pgk textarea`);
-                const checkboxes = document.querySelectorAll(`#options-pgk input[type="checkbox"]`);
+                const textAreas = document.querySelectorAll('#options-pgk textarea');
+                const checkboxes = document.querySelectorAll('#options-pgk input[type="checkbox"]');
                 let keys = [];
                 textAreas.forEach((area, index) => {
                     optionsText += `\nOpsi ${String.fromCharCode(65 + index)}: ${area.value}`;
-                    if (checkboxes[index]?.checked) keys.push(String.fromCharCode(65 + index));
+                    if (checkboxes[index]?.checked) keys.push(`Opsi ${String.fromCharCode(65 + index)}`);
                 });
-                if (keys.length > 0) keyInfo = `Kunci jawaban benar adalah Opsi ${keys.join(', ')}.`;
+                if (keys.length > 0) dbKeyStr = keys.join(', ');
             } else if (type === 'bs') {
-                const textAreas = document.querySelectorAll(`#options-bs textarea`);
-                const selects = document.querySelectorAll(`#options-bs select`);
+                const textAreas = document.querySelectorAll('#options-bs textarea');
+                const selects = document.querySelectorAll('#options-bs select');
+                let keys = [];
                 textAreas.forEach((area, index) => {
-                    const status = selects[index].value === 'true' ? 'BENAR' : 'SALAH';
-                    optionsText += `\nPernyataan ${index + 1}: ${area.value} (Kunci: ${status})`;
+                    const status = selects[index].value === 'true' ? 'BENAR' : (selects[index].value === 'false' ? 'SALAH' : 'KOSONG');
+                    optionsText += `\nPernyataan ${index + 1}: ${area.value}`;
+                    keys.push(`Pernyataan ${index + 1} = ${status}`);
                 });
-                keyInfo = "Berikan penjelasan analisis untuk setiap pernyataan Benar/Salah tersebut.";
+                dbKeyStr = keys.join(' | ');
             } else if (type === 'esai-singkat') {
                 const key = document.getElementById('kunci-jawaban-singkat').value;
-                if(key) keyInfo = `Kunci jawaban diharapkan: "${key}".`;
+                if(key) dbKeyStr = key;
+            }
+
+            if (dbKeyStr && dbKeyStr.trim() !== "" && !dbKeyStr.includes('KOSONG')) {
+                keyInfo = `Kunci jawaban di pangkalan data saat ini adalah: [${dbKeyStr}].\nTUGAS AUDITOR: Jangan langsung setuju! Evaluasi soal secara mandiri. Jika kunci database BENAR, berikan penjabaran. Jika kunci database SALAH/KELIRU, sebutkan dengan jelas bahwa kunci salah, lalu berikan jawaban yang benar beserta buktinya.`;
+            } else {
+                keyInfo = `Kunci jawaban BELUM TERSEDIA di pangkalan data.\nTUGAS AUDITOR: Jadilah penjawab otomatis. Tentukan jawaban yang paling tepat dari pilihan yang ada dan berikan langkah-langkah penyelesaiannya secara runut.`;
             }
 
             const promptText = `
-                Peran: Tentor Profesional & Strategis.
-                Tugas: Buat pembahasan soal yang SINGKAT, PADAT, dan TAKTIS.
-                Gaya Penjelasan: Langsung inti, metode praktis, step-by-step efisien.
+                Peran: Auditor Akademik & Tentor Ahli.
+                Sikap: Objektif, Kritis, dan Netral. Anda tidak tunduk pada kunci jawaban sistem jika itu salah secara matematis atau logika.
                 
                 Naskah Soal: "${naskahAtas} ${naskahBawah}"
                 Opsi: ${optionsText}
                 Konteks: Materi ${bab}, Level ${level}.
-                Instruksi Kunci: ${keyInfo}
                 
-                PENTING: Gunakan LaTeX $...$ untuk rumus. Gunakan format array LaTeX \\begin{array}{|c|c|} ... \\end{array} diapit tanda $ ... $ jika butuh tabel. 
-				DILARANG KERAS menggunakan 'tabular' atau tag HTML <table>.
+                INSTRUKSI AUDIT: ${keyInfo}
+                
+                Format Output:
+                1. Awali kalimat pertama dengan kesimpulan tegas (Pilih salah satu: "✅ Kunci Jawaban Tepat", "❌ Kunci Jawaban Keliru", atau "🤖 Solusi AI (Kunci Kosong)").
+                2. Berikan pembahasan step-by-step yang singkat, padat, dan taktis di baris berikutnya.
+                3. PENTING: Gunakan LaTeX MENTAH diapit $...$ untuk rumus. 
+                4. WAJIB gunakan format array LaTeX \\begin{array}{|c|c|} ... \\end{array} jika butuh tabel (diapit $...$). DILARANG menggunakan 'tabular' atau tag HTML <table>.
             `;
 
             const parts = [{ text: promptText }];
@@ -892,7 +905,8 @@
             textArea.innerHTML = "";
 
             try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${API_KEY}`, {
+                const activeModel = window.getSmartAiModel();
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${activeModel}:generateContent?key=${API_KEY}`, {
                     method: "POST", headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ contents: [{ parts: parts }] })
                 });
@@ -3976,5 +3990,3 @@ async function bangunPetaKurikulum() {
     </div>
 </body>
 </html>
-
-

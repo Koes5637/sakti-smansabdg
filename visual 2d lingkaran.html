@@ -278,6 +278,19 @@
                     <label class="flex items-center gap-1 mt-1 cursor-pointer w-full"><input type="checkbox" id="cb-sembunyi-ujung" class="w-3 h-3 accent-pink-500"><span class="text-[9px] font-semibold text-pink-600">Sembunyikan Titik & Huruf Ujung</span></label>
 					<button id="btn-add-tangent" class="w-full mt-1 bg-pink-600 hover:bg-pink-700 text-white text-[10px] font-bold py-1.5 px-2 rounded shadow-sm">Buat Garis Singgung</button>
                 </div>
+				
+				<!-- 4B. Sinar Garis Singgung (1 Arah) -->
+                <div class="flex flex-wrap gap-1 items-center mb-2 p-1.5 bg-fuchsia-50 border border-fuchsia-200 rounded mt-2">
+                    <input type="text" id="ray-ref" placeholder="Ttk(A)" class="w-12 px-1 py-1 text-[10px] border border-fuchsia-300 rounded uppercase outline-none text-center" maxlength="1" title="Titik Singgung">
+                    <input type="number" id="ray-len" placeholder="Pnjg(2)" value="1.5" class="w-14 px-1 py-1 text-[10px] border border-fuchsia-300 rounded outline-none text-center" step="0.1" title="Panjang Garis">
+                    <input type="text" id="ray-p1" placeholder="Ujg(P)" class="w-12 px-1 py-1 text-[10px] border border-fuchsia-300 rounded uppercase outline-none text-center" maxlength="1">
+                    <select id="ray-dir" class="w-14 px-1 py-1 text-[9px] border border-fuchsia-300 rounded outline-none cursor-pointer">
+                        <option value="1">Arah 1</option>
+                        <option value="-1">Arah 2</option>
+                    </select>
+                    <label class="flex items-center gap-1 mt-1 cursor-pointer w-full"><input type="checkbox" id="cb-ray-hypotenuse" checked class="w-3 h-3 accent-fuchsia-500"><span class="text-[9px] font-semibold text-fuchsia-600">Tarik Sisi Miring (Pusat ke Ujung)</span></label>
+                    <button id="btn-add-ray" class="w-full mt-1 bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-[10px] font-bold py-1.5 px-2 rounded shadow-sm">Buat Sinar Singgung</button>
+                </div>
                 
                 <!-- 5. Gambar Sudut -->
                 <div class="flex gap-1 items-center">
@@ -389,7 +402,7 @@
                 };
             }
 
-            // 2. MESIN GARIS SINGGUNG BEBAS
+            // 2. MESIN GARIS SINGGUNG BEBAS & SINAR
             customTangentsData.forEach(tan => {
                 const ptRef = allPts[tan.ref];
                 if(ptRef) {
@@ -400,32 +413,58 @@
                     
                     let perpX = -dy / dist;
                     let perpY = dx / dist;
-                    
-                    let p1 = { x: ptRef.x + perpX * (tan.len * activeCircle.r), y: ptRef.y + perpY * (tan.len * activeCircle.r) };
-                    let p2 = { x: ptRef.x - perpX * (tan.len * activeCircle.r), y: ptRef.y - perpY * (tan.len * activeCircle.r) };
-                    
-                    ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
-                    ctx.strokeStyle = '#ec4899'; ctx.lineWidth = 2.5; ctx.stroke(); 
-                    
-                    let lenSiku = 15 * zoomLevel;
-                    let dxO = -dx / dist * lenSiku; 
-                    let dyO = -dy / dist * lenSiku;
-                    let dxT = perpX * lenSiku; 
-                    let dyT = perpY * lenSiku;
-                    
-                    ctx.beginPath(); ctx.moveTo(ptRef.x + dxO, ptRef.y + dyO);
-                    ctx.lineTo(ptRef.x + dxO + dxT, ptRef.y + dyO + dyT); ctx.lineTo(ptRef.x + dxT, ptRef.y + dyT);
-                    ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1.5; ctx.stroke();
 
-                    // --- Logika Saklar Gaib ---
-                    const sembunyiUjung = document.getElementById('cb-sembunyi-ujung') && document.getElementById('cb-sembunyi-ujung').checked;
-                    if (tan.p1 && !sembunyiUjung) drawDot(p1, tan.p1, '#ec4899');
-                    if (tan.p2 && !sembunyiUjung) drawDot(p2, tan.p2, '#ec4899');
-                    
-                    // --- BAGIAN INI SANGAT PENTING (Perekam Memori) ---
-                    // Mendaftarkan ke allPts agar Mesin Titik Potong tidak buta
-                    if (tan.p1) allPts[tan.p1] = p1;
-                    if (tan.p2) allPts[tan.p2] = p2;
+                    if (tan.isRay) {
+                        // LOGIKA SINAR GARIS SINGGUNG (1 ARAH)
+                        let dirX = perpX * tan.dir;
+                        let dirY = perpY * tan.dir;
+                        let p1 = { x: ptRef.x + dirX * (tan.len * activeCircle.r), y: ptRef.y + dirY * (tan.len * activeCircle.r) };
+                        
+                        ctx.beginPath(); ctx.moveTo(ptRef.x, ptRef.y); ctx.lineTo(p1.x, p1.y);
+                        ctx.strokeStyle = '#d946ef'; ctx.lineWidth = 2.5; ctx.stroke(); 
+                        
+                        // Garis Bantu Sisi Miring (Pythagoras)
+                        const showHypo = document.getElementById('cb-ray-hypotenuse') && document.getElementById('cb-ray-hypotenuse').checked;
+                        if(showHypo) {
+                            ctx.beginPath(); ctx.moveTo(activeCircle.x, activeCircle.y); ctx.lineTo(p1.x, p1.y);
+                            ctx.strokeStyle = '#64748b'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
+                        }
+
+                        // Logo Siku-siku
+                        let lenSiku = 15 * zoomLevel;
+                        let dxO = -dx / dist * lenSiku, dyO = -dy / dist * lenSiku;
+                        let dxT = dirX * lenSiku, dyT = dirY * lenSiku;
+                        
+                        ctx.beginPath(); ctx.moveTo(ptRef.x + dxO, ptRef.y + dyO);
+                        ctx.lineTo(ptRef.x + dxO + dxT, ptRef.y + dyO + dyT); ctx.lineTo(ptRef.x + dxT, ptRef.y + dyT);
+                        ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1.5; ctx.stroke();
+
+                        drawDot(p1, tan.p1, '#d946ef');
+                        allPts[tan.p1] = p1; // Daftarkan ke allPts agar terbaca oleh Titik Potong
+                        
+                    } else {
+                        // LOGIKA GARIS SINGGUNG PENUH (2 ARAH)
+                        let p1 = { x: ptRef.x + perpX * (tan.len * activeCircle.r), y: ptRef.y + perpY * (tan.len * activeCircle.r) };
+                        let p2 = { x: ptRef.x - perpX * (tan.len * activeCircle.r), y: ptRef.y - perpY * (tan.len * activeCircle.r) };
+                        
+                        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
+                        ctx.strokeStyle = '#ec4899'; ctx.lineWidth = 2.5; ctx.stroke(); 
+                        
+                        let lenSiku = 15 * zoomLevel;
+                        let dxO = -dx / dist * lenSiku, dyO = -dy / dist * lenSiku;
+                        let dxT = perpX * lenSiku, dyT = perpY * lenSiku;
+                        
+                        ctx.beginPath(); ctx.moveTo(ptRef.x + dxO, ptRef.y + dyO);
+                        ctx.lineTo(ptRef.x + dxO + dxT, ptRef.y + dyO + dyT); ctx.lineTo(ptRef.x + dxT, ptRef.y + dyT);
+                        ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1.5; ctx.stroke();
+
+                        const sembunyiUjung = document.getElementById('cb-sembunyi-ujung') && document.getElementById('cb-sembunyi-ujung').checked;
+                        if (tan.p1 && !sembunyiUjung) drawDot(p1, tan.p1, '#ec4899');
+                        if (tan.p2 && !sembunyiUjung) drawDot(p2, tan.p2, '#ec4899');
+                        
+                        if (tan.p1) allPts[tan.p1] = p1;
+                        if (tan.p2) allPts[tan.p2] = p2;
+                    }
                 }
             });
 
@@ -984,10 +1023,32 @@
             actionHistory.push({ type: 'tangent' });
             draw();
         });
+		
+		document.getElementById('btn-add-ray').addEventListener('click', function() {
+            const ref = document.getElementById('ray-ref').value.toUpperCase().trim();
+            const len = parseFloat(document.getElementById('ray-len').value) || 1.5;
+            const p1 = document.getElementById('ray-p1').value.toUpperCase().trim();
+            const dir = parseInt(document.getElementById('ray-dir').value);
+            const mode = document.getElementById('mode-selector').value;
+            
+            if(ref.length !== 1) return alert("Masukkan 1 nama titik singgung (misal: A)!");
+            if(p1.length !== 1) return alert("Masukkan nama titik ujung (misal: P)!");
+            
+            customTangentsData.push({ ref: ref, len: len, p1: p1, p2: null, mode: mode, isRay: true, dir: dir });
+            actionHistory.push({ type: 'tangent' });
+            draw();
+        });
+
+        if(document.getElementById('cb-ray-hypotenuse')) document.getElementById('cb-ray-hypotenuse').addEventListener('change', draw);
 
         document.getElementById('btn-reset').addEventListener('click', function() {
-            customPointsData = {}; customLinesData = []; customIntersectsData = []; customAnglesData = [];
-			customTangentsData = customTangentsData.filter(x => x.mode !== mode);
+            // Sapu bersih semua data elemen bebas
+            customPointsData = {}; 
+            customLinesData = []; 
+            customIntersectsData = []; 
+            customAnglesData = [];
+            customTangentsData = []; // <-- Ini perbaikannya (langsung dikosongkan)
+            
             document.getElementById('wadah-slider-bebas').innerHTML = '';
             
             // Kembalikan Mode 1

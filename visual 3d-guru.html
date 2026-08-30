@@ -174,6 +174,14 @@
                 <input type="color" id="custom-line-color" value="#d946ef" class="w-8 h-6 p-0 border-0 rounded cursor-pointer" title="Pilih warna garis">
                 <button id="btn-add-line" class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold py-1 px-2 rounded">Garis</button>
             </div>
+			
+			<!-- Menu Tambah Titik Potong 2 Garis -->
+            <div class="flex gap-2 mb-2">
+                <input type="text" id="intersect-line1" placeholder="Grs1(EG)" class="flex-1 min-w-0 px-2 py-1 text-[11px] border border-slate-300 rounded uppercase outline-none text-center" maxlength="2">
+                <input type="text" id="intersect-line2" placeholder="Grs2(HF)" class="flex-1 min-w-0 px-2 py-1 text-[11px] border border-slate-300 rounded uppercase outline-none text-center" maxlength="2">
+                <input type="text" id="intersect-pt-name" placeholder="Nama" class="w-12 min-w-0 px-1 py-1 text-[11px] border border-slate-300 rounded uppercase outline-none text-center" maxlength="1">
+                <button id="btn-add-intersect-3d" class="bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold py-1 rounded shadow-sm w-[60px] flex-none">Potong</button>
+            </div>
 
             <!-- Tambah Keterangan Angka/Huruf di Garis -->
             <div class="flex gap-1 items-center mb-2">
@@ -509,7 +517,8 @@
             });
             document.getElementById('btn-add-point').addEventListener('click', handleAddHelperPoint);
             document.getElementById('btn-add-line').addEventListener('click', handleAddCustomLine);
-            document.getElementById('btn-add-plane').addEventListener('click', handleAddCustomPlane);
+            document.getElementById('btn-add-intersect-3d').addEventListener('click', handleAddIntersect3D);
+			document.getElementById('btn-add-plane').addEventListener('click', handleAddCustomPlane);
 			document.getElementById('btn-add-angle').addEventListener('click', handleAddAngle);
 			document.getElementById('btn-add-line-label').addEventListener('click', handleAddLineLabel);
             
@@ -672,7 +681,7 @@
             });
 
             // Hapus data koordinat jika itu titik
-            if (lastAction.type === 'point') {
+            if (lastAction.type === 'point' || lastAction.type === 'intersect3d') {
                 delete verticesData[lastAction.name];
             }
             
@@ -942,7 +951,57 @@
             } catch (err) { alert(err.message); }
         }
 
-        function handleAddCustomLine() {
+        function handleAddIntersect3D() {
+        const l1 = getVal('intersect-line1', 2);
+        const l2 = getVal('intersect-line2', 2);
+        const ptName = document.getElementById('intersect-pt-name').value.toUpperCase().trim();
+
+        if (ptName.length !== 1) { alert("Nama titik harus 1 huruf."); return; }
+        if (verticesData[ptName]) { alert("Titik sudah ada, pilih huruf lain."); return; }
+
+        try {
+            const A = getCoord(l1[0]); const B = getCoord(l1[1]);
+            const C = getCoord(l2[0]); const D = getCoord(l2[1]);
+
+            // Rumus Jarak & Titik Temu Vektor 3D
+            const d1 = new THREE.Vector3().subVectors(B, A);
+            const d2 = new THREE.Vector3().subVectors(D, C);
+            const v13 = new THREE.Vector3().subVectors(A, C);
+
+            const d11 = d1.dot(d1); const d22 = d2.dot(d2); const d12 = d1.dot(d2);
+            const d131 = v13.dot(d1); const d132 = v13.dot(d2);
+
+            const denom = d11 * d22 - d12 * d12;
+            if (Math.abs(denom) < 0.0001) throw new Error("Kedua garis sejajar. Tidak ada titik potong.");
+
+            const t = (d132 * d12 - d131 * d22) / denom;
+            const pt = new THREE.Vector3().copy(A).add(d1.multiplyScalar(t));
+
+            // Validasi Khusus: Apakah Garis Bersilangan (Beda Bidang)?
+            const line2 = new THREE.Line3(C, D);
+            const closestPt = new THREE.Vector3();
+            line2.closestPointToPoint(pt, false, closestPt);
+
+            if (pt.distanceTo(closestPt) > 0.01) {
+                throw new Error(`Garis ${l1} dan ${l2} saling BERSILANGAN. Keduanya berbeda bidang dan tidak akan pernah bertabrakan.`);
+            }
+
+            // Jika lolos tes (berpotongan), cetak titiknya
+            verticesData[ptName] = pt;
+            const dot = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({ color: 0x2563eb }));
+            dot.position.copy(pt); baseCubeGroup.add(dot);
+
+            const div = document.createElement('div');
+            div.className = 'vertex-label'; div.style.color = '#2563eb'; div.textContent = ptName;
+            const labelObj = new CSS2DObject(div);
+            labelObj.position.copy(pt); labelObj.position.y += 0.8; labelObj.position.x += 0.5;
+            baseCubeGroup.add(labelObj);
+
+            actionHistory.push({ type: 'intersect3d', l1: l1, l2: l2, name: ptName, objects: [dot, labelObj] });
+        } catch (err) { alert(err.message); }
+    }
+		
+		function handleAddCustomLine() {
             try {
                 const lineName = getVal('custom-line', 2);
                 const colorHex = document.getElementById('custom-line-color').value;
@@ -1231,20 +1290,30 @@
                     if (a.type === 'point') {
                         document.getElementById('point-name').value = a.name; document.getElementById('point-edge').value = a.edge;
                         document.getElementById('point-ratio').value = a.ratio; document.getElementById('btn-add-point').click();
-                    } else if (a.type === 'line') {
-                        document.getElementById('custom-line').value = a.lineName; document.getElementById('custom-line-color').value = a.colorHex;
-                        document.getElementById('btn-add-line').click();
-                    } else if (a.type === 'label') {
+					} 
+					else if (a.type === 'intersect3d') {
+						document.getElementById('intersect-line1').value = a.l1;
+						document.getElementById('intersect-line2').value = a.l2;
+						document.getElementById('intersect-pt-name').value = a.name;
+						document.getElementById('btn-add-intersect-3d').click();
+					}
+					else if (a.type === 'line') {
+                       document.getElementById('custom-line').value = a.lineName; document.getElementById('custom-line-color').value = a.colorHex;
+                       document.getElementById('btn-add-line').click();
+					} 
+					else if (a.type === 'label') {
                         document.getElementById('label-line-target').value = a.lineName; document.getElementById('label-line-text').value = a.rawText;
                         document.getElementById('btn-add-line-label').click();
-                    } else if (a.type === 'plane') {
+					} 
+					else if (a.type === 'plane') {
                         document.getElementById('custom-plane').value = a.planeName; document.getElementById('custom-color').value = a.colorHex;
                         document.getElementById('btn-add-plane').click();
-                    } else if (a.type === 'angle') {
+					} 
+					else if (a.type === 'angle') {
                         document.getElementById('angle-points').value = a.pts; document.getElementById('angle-color').value = a.colorHex;
                         document.getElementById('angle-symbol').value = a.symbol; document.getElementById('angle-display').value = a.displayMode;
                         document.getElementById('btn-add-angle').click();
-                    }
+					}
 					// ---> TAMBAHKAN BLOK KODE INI <---
                     else if (a.type === 'calc') {
                         document.getElementById('mode-selector').value = a.mode;

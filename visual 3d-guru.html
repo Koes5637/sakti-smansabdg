@@ -354,8 +354,21 @@
 
         // Fungsi Master: Mendeteksi dan Membentuk Balok/Kubus/Limas
         function generateShape() {
-            baseCubeGroup.clear();
-            helpersGroup.clear();
+            // Hancurkan memori objek fisik dan cabut elemen teks HTML (CSS2D) agar tidak membekas
+            const bersihkanGrup = (grup) => {
+                grup.traverse(child => {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) child.material.dispose();
+                    if (child.isCSS2DObject && child.element && child.element.parentNode) {
+                        child.element.parentNode.removeChild(child.element);
+                    }
+                });
+                grup.clear();
+            };
+
+            bersihkanGrup(baseCubeGroup);
+            bersihkanGrup(helpersGroup);
+
             verticesData = {}; 
             actionHistory = []; 
 
@@ -683,6 +696,8 @@
             // Hapus data koordinat jika itu titik
             if (lastAction.type === 'point' || lastAction.type === 'intersect3d') {
                 delete verticesData[lastAction.name];
+            } else if (lastAction.type === 'calc' && lastAction.inputs && lastAction.inputs.proj) {
+                delete verticesData[lastAction.inputs.proj];
             }
             
             // PERBAIKAN: Sembunyikan kotak hijau hasil di layar
@@ -709,22 +724,28 @@
                 html = `
                     <div class="mb-2"><label class="text-[10px] uppercase font-bold text-slate-500">Dari Titik</label>
                     <input type="text" id="input-pt" placeholder="C" class="w-full uppercase p-1.5 border rounded text-sm"></div>
-                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Ke Garis (2 Titik)</label>
+                    <div class="mb-2"><label class="text-[10px] uppercase font-bold text-slate-500">Ke Garis (2 Titik)</label>
                     <input type="text" id="input-line" placeholder="AG" class="w-full uppercase p-1.5 border rounded text-sm"></div>
+                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Nama Titik Baru / Proyeksi (Opsional)</label>
+                    <input type="text" id="input-proj-name" placeholder="Misal: P (opsional)" maxlength="1" class="w-full uppercase p-1.5 border rounded text-sm font-bold text-blue-600"></div>
                 `;
             } else if (mode === '3') {
                 html = `
                     <div class="mb-2"><label class="text-[10px] uppercase font-bold text-slate-500">Dari Titik</label>
                     <input type="text" id="input-pt" placeholder="E" class="w-full uppercase p-1.5 border rounded text-sm"></div>
-                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Ke Bidang (3/4 Titik)</label>
+                    <div class="mb-2"><label class="text-[10px] uppercase font-bold text-slate-500">Ke Bidang (3/4 Titik)</label>
                     <input type="text" id="input-plane" placeholder="BDG" class="w-full uppercase p-1.5 border rounded text-sm"></div>
+                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Nama Titik Baru / Proyeksi (Opsional)</label>
+                    <input type="text" id="input-proj-name" placeholder="Misal: O (opsional)" maxlength="1" class="w-full uppercase p-1.5 border rounded text-sm font-bold text-blue-600"></div>
                 `;
             } else if (mode === '4') {
                 html = `
                     <div class="mb-2"><label class="text-[10px] uppercase font-bold text-slate-500">Garis (2 Titik)</label>
                     <input type="text" id="input-line" placeholder="EG" class="w-full uppercase p-1.5 border rounded text-sm"></div>
-                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Ke Bidang (3/4 Titik)</label>
+                    <div class="mb-2"><label class="text-[10px] uppercase font-bold text-slate-500">Ke Bidang (3/4 Titik)</label>
                     <input type="text" id="input-plane" placeholder="BDG" class="w-full uppercase p-1.5 border rounded text-sm"></div>
+                    <div><label class="text-[10px] uppercase font-bold text-slate-500">Nama Titik Baru / Proyeksi (Opsional)</label>
+                    <input type="text" id="input-proj-name" placeholder="Misal: P (opsional)" maxlength="1" class="w-full uppercase p-1.5 border rounded text-sm font-bold text-blue-600"></div>
                 `;
             } else if (mode === '5') {
                 html = `
@@ -753,15 +774,15 @@
                     calcMode1(inputs, scaleFactor, showHitung, calcGroup);
                 }
                 else if (mode === '2') {
-                    inputs = { pt: getVal('input-pt', 1), line: getVal('input-line', 2) };
+                    inputs = { pt: getVal('input-pt', 1), line: getVal('input-line', 2), proj: document.getElementById('input-proj-name')?.value.toUpperCase().trim() || '' };
                     calcMode2(inputs, scaleFactor, showHitung, calcGroup);
                 }
                 else if (mode === '3') {
-                    inputs = { pt: getVal('input-pt', 1), plane: getVal('input-plane') };
+                    inputs = { pt: getVal('input-pt', 1), plane: getVal('input-plane'), proj: document.getElementById('input-proj-name')?.value.toUpperCase().trim() || '' };
                     calcMode3(inputs, scaleFactor, showHitung, calcGroup);
                 }
                 else if (mode === '4') {
-                    inputs = { line: getVal('input-line', 2), plane: getVal('input-plane') };
+                    inputs = { line: getVal('input-line', 2), plane: getVal('input-plane'), proj: document.getElementById('input-proj-name')?.value.toUpperCase().trim() || '' };
                     calcMode4(inputs, scaleFactor, showHitung, calcGroup);
                 }
                 else if (mode === '5') {
@@ -802,7 +823,14 @@
 
             drawDashedLine(P, Q, 0xdc2626, group); 
             drawSikuSiku(Q, P, A, group); 
-            addCustomLabel(Q, inputs.pt + "'", group); 
+            // addCustomLabel(Q, inputs.pt + "'", group); 
+
+            if (inputs.proj) {
+                verticesData[inputs.proj] = Q;
+                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({ color: 0xdc2626 }));
+                dot.position.copy(Q); group.add(dot);
+                addCustomLabel(Q, inputs.proj, group);
+            }
             
             if(showHitung) renderResult(P, Q, realEdge, group);
         }
@@ -818,7 +846,14 @@
 
             drawDashedLine(P, Q, 0xdc2626, group); 
             drawSikuSiku(Q, P, planeVertices[0], group);
-            addCustomLabel(Q, inputs.pt + "'", group); 
+            // addCustomLabel(Q, inputs.pt + "'", group); 
+
+            if (inputs.proj) {
+                verticesData[inputs.proj] = Q;
+                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({ color: 0xdc2626 }));
+                dot.position.copy(Q); group.add(dot);
+                addCustomLabel(Q, inputs.proj, group);
+            }
             
             if(showHitung) renderResult(P, Q, realEdge, group);
         }
@@ -839,7 +874,14 @@
 
             drawDashedLine(A, Q, 0xdc2626, group);
             drawSikuSiku(Q, A, planeVerts[0], group);
-            addCustomLabel(Q, inputs.line[0] + "'", group); 
+            // addCustomLabel(Q, inputs.line[0] + "'", group); 
+
+            if (inputs.proj) {
+                verticesData[inputs.proj] = Q;
+                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({ color: 0xdc2626 }));
+                dot.position.copy(Q); group.add(dot);
+                addCustomLabel(Q, inputs.proj, group);
+            }
             
             if(showHitung) renderResult(A, Q, realEdge, group);
         }
@@ -1062,40 +1104,70 @@
             if (angleDeg === 0 || angleDeg === 180) throw new Error("Ketiga titik berada pada satu garis lurus.");
 
             const radius = 1.5; 
-            const arcPoints = [];
-            const segments = 20;
             const centerPt = vB.clone();
             
-            for(let i = 0; i <= segments; i++) {
-                const t = i / segments;
-                const dir = vecBA.clone().lerp(vecBC, t).normalize();
-                arcPoints.push(centerPt.clone().add(dir.multiplyScalar(radius)));
-            }
-            
-            // 1. Gambar Garis Busur Luar
-            const geom = new THREE.BufferGeometry().setFromPoints(arcPoints);
-            const mat = new THREE.LineBasicMaterial({ color: colorHex, linewidth: 2 });
-            const lineArc = new THREE.Line(geom, mat);
-            helpersGroup.add(lineArc);
+            let lineArc, meshJuring;
 
-            // 2. Gambar Area Juring Transparan
-            const shapePoints = [centerPt, ...arcPoints];
-            const posArray = [];
-            for (let i = 1; i < shapePoints.length - 1; i++) {
-                posArray.push(
-                    shapePoints[0].x, shapePoints[0].y, shapePoints[0].z,
-                    shapePoints[i].x, shapePoints[i].y, shapePoints[i].z,
-                    shapePoints[i+1].x, shapePoints[i+1].y, shapePoints[i+1].z
-                );
+            if (angleDeg === 90) {
+                // JIKA 90 DERAJAT: Gambar Kotak Siku-Siku Transparan
+                const size = radius * 0.7; // Ukuran kotak
+                const pA = centerPt.clone().add(vecBA.clone().multiplyScalar(size));
+                const pC = centerPt.clone().add(vecBC.clone().multiplyScalar(size));
+                const pCorner = pA.clone().add(vecBC.clone().multiplyScalar(size));
+
+                // 1. Gambar Garis Siku-Siku
+                const geomSiku = new THREE.BufferGeometry().setFromPoints([pA, pCorner, pC]);
+                const matSiku = new THREE.LineBasicMaterial({ color: colorHex, linewidth: 2 });
+                lineArc = new THREE.Line(geomSiku, matSiku);
+                helpersGroup.add(lineArc);
+
+                // 2. Gambar Area Kotak Transparan
+                const posArray = [
+                    centerPt.x, centerPt.y, centerPt.z, pA.x, pA.y, pA.z, pCorner.x, pCorner.y, pCorner.z,
+                    centerPt.x, centerPt.y, centerPt.z, pCorner.x, pCorner.y, pCorner.z, pC.x, pC.y, pC.z
+                ];
+                const shapeGeom = new THREE.BufferGeometry();
+                shapeGeom.setAttribute('position', new THREE.Float32BufferAttribute(posArray, 3));
+                shapeGeom.computeVertexNormals();
+                const shapeMat = new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide, transparent: true, opacity: 0.3 });
+                meshJuring = new THREE.Mesh(shapeGeom, shapeMat);
+                helpersGroup.add(meshJuring);
+                
+            } else {
+                // JIKA BUKAN 90 DERAJAT: Gambar Juring (Busur) seperti biasa
+                const arcPoints = [];
+                const segments = 20;
+                
+                for(let i = 0; i <= segments; i++) {
+                    const t = i / segments;
+                    const dir = vecBA.clone().lerp(vecBC, t).normalize();
+                    arcPoints.push(centerPt.clone().add(dir.multiplyScalar(radius)));
+                }
+                
+                // 1. Gambar Garis Busur Luar
+                const geom = new THREE.BufferGeometry().setFromPoints(arcPoints);
+                const mat = new THREE.LineBasicMaterial({ color: colorHex, linewidth: 2 });
+                lineArc = new THREE.Line(geom, mat);
+                helpersGroup.add(lineArc);
+
+                // 2. Gambar Area Juring Transparan
+                const shapePoints = [centerPt, ...arcPoints];
+                const posArray = [];
+                for (let i = 1; i < shapePoints.length - 1; i++) {
+                    posArray.push(
+                        shapePoints[0].x, shapePoints[0].y, shapePoints[0].z,
+                        shapePoints[i].x, shapePoints[i].y, shapePoints[i].z,
+                        shapePoints[i+1].x, shapePoints[i+1].y, shapePoints[i+1].z
+                    );
+                }
+                const shapeGeom = new THREE.BufferGeometry();
+                shapeGeom.setAttribute('position', new THREE.Float32BufferAttribute(posArray, 3));
+                shapeGeom.computeVertexNormals();
+                
+                const shapeMat = new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide, transparent: true, opacity: 0.3 });
+                meshJuring = new THREE.Mesh(shapeGeom, shapeMat);
+                helpersGroup.add(meshJuring);
             }
-            const shapeGeom = new THREE.BufferGeometry();
-            shapeGeom.setAttribute('position', new THREE.Float32BufferAttribute(posArray, 3));
-            shapeGeom.computeVertexNormals();
-            
-            // Set opacity 0.3 agar warnanya tembus pandang (transparan)
-            const shapeMat = new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide, transparent: true, opacity: 0.3 });
-            const meshJuring = new THREE.Mesh(shapeGeom, shapeMat);
-            helpersGroup.add(meshJuring);
             
             // 3. Label Melayang di Dalam Juring (Ditarik ke dalam menjadi 60% radius)
             const midDir = vecBA.clone().lerp(vecBC, 0.5).normalize().multiplyScalar(radius * 0.6);

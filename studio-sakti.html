@@ -329,7 +329,7 @@
                     <p class="text-xs text-slate-500" id="pantau-target">Target Kelas</p>
                 </div>
                 <div class="flex items-center gap-4">
-                    <select id="filter-pantau-kelas" onchange="renderTabelPantau()" class="p-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 ring-indigo-500 cursor-pointer shadow-sm hidden">
+                    <select id="filter-pantau-kelas" onchange="renderTabelPantau()" class="p-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 ring-indigo-500 cursor-pointer shadow-sm">
                         <option value="ALL">Semua Kelas</option>
                     </select>
                     <button onclick="tutupModalPantau()" class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 hover:text-red-500 flex items-center justify-center"><i class="ph ph-x font-bold"></i></button>
@@ -943,15 +943,18 @@
                 dataPantauanAktif.sort((a,b) => a.kelas.localeCompare(b.kelas) || a.nama.localeCompare(b.nama));
 
                 const dropdown = document.getElementById('filter-pantau-kelas');
-                if (modul.is_publik) {
-                    const kelasUnik = [...new Set(dataPantauanAktif.map(s => s.kelas))].sort();
-                    dropdown.innerHTML = '<option value="ALL">Semua Kelas</option>';
-                    kelasUnik.forEach(k => dropdown.innerHTML += `<option value="${k}">${k}</option>`);
-                    dropdown.classList.remove('hidden');
-                } else {
-                    dropdown.classList.add('hidden');
-                }
-                dropdown.value = "ALL";
+				// Hapus kondisi yang menyembunyikan filter. Selalu buat opsi dropdown.
+				const kelasUnik = [...new Set(dataPantauanAktif.map(s => s.kelas))].sort();
+				dropdown.innerHTML = '<option value="ALL">Semua Kelas</option>';
+				kelasUnik.forEach(k => dropdown.innerHTML += `<option value="${k}">${k}</option>`);
+
+				// Jika is_publik salah (berarti spesifik kelas tertentu), dan hanya ada 1 kelas, sembunyikan dropdown karena tidak diperlukan.
+				if (!modul.is_publik && kelasUnik.length <= 1) {
+					dropdown.classList.add('hidden');
+				} else {
+					dropdown.classList.remove('hidden');
+				}
+				dropdown.value = "ALL";
 
                 renderTabelPantau();
             } catch(e) { tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-red-500">Gagal menarik data.</td></tr>`; }

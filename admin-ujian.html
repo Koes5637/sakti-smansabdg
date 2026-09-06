@@ -424,6 +424,18 @@
             </div>
         </div>
     </div>
+	
+	<!-- MODAL VISUAL 3D BAHAS -->
+	<div id="modal-bahas-3d" class="fixed inset-0 z-[200] bg-cyber-900 flex-col hidden transition-colors duration-300">
+		<div class="h-14 bg-cyber-800 border-b border-emerald-800 flex justify-between items-center px-4 shrink-0 text-white shadow-md">
+			<div class="font-bold flex items-center gap-2 text-sky-400"><span class="text-2xl">🧊</span> Alat Peraga 3D</div>
+			<button onclick="window.tutupVisual3DBahas()" class="bg-red-500 hover:bg-red-600 px-4 py-1.5 rounded-lg text-sm font-bold shadow-md transition-colors">Tutup 3D</button>
+		</div>
+		<div class="flex-1 w-full relative">
+			<iframe id="iframe-bahas-3d" src="" class="absolute inset-0 w-full h-full border-none bg-white"></iframe>
+		</div>
+	</div>
+	
 	<!-- MODAL PRESENTASI / BAHAS SOAL (FULLSCREEN) -->
     <div id="presentation-modal" class="fixed inset-0 z-[120] hidden bg-white dark:bg-cyber-900 flex-col transition-colors duration-300">
         <!-- Header (Diperkecil) -->
@@ -2019,6 +2031,19 @@
 		// ==========================================
             // MESIN MODE PRESENTASI (BAHAS SOAL KELAS)
             // ==========================================
+			// Fungsi Buka/Tutup 3D
+			window.bukaVisual3DBahas = function(resepStr) {
+				localStorage.setItem('sakti_resep_3d_temp', resepStr);
+				document.getElementById('modal-bahas-3d').classList.remove('hidden');
+				document.getElementById('modal-bahas-3d').classList.add('flex');
+				document.getElementById('iframe-bahas-3d').src = 'visual 3d-guru.html'; 
+			};
+
+			window.tutupVisual3DBahas = function() {
+				document.getElementById('modal-bahas-3d').classList.add('hidden');
+				document.getElementById('modal-bahas-3d').classList.remove('flex');
+				document.getElementById('iframe-bahas-3d').src = ''; 
+			};
             let presentationData = [];
             let currentPresIndex = 0;
             let currentPresZoom = 100; // Persentase Zoom
@@ -2181,10 +2206,16 @@
                         html += `<img src="${soal.naskahImage}" class="max-h-96 object-contain rounded-xl border-4 border-white shadow-lg mx-auto mb-8">`;
                     }
                     if (soal.naskahBawah) {
-                        html += `<div class="mb-6 leading-relaxed font-medium bg-gray-50 dark:bg-black/20 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">${window.formatTextAman ? window.formatTextAman(soal.naskahBawah) : soal.naskahBawah}</div>`;
-                    }
+						html += `<div class="mb-6 leading-relaxed font-medium bg-gray-50 dark:bg-black/20 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">${window.formatTextAman ? window.formatTextAman(soal.naskahBawah) : soal.naskahBawah}</div>`;
+					}
 
-                    html += `<div class="space-y-3 w-full">`;
+					// --- MENDETEKSI & MERENDER TOMBOL 3D ---
+					if (soal.metadata && soal.metadata.resep3d) {
+						const safeResep = soal.metadata.resep3d.replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+						html += `<button onclick="window.bukaVisual3DBahas('${safeResep}')" class="mb-8 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md shadow-sky-500/30 flex items-center gap-2 transition-all active:scale-95 w-max text-[0.8em]"><span class="text-xl">🧊</span> Lihat Visual 3D Interaktif</button>`;
+					}
+
+					html += `<div class="space-y-3 w-full">`;
                     
                     if (soal.type === 'pg' || soal.type === 'pgk') {
                         soal.opsi.forEach((o, optIdx) => {

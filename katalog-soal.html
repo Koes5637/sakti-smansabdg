@@ -315,7 +315,7 @@
             <!-- TOMBOL BARU UNTUK MODUL SAKTI -->
             <button id="send-sakti-btn" onclick="window.kirimKeModulSakti()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed mb-2 flex items-center justify-center gap-2" disabled>
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
-                KIRIM KE MODUL SAKTI
+                KIRIM KE STUDIO SAKTI
             </button>
             
             <button id="checkout-btn" class="w-full bg-gold hover:bg-yellow-600 text-slate-900 font-bold py-3 rounded-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed mb-2" disabled>PROSES KE ADMIN UJIAN</button>
@@ -600,14 +600,30 @@
             }
 
             tempQuestions.sort((a, b) => {
-                if (a.metadata.mapel !== b.metadata.mapel) return a.metadata.mapel.localeCompare(b.metadata.mapel);
-                if (a.metadata.kelas !== b.metadata.kelas) return a.metadata.kelas.localeCompare(b.metadata.kelas);
-                if (a.metadata.bab !== b.metadata.bab) return a.metadata.bab.localeCompare(b.metadata.bab);
-                const gA = a.metadata.groupId || '';
-                const gB = b.metadata.groupId || '';
-                if (gA !== gB) return gA.localeCompare(gB);
-                return a.sortTime - b.sortTime;
-            });
+				if (a.metadata.mapel !== b.metadata.mapel) return a.metadata.mapel.localeCompare(b.metadata.mapel);
+				if (a.metadata.kelas !== b.metadata.kelas) return a.metadata.kelas.localeCompare(b.metadata.kelas);
+				if (a.metadata.bab !== b.metadata.bab) return a.metadata.bab.localeCompare(b.metadata.bab);
+
+				const gA = a.metadata.groupId || '';
+				const gB = b.metadata.groupId || '';
+
+				if (gA !== gB) {
+					// Jika beda kelompok, urutkan berdasarkan nama kelompoknya
+					return gA.localeCompare(gB);
+				} else if (gA && gA === gB) {
+					// JIKA SATU KELOMPOK: Baca stempel urutan dari Impor Masal!
+					// Induk soal (Wacana) selalu punya urutan 1, sisanya mengikuti.
+					const urutanA = a.metadata.urutanGrup || 999;
+					const urutanB = b.metadata.urutanGrup || 999;
+
+					if (urutanA !== urutanB) {
+						return urutanA - urutanB;
+					}
+				}
+
+				// Fallback (Cadangan) untuk soal reguler
+				return a.sortTime - b.sortTime;
+			});
 
             const keySnap = await getDocs(collection(db, 'bank_soal_privat'));
             keysMap = {};

@@ -1084,9 +1084,17 @@
                     if(!soal.type || soal.type === 'pg') {
                         if(String(jwbSiswa) === String(kunci)) isBenar = true;
                     } else if(soal.type === 'esai-singkat') {
-                        let s1 = String(jwbSiswa||'').trim().toLowerCase().replace(/\s+/g, '');
-                        let s2 = String(kunci||'').trim().toLowerCase().replace(/\s+/g, '');
-                        if(s1 === s2) isBenar = true;
+                        let rawSiswa = String(jwbSiswa || '').trim().toLowerCase();
+                        let rawKunci = String(kunci || '').trim().toLowerCase();
+
+                        if (rawKunci.includes(',')) {
+                            let arrKunci = rawKunci.split(',').map(k => k.trim());
+                            isBenar = arrKunci.every(k => rawSiswa.includes(k));
+                        } else {
+                            let s1 = rawSiswa.replace(/\s+/g, '');
+                            let s2 = rawKunci.replace(/\s+/g, '');
+                            if(s1 === s2) isBenar = true;
+                        }
                     } else if(soal.type === 'pgk') {
                         let arrSiswa = Array.isArray(jwbSiswa) ? jwbSiswa.map(String) : [];
                         let arrKunci = Array.isArray(kunci) ? kunci.map(String) : [];

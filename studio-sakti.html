@@ -221,18 +221,29 @@
         <!-- ========================================== -->
         <div id="tab-content-kelola" class="tab-content space-y-6">
             
-            <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 grid grid-cols-1 md:grid-cols-4 gap-4">
                 <select id="filter-milik" onchange="renderDaftarModulGlobal()" class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 rounded-xl font-bold text-sm outline-none cursor-pointer">
                     <option value="SAYA">Karya Milik Saya</option>
                     <option value="SEMUA">Pustaka Semua Guru</option>
                 </select>
-                <select id="filter-jenis" onchange="renderDaftarModulGlobal()" class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 rounded-xl font-bold text-sm outline-none cursor-pointer">
-                    <option value="SEMUA">Semua Jenis Konten</option>
-                    <option value="materi">Hanya Materi Ajar</option>
-                    <option value="tugas">Hanya Tugas Latihan</option>
+                
+                <select id="filter-kategori" onchange="renderDaftarModulGlobal()" class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 rounded-xl font-bold text-sm outline-none cursor-pointer text-indigo-700 dark:text-indigo-400">
+                    <option value="SEMUA">Semua Etalase</option>
+                    <option value="KBM_Harian">KBM Harian Reguler</option>
+                    <option value="TKA">Program Sukses TKA</option>
+                    <option value="UTBK">Pejuang UTBK</option>
                 </select>
+
+                <select id="filter-jenis" onchange="renderDaftarModulGlobal()" class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 rounded-xl font-bold text-sm outline-none cursor-pointer text-emerald-700 dark:text-emerald-400">
+                    <option value="SEMUA">Semua Jenis</option>
+                    <option value="materi">Materi (Semua)</option>
+                    <option value="materi_video">Materi - Video</option>
+                    <option value="materi_teks">Materi - Teks/Buku</option>
+                    <option value="tugas">Tugas Latihan</option>
+                </select>
+                
                 <button onclick="fetchSemuaModulGlobal()" class="bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 p-3 rounded-xl font-bold text-sm transition-colors flex justify-center items-center gap-2">
-                    <i class="ph ph-arrows-clockwise text-lg"></i> Segarkan Data
+                    <i class="ph ph-arrows-clockwise text-lg"></i> Segarkan
                 </button>
             </div>
 
@@ -774,13 +785,32 @@
         window.renderDaftarModulGlobal = function() {
             const wadah = document.getElementById('wadah-modul-global');
             const filterMilik = document.getElementById('filter-milik').value;
+            const filterKategori = document.getElementById('filter-kategori').value;
             const filterJenis = document.getElementById('filter-jenis').value;
             wadah.innerHTML = "";
 
             let dataFilter = semuaModulGlobal;
             
+            // 1. Filter Kepemilikan
             if (filterMilik === "SAYA") dataFilter = dataFilter.filter(m => m.guru_id === currentUser.id);
-            if (filterJenis !== "SEMUA") dataFilter = dataFilter.filter(m => m.tipe_konten === filterJenis);
+            
+            // 2. Filter Kategori (KBM/TKA/UTBK)
+            if (filterKategori !== "SEMUA") dataFilter = dataFilter.filter(m => m.kategori === filterKategori);
+            
+            // 3. Filter Jenis Konten (Cerdas mendeteksi Video vs Teks)
+            if (filterJenis !== "SEMUA") {
+                dataFilter = dataFilter.filter(m => {
+                    if (filterJenis === 'materi') return m.tipe_konten === 'materi';
+                    if (filterJenis === 'tugas') return m.tipe_konten === 'tugas';
+                    if (filterJenis === 'materi_video') {
+                        return m.tipe_konten === 'materi' && (m.materi_html && (m.materi_html.includes('youtube.com') || m.materi_html.includes('youtu.be')));
+                    }
+                    if (filterJenis === 'materi_teks') {
+                        return m.tipe_konten === 'materi' && (!m.materi_html || (!m.materi_html.includes('youtube.com') && !m.materi_html.includes('youtu.be')));
+                    }
+                    return true;
+                });
+            }
 
             if(dataFilter.length === 0) {
                 wadah.innerHTML = `<div class="text-center py-10 text-slate-400">Tidak ada data yang sesuai filter.</div>`;

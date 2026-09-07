@@ -1180,11 +1180,18 @@
                             let autoScore = 0;
 
                             if (q.type === 'pg' && studentAns == q.kunciAsli) { autoScore = bobot; } 
-                            else if (q.type === 'esai-singkat') {
-                                let safeStudentAns = String(studentAns).trim().toLowerCase().replace(/\s+/g, '');
-                                let safeKunciAsli = String(q.kunciAsli).trim().toLowerCase().replace(/\s+/g, '');
-                                if (safeStudentAns === safeKunciAsli) autoScore = bobot;
-                            } 
+							else if (q.type === 'esai-singkat') {
+								let rawStudent = String(studentAns || '').trim().toLowerCase();
+								let rawKunci = String(q.kunciAsli || '').trim().toLowerCase();
+								if (rawKunci.includes(',')) {
+									let arrKunci = rawKunci.split(',').map(k => k.trim());
+									if (arrKunci.every(k => rawStudent.includes(k))) autoScore = bobot;
+								} else {
+									let safeStudentAns = rawStudent.replace(/\s+/g, '');
+									let safeKunciAsli = rawKunci.replace(/\s+/g, '');
+									if (safeStudentAns === safeKunciAsli && safeKunciAsli !== '') autoScore = bobot;
+								}
+							} 
                             else if (q.type === 'pgk') {
                                 let safeStudentArray = Array.isArray(studentAns) ? studentAns.map(String) : [];
                                 let safeKunciArray = Array.isArray(q.kunciAsli) ? q.kunciAsli.map(String) : [];
@@ -1473,14 +1480,20 @@
                         
                         let autoScore = 0;
                         if (q.type === 'pg' && studentAns == q.kunciAsli) {
-                            autoScore = bobot;
-                        } 
-                        else if (q.type === 'esai-singkat') {
-                            // MESIN ANTI-SPASI: Ubah semua jadi huruf kecil dan sedot semua spasi
-                            let safeStudentAns = String(studentAns).trim().toLowerCase().replace(/\s+/g, '');
-                            let safeKunciAsli = String(q.kunciAsli).trim().toLowerCase().replace(/\s+/g, '');
-                            if (safeStudentAns === safeKunciAsli) autoScore = bobot;
-                        } 
+							autoScore = bobot;
+						} 
+						else if (q.type === 'esai-singkat') {
+							let rawStudent = String(studentAns || '').trim().toLowerCase();
+							let rawKunci = String(q.kunciAsli || '').trim().toLowerCase();
+							if (rawKunci.includes(',')) {
+								let arrKunci = rawKunci.split(',').map(k => k.trim());
+								if (arrKunci.every(k => rawStudent.includes(k))) autoScore = bobot;
+							} else {
+								let safeStudentAns = rawStudent.replace(/\s+/g, '');
+								let safeKunciAsli = rawKunci.replace(/\s+/g, '');
+								if (safeStudentAns === safeKunciAsli && safeKunciAsli !== '') autoScore = bobot;
+							}
+						} 
                         else if (q.type === 'pgk') {
                             let safeStudentArray = Array.isArray(studentAns) ? studentAns.map(String) : [];
                             let safeKunciArray = Array.isArray(q.kunciAsli) ? q.kunciAsli.map(String) : [];

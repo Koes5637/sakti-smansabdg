@@ -759,10 +759,9 @@
                 return;
             }
 
-            // --- SENSOR DETEKSI STATUS TAMPIL NILAI ---
-            const btnScore = document.getElementById('btn-toggle-score');
-            const isScoreVisible = btnScore ? (btnScore.dataset.val === 'true') : false;
-
+            // --- SENSOR TAMPILAN NILAI DIBUANG DARI KARTU GURU ---
+            // Guru berhak melihat semua nilai kapan pun tanpa terpengaruh settingTampilNilai.
+            
             students.forEach(s => {
                 const isOnline = s.lastHeartbeat && (Date.now() - s.lastHeartbeat.toMillis() < 60000); 
                 const statusColor = s.status === 'selesai' ? 'text-emerald-600 bg-emerald-100 border-emerald-200' : 
@@ -775,8 +774,19 @@
                     `<div class="px-3 py-1 rounded-lg bg-red-100 text-red-600 text-xs font-bold animate-pulse">${s.pelanggaran}x Curang</div>` : 
                     `<div class="px-3 py-1 rounded-lg bg-emerald-50 text-emerald-600 text-xs font-bold opacity-50">Aman</div>`;
 
-                // --- TENTUKAN TAMPILAN SKOR (ANGKA ATAU GEMBOK) ---
-                let teksSkor = isScoreVisible ? (s.skor || 0) : '<span class="text-base" title="Nilai Rahasia">🔒</span>';
+                // --- SINKRONISASI DENGAN PENGOLAHAN NILAI ---
+                // Tampilkan nilai yang sudah diolah/dikoreksi manual terlebih dahulu (jika ada)
+                let nilaiAkhir = s.skor || 0;
+                
+                // Cek jika guru sudah mengoreksi secara manual via Pengolahan Nilai / Studio Sakti
+                if (s.manualScores && Object.keys(s.manualScores).length > 0) {
+                    // Karena `skor` di database otomatis tertimpa dengan hasil akhir saat saveCorrection, 
+                    // s.skor adalah nilai yang paling valid.
+                    nilaiAkhir = s.skor; 
+                }
+
+                // Format angka: hilangkan .0 di belakang (misal 80.0 jadi 80), tapi pertahankan desimal lain (misal 80.5)
+                let teksSkor = (nilaiAkhir % 1 === 0) ? nilaiAkhir : Number(nilaiAkhir).toFixed(1);
 
                 const card = document.createElement('div');
                 card.className = `glass-panel rounded-2xl p-5 student-card flex flex-col relative overflow-hidden group ${s.pelanggaran > 0 ? 'border-red-300' : 'border-slate-200'}`;

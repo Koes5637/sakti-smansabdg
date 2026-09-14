@@ -1177,15 +1177,22 @@
                             totalMaksimal += bobot;
                             
                             const studentAns = (answerMap[qid] || {}).val;
-                            let autoScore = 0;
+							let autoScore = 0;
 
-                            if (q.type === 'pg' && studentAns == q.kunciAsli) { autoScore = bobot; } 
-							else if (q.type === 'esai-singkat') {
+							if (q.type === 'pg' && studentAns == q.kunciAsli) {
+								autoScore = bobot;
+							} else if (q.type === 'esai-singkat') {
 								let rawStudent = String(studentAns || '').trim().toLowerCase();
 								let rawKunci = String(q.kunciAsli || '').trim().toLowerCase();
 								if (rawKunci.includes(',')) {
-									let arrKunci = rawKunci.split(',').map(k => k.trim());
-									if (arrKunci.every(k => rawStudent.includes(k))) autoScore = bobot;
+									let arrKunci = rawKunci.split(',').map(k => k.trim()).filter(k => k !== '');
+									let matchCount = 0;
+									arrKunci.forEach(k => {
+										if (rawStudent.includes(k)) matchCount++;
+									});
+									if (arrKunci.length > 0) {
+										autoScore = parseFloat(((matchCount / arrKunci.length) * bobot).toFixed(1));
+									}
 								} else {
 									let safeStudentAns = rawStudent.replace(/\s+/g, '');
 									let safeKunciAsli = rawKunci.replace(/\s+/g, '');
@@ -1486,8 +1493,14 @@
 							let rawStudent = String(studentAns || '').trim().toLowerCase();
 							let rawKunci = String(q.kunciAsli || '').trim().toLowerCase();
 							if (rawKunci.includes(',')) {
-								let arrKunci = rawKunci.split(',').map(k => k.trim());
-								if (arrKunci.every(k => rawStudent.includes(k))) autoScore = bobot;
+								let arrKunci = rawKunci.split(',').map(k => k.trim()).filter(k => k !== '');
+								let matchCount = 0;
+								arrKunci.forEach(k => {
+									if (rawStudent.includes(k)) matchCount++;
+								});
+								if (arrKunci.length > 0) {
+									autoScore = parseFloat(((matchCount / arrKunci.length) * bobot).toFixed(1));
+								}
 							} else {
 								let safeStudentAns = rawStudent.replace(/\s+/g, '');
 								let safeKunciAsli = rawKunci.replace(/\s+/g, '');

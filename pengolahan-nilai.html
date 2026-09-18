@@ -1759,6 +1759,34 @@
                     ansDisplay = `<div class="text-gray-800 dark:text-gray-200">${studentAns}</div>`;
                 }
 
+                // --- GENERATOR PROMPT AI OTOMATIS ---
+                let promptText = "";
+                if (q.type === 'esai-singkat' || q.type === 'esai-kompleks') {
+                    // Membersihkan tag HTML dari teks soal agar rapi saat disalin
+                    let naskahBeres = q.naskah.replace(/<[^>]*>?/gm, '').trim(); 
+                    
+                    // Kecerdasan Opsional: Jika kunci kosong, AI diminta berimprovisasi
+                    let teksKunci = q.kunciAsli ? `Kunci Jawaban yang Diharapkan: ${q.kunciAsli}` : `Soal ini bersifat terbuka (tidak ada kunci spesifik). Gunakan keahlian Anda sebagai guru untuk menilai.`;
+                    
+                    // Radar pintar penarik nama mapel dari berbagai kemungkinan variabel
+                    let namaMapel = 'Mata Pelajaran Ini';
+                    if (typeof ujianData !== 'undefined' && ujianData.mapel) {
+                        namaMapel = ujianData.mapel;
+                    } else if (typeof examData !== 'undefined' && examData.mapel) {
+                        namaMapel = examData.mapel;
+                    } else if (window.ujianData && window.ujianData.mapel) {
+                        namaMapel = window.ujianData.mapel;
+                    }
+                    
+                    // Memasukkan ketikan siswa (jika ada)
+                    let jwbSiswaTeks = (studentAns && typeof studentAns === 'string') ? studentAns : "Lihat foto tulisan tangan yang saya lampirkan.";
+                    
+                    promptText = `Tolong bertindak sebagai asisten pengoreksi ujian mata pelajaran ${namaMapel}.\n\n` +
+                                 `**DATA SOAL:**\n- Soal: ${naskahBeres}\n- Kunci/Panduan: ${teksKunci}\n- Bobot Maksimal: ${bobot} poin.\n\n` +
+                                 `**JAWABAN SISWA:**\n${jwbSiswaTeks}\n\n` +
+                                 `**TUGAS ANDA:**\nEvaluasi jawaban siswa di atas (dan periksa foto tulisan tangan yang saya lampirkan bersama pesan ini, jika ada). Berapa skor yang layak didapatkan siswa ini dari skala 0 hingga ${bobot}? Jelaskan alasan Anda secara singkat dan tebalkan skor akhirnya (misal: **15/${bobot}**).`;
+                }
+
                 div.innerHTML = `
                     <div>
                         <div class="flex justify-between items-start mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">
@@ -1776,6 +1804,29 @@
                         <div class="font-mono text-sm break-words">${ansDisplay}</div>
                         ${imgHtml}
                         ${keyDisplay}
+                        
+                        <!-- TOMBOL AI PROMPT GENERATOR & ANALISIS LANGSUNG -->
+                        <div class="mt-4 pt-3 border-t border-blue-200 dark:border-blue-800 flex flex-wrap gap-2 items-center">
+                            <textarea id="prompt-ai-${idx}" class="hidden">${promptText}</textarea>
+                            
+                            <!-- Opsi 1: Jalur Otomatis (Gemini API) -->
+                            <button id="btn-ai-direct-${idx}" onclick="window.analisisAILangsung(${idx})" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm border border-blue-700">
+                                🤖 Minta AI Analisis Langsung
+                            </button>
+
+                            <!-- Opsi 2: Jalur Manual (Clipboard) -->
+                            <button id="btn-prompt-${idx}" onclick="window.salinPromptAI(${idx})" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm border border-gray-300 dark:border-gray-600">
+                                📝 Salin Instruksi
+                            </button>
+
+                            <!-- Fullscreen Toggle -->
+                            <button onclick="window.toggleFullscreenModal(this)" class="ml-auto px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm border border-slate-300 dark:border-slate-600">
+                                🔲 Layar Penuh
+                            </button>
+                        </div>
+                        <!-- KOTAK HASIL ANALISIS AI (Awalnya Disembunyikan) -->
+						<div id="ai-result-${idx}" class="hidden mt-3 p-3 bg-white dark:bg-gray-800 rounded-xl border border-blue-200 dark:border-gray-700 text-sm shadow-inner">
+						</div>
                     </div>
                     ` : ''}
 
@@ -1961,6 +2012,149 @@
 
             setTimeout(() => window.print(), 500);
         }
+		// --- MESIN PENYALIN PROMPT AI (Versi Tangguh untuk Offline) ---
+        window.salinPromptAI = (idx) => {
+            const textArea = document.getElementById(`prompt-ai-${idx}`);
+            const btn = document.getElementById(`btn-prompt-${idx}`);
+            const teksAsli = btn.innerHTML;
+            
+            if (textArea) {
+                try {
+                    // Metode Klasik: Munculkan sebentar, sorot, salin, lalu sembunyikan lagi
+                    textArea.classList.remove('hidden');
+                    textArea.select();
+                    document.execCommand('copy');
+                    textArea.classList.add('hidden');
+
+                    // Animasi sukses pada tombol
+                    btn.innerHTML = '✅ Teks Instruksi Tersalin!';
+                    btn.classList.replace('text-gray-700', 'text-green-700');
+                    btn.classList.replace('bg-gray-200', 'bg-green-100');
+                    
+                    // Kembalikan ke wujud semula setelah 2.5 detik
+                    setTimeout(() => {
+                        btn.innerHTML = teksAsli;
+                        btn.classList.replace('text-green-700', 'text-gray-700');
+                        btn.classList.replace('bg-green-100', 'bg-gray-200');
+                    }, 2500);
+                } catch (err) {
+                    alert('Gagal menyalin teks. Browser memblokir akses papan klip.');
+                }
+            }
+        };
+		// --- MESIN PEMANGGIL GEMINI API (OPSI PERTAMA) ---
+        window.analisisAILangsung = async (idx) => {
+            const btn = document.getElementById(`btn-ai-direct-${idx}`);
+            const resultDiv = document.getElementById(`ai-result-${idx}`);
+            const promptText = document.getElementById(`prompt-ai-${idx}`).value;
+
+            // 1. Cek atau Minta API Key (Disimpan di browser agar tidak perlu input terus)
+            let apiKey = localStorage.getItem('sakti_gemini_api_key');
+            if (!apiKey) {
+                apiKey = prompt("Masukkan Google Gemini API Key Anda:\n(Key ini hanya disimpan di browser perangkat ini)");
+                if (!apiKey) return; // Batal jika kosong
+                localStorage.setItem('sakti_gemini_api_key', apiKey);
+            }
+
+            // 2. Animasi Loading
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Sedang Menganalisis...';
+            btn.classList.replace('bg-blue-600', 'bg-gray-400');
+            resultDiv.classList.remove('hidden');
+            resultDiv.innerHTML = '<div class="text-blue-600 dark:text-blue-400 font-bold animate-pulse flex items-center gap-2"><span>🤖</span> AI sedang membaca jawaban siswa, mohon tunggu...</div>';
+
+            try {
+                // 3. Menyiapkan Data Payload (Teks Prompt & Gambar dari UI)
+                let geminiParts = [{ text: promptText }];
+
+                // MENDETEKSI GAMBAR LANGSUNG DARI TAMPILAN LAYAR GURU
+                const containerJawaban = btn.closest('.bg-blue-50, .dark\\:bg-blue-900\\/10');
+                if (containerJawaban) {
+                    // Cari semua elemen gambar di dalam kotak jawaban ini
+                    const images = containerJawaban.querySelectorAll('img');
+                    images.forEach(img => {
+                        const imgBase64 = img.src;
+                        // Pastikan itu gambar Base64 yang valid
+                        if (imgBase64 && imgBase64.startsWith('data:image')) {
+                            const mimeType = imgBase64.split(';')[0].split(':')[1];
+                            const base64Data = imgBase64.split(',')[1];
+                            geminiParts.push({
+                                inlineData: {
+                                    mimeType: mimeType,
+                                    data: base64Data
+                                }
+                            });
+                        }
+                    });
+                }
+
+                // 4. Memanggil API Gemini (Menggunakan model gemini-3.5-flash yang terbaru)
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: geminiParts }]
+                    })
+                });
+
+                const data = await response.json();
+                
+                // Jika API Key salah atau limit habis
+                if (data.error) throw new Error(data.error.message);
+
+                // 5. Menampilkan Hasil & Parsing Markdown Dasar
+                let aiText = data.candidates[0].content.parts[0].text;
+                
+                // Mengubah format **tebal** bawaan AI menjadi tag HTML agar rapi
+                aiText = aiText.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-black dark:text-white">$1</strong>');
+                
+                resultDiv.innerHTML = `
+                    <div class="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider mb-2 border-b border-blue-200 dark:border-blue-800 pb-2">Hasil Analisis Asisten AI:</div>
+                    <div class="text-gray-900 dark:text-gray-100 whitespace-pre-wrap font-sans text-sm leading-relaxed">${aiText}</div>
+                    <button onclick="localStorage.removeItem('sakti_gemini_api_key'); alert('API Key telah dihapus.');" class="mt-4 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 rounded text-xs font-medium transition-colors border border-red-200 dark:border-red-800">🗑️ Hapus API Key dari memori</button>
+                `;
+
+                // 6. Membangunkan MathJax agar merender rumus matematika (LaTeX) di dalam kotak hasil
+                if (window.MathJax) {
+                    if (MathJax.typesetPromise) {
+                        // Untuk MathJax versi 3 (Modern)
+                        MathJax.typesetPromise([resultDiv]).catch((err) => console.log('MathJax error:', err));
+                    } else if (MathJax.Hub) {
+                        // Untuk MathJax versi 2 (Legacy)
+                        MathJax.Hub.Queue(["Typeset", MathJax.Hub, resultDiv]);
+                    }
+                }
+            } catch (error) {
+                // Tangani Error
+                resultDiv.innerHTML = `
+                    <div class="text-red-500 font-bold mb-1">❌ Gagal menghubungi AI:</div>
+                    <div class="text-xs text-red-400">${error.message}</div>
+                    <button onclick="localStorage.removeItem('sakti_gemini_api_key');" class="mt-2 px-2 py-1 bg-red-100 text-red-600 rounded text-xs">Reset API Key</button>
+                `;
+            } finally {
+                // Kembalikan Tombol
+                btn.disabled = false;
+                btn.innerHTML = '🤖 Minta AI Analisis Langsung';
+                btn.classList.replace('bg-gray-400', 'bg-blue-600');
+            }
+        };
+		// --- FITUR TAMBAHAN LAYAR PENUH ---
+        // Menambahkan style CSS untuk merusak batasan ukuran modal menjadi layar penuh
+        document.head.insertAdjacentHTML('beforeend', '<style>.modal-fullscreen-active > div { width: 100vw !important; height: 100vh !important; max-width: none !important; margin: 0 !important; border-radius: 0 !important; }</style>');
+
+        // Fungsi mengubah ukuran modal
+        window.toggleFullscreenModal = (btn) => {
+            // Mencari pembungkus paling luar dari jendela modal (yang menutupi seluruh layar)
+            const modalWrapper = btn.closest('.fixed.inset-0');
+            if (modalWrapper) {
+                modalWrapper.classList.toggle('modal-fullscreen-active');
+                if (modalWrapper.classList.contains('modal-fullscreen-active')) {
+                    btn.innerHTML = '🔳 Perkecil Layar';
+                } else {
+                    btn.innerHTML = '🔲 Layar Penuh';
+                }
+            }
+        };
     </script>
 </body>
 </html>

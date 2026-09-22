@@ -1929,8 +1929,30 @@
         }
 
         function exportToExcel() {
+            // 1. Ambil tabel asli
             const table = document.getElementById('grades-table');
-            const wb = XLSX.utils.table_to_book(table, { sheet: "Nilai Siswa" });
+            
+            // 2. Buat tiruan (clone) tabel di memori agar tampilan asli di layar tidak rusak
+            const cloneTable = table.cloneNode(true);
+            
+            // 3. Sapu bersih semua kotak <input> dan ubah menjadi teks angka biasa
+            const inputs = cloneTable.querySelectorAll('input');
+            inputs.forEach(input => {
+                const td = input.closest('td');
+                if (td) {
+                    // Ambil angka dari dalam kotak
+                    const nilai = input.value || '';
+                    // Timpa seluruh isi sel (termasuk ikon pensil/mata) dengan angka saja
+                    td.innerHTML = nilai; 
+                }
+            });
+
+            // 4. Bersihkan tombol-tombol "Hapus Permanen" yang ada di baris Header (judul kolom)
+            const buttons = cloneTable.querySelectorAll('button');
+            buttons.forEach(btn => btn.remove());
+
+            // 5. Ekspor tabel tiruan yang sudah bersih ke Excel
+            const wb = XLSX.utils.table_to_book(cloneTable, { sheet: "Nilai Siswa" });
             XLSX.writeFile(wb, `Rekap_Nilai_${currentGuruMapel}.xlsx`);
         }
 

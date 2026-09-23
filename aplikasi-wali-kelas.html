@@ -110,7 +110,7 @@
                         <i class="fa-solid fa-lock text-6xl text-red-500 mb-4"></i>
                         <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">Akses Ditolak</h2>
                         <p class="text-gray-500 dark:text-gray-400 mb-6">Aplikasi ini khusus untuk Wali Kelas. Profil Anda tidak terdaftar sebagai wali kelas di Setup Sekolah.</p>
-                        <button onclick="window.location.href='Portal Akademik Sekolah.html'" class="px-6 py-2 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-700">Kembali ke Portal</button>
+                        <button onclick="window.location.href='index.html'" class="px-6 py-2 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-700">Kembali ke Portal</button>
                     </div>
                 </div>`;
         }
@@ -151,6 +151,12 @@
             
             window.proceedWithInit();
         };
+		// --- FUNGSI KELUAR APLIKASI ---
+        window.keluarAplikasi = () => {
+            if(confirm("Tutup ruang Wali Kelas dan kembali ke Portal Akademik?")) {
+                window.location.href = 'index.html';
+            }
+        };
 
         // --- CORE INITIALIZATION ---
         window.proceedWithInit = async () => {
@@ -178,14 +184,13 @@
                 const offset = 7 * 60 * 60 * 1000; 
                 const todayStr = new Date(Date.now() + offset).toISOString().split('T')[0];
 
-                // 1. TARIK SELURUH DATA UTAMA SECARA PARALEL
+                // 1. TARIK SELURUH DATA UTAMA SECARA PARALEL DENGAN PELINDUNG ERROR
                 const [snapSiswa, snapHasil, piketSnap, pSnap, legerSnap] = await Promise.all([
-                    getDocs(query(collection(db, 'siswa'), where('kelas', '==', waliKelas))),
-                    getDocs(query(collection(db, 'catatan_pelanggaran'), where('kelas', '==', waliKelas))), // Menarik data kasus/pelanggaran resmi
+                    getDocs(query(collection(db, 'siswa'), where('kelas', '==', waliKelas))).catch(() => []),
+                    getDocs(query(collection(db, 'catatan_pelanggaran'), where('kelas', '==', waliKelas))).catch(() => []),
                     getDoc(doc(db, 'presensi_piket', todayStr)).catch(() => null),
                     getDocs(collection(db, 'presensi')).catch(() => null),
-                    // INBOX: Tarik data dari koleksi "leger_terkirim" (Pemisahan Data)
-                    getDocs(query(collection(db, 'leger_terkirim'), where('kelas', '==', waliKelas)))
+                    getDocs(query(collection(db, 'leger_terkirim'), where('kelas', '==', waliKelas))).catch(() => [])
                 ]);
 
                 // 2. Olah Data Siswa
@@ -205,13 +210,13 @@
                     dataLeger.push({ id: d.id, ...d.data() });
                 });
 
-                // 5. Tarik Catatan Wali Kelas dari laporan_siswa
-                const catatanPromises = students.map(s => getDoc(doc(db, 'laporan_siswa', s.id)));
+                // 5. Tarik Catatan Wali Kelas dari laporan_siswa (Ditambah pelindung)
+                const catatanPromises = students.map(s => getDoc(doc(db, 'laporan_siswa', s.id)).catch(() => null));
                 const catatanSnaps = await Promise.all(catatanPromises);
 
                 catatanSiswa = {};
                 catatanSnaps.forEach((snap, idx) => {
-                    if(snap.exists()) catatanSiswa[students[idx].id] = snap.data().catatan_wali || '';
+                    if(snap && snap.exists()) catatanSiswa[students[idx].id] = snap.data().catatan_wali || '';
                 });
 
                 // 6. Olah Data Presensi
@@ -1029,7 +1034,7 @@
             </select>
             
             <div class="flex gap-3">
-                <button onclick="window.location.href='Portal Akademik Sekolah.html'" class="flex-1 px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-bold hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm">Kembali</button>
+                <button onclick="window.location.href='index.html'" class="flex-1 px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-bold hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm">Kembali</button>
                 <button onclick="selectAdminClass()" class="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 transition-colors text-sm">Buka Data</button>
             </div>
         </div>
@@ -1049,6 +1054,10 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-4">
+				<!-- TOMBOL KELUAR -->
+                    <button onclick="window.keluarAplikasi()" class="flex items-center px-3 py-1.5 bg-red-100 text-red-600 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 rounded-lg text-xs font-bold transition-colors border border-red-200 dark:border-red-800/50 shadow-sm">
+                        <i class="fa-solid fa-arrow-right-from-bracket mr-2"></i> Tutup
+                    </button>
                     
                     <!-- TOMBOL GANTI KELAS (KHUSUS ADMIN) -->
                     <button id="btn-ganti-kelas" onclick="showAdminClassSelector()" class="hidden items-center px-3 py-1.5 bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50 rounded-lg text-xs font-bold transition-colors border border-blue-200 dark:border-blue-800/50">

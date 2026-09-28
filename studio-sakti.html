@@ -19,6 +19,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+    <!-- TAMBAHAN: MODUL STORAGE UNTUK UPLOAD FILE TUGAS -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-storage-compat.js"></script>
 	
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
@@ -153,7 +155,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="col-span-1 md:col-span-2">
                         <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Judul Tugas <span class="text-red-500">*</span></label>
-                        <input type="text" id="tugas-judul" class="w-full p-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none font-semibold" placeholder="Contoh: Ulangan Harian Matriks / Try Out UTBK 1">
+                        <input type="text" id="tugas-judul" class="w-full p-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none font-semibold" placeholder="Contoh: Ulangan Harian Matriks / Rangkuman Bab 1">
                     </div>
                     
                     <div class="grid grid-cols-2 gap-4">
@@ -165,6 +167,15 @@
                             <label class="block text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Durasi (Menit)</label>
                             <input type="number" id="tugas-durasi" class="w-full p-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 outline-none font-semibold text-sm" placeholder="Contoh: 90" min="1">
                         </div>
+                    </div>
+					
+					<!-- TAMBAHAN: TIPE PENGERJAAN -->
+                    <div>
+                        <label class="block text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tipe Pengerjaan <span class="text-red-500">*</span></label>
+                        <select id="tugas-tipe-pengerjaan" onchange="toggleTipeTugasLatihan()" class="w-full p-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 outline-none font-semibold cursor-pointer">
+                            <option value="CBT">Ujian/Kuis CBT (Pilih Soal dari Bank)</option>
+                            <option value="BEBAS">Instruksi Bebas (Siswa Mengetik/Upload Foto Tugas)</option>
+                        </select>
                     </div>
                     
                     <div>
@@ -191,10 +202,20 @@
                         <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Instruksi Pengerjaan (Opsional)</label>
                         <textarea id="tugas-pengantar" rows="2" class="w-full p-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 outline-none" placeholder="Contoh: Kerjakan dengan jujur. Pahami wacana sebelum menjawab."></textarea>
                     </div>
+
+                    <!-- TAMBAHAN BARU: UPLOAD FILE UNTUK TUGAS BEBAS (KAMERA/PDF) -->
+                    <div class="col-span-1 md:col-span-2 hidden" id="wadah-lampiran-bebas">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Lampirkan File Soal / Foto (Opsional)</label>
+                        <div class="flex items-center gap-4 bg-indigo-50 dark:bg-slate-900 p-4 rounded-xl border border-indigo-200 dark:border-slate-600">
+                            <input type="file" id="tugas-file" accept="image/*,application/pdf" capture="environment" class="block w-full text-sm text-slate-600 dark:text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer shadow-sm transition-colors">
+                        </div>
+                        <p class="text-[10px] text-slate-500 mt-2 font-medium"><i class="ph ph-info"></i> Bisa berupa file PDF soal, gambar, atau Anda bisa langsung memfoto kertas soal menggunakan kamera HP/Laptop untuk diberikan ke siswa.</p>
+                    </div>
+
                 </div>
             </section>
 
-            <section class="bg-white dark:bg-slate-800 rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200 dark:border-slate-700">
+            <section id="wadah-bank-soal-cbt" class="bg-white dark:bg-slate-800 rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200 dark:border-slate-700">
                 <div class="flex items-center justify-between gap-4 mb-6 border-b border-slate-100 dark:border-slate-700 pb-4">
                     <h2 class="text-lg font-bold">Soal Penugasan</h2>
                     <button onclick="window.location.href='katalog-soal.html'" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center gap-2 shadow-sm border border-indigo-200 dark:border-indigo-700">
@@ -498,6 +519,7 @@
             localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
         }
         if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+        
         window.formatTextAman = function(text) {
             if (!text) return '';
             let str = (typeof text === 'object') ? (text.text || JSON.stringify(text)) : String(text);
@@ -507,6 +529,7 @@
                 return part.replace(/\n/g, '<br>');
             }).join('');
         };
+        
         function switchTab(tabId) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -525,6 +548,7 @@
         }
 
         let db = null;
+        let storage = null; // TAMBAHAN UNTUK STORAGE
         let currentUser = null;
         let currentMapel = null;
         let userKelas = [];
@@ -548,14 +572,14 @@
             document.getElementById('info-guru-mapel').innerText = `${userName} • ${currentMapel}`;
             currentUser = { id: userId, nama: userName };
 
-            toggleTargetTugas();
-
             try {
                 showLoading(true, "Menghubungkan ke Database...");
                 const configObj = JSON.parse(savedConfig);
                 let schoolApp = firebase.apps.filter(app => app.name === 'AppSekolah').length === 0 ? firebase.initializeApp(configObj, 'AppSekolah') : firebase.app('AppSekolah');
                 await schoolApp.auth().signInAnonymously();
+                
                 db = schoolApp.firestore();
+                storage = schoolApp.storage(); // INISIALISASI STORAGE FIREBASE
 
                 await fetchBankSoal();
                 await fetchDataSiswaCepat();
@@ -603,6 +627,10 @@
                         }
                     } catch(err) { console.error("Gagal membaca keranjang", err); }
                 }
+
+                // PASTIKAN UI MENYESUAIKAN SAAT PERTAMA KALI DIMUAT
+                toggleTargetTugas();
+                toggleTipeTugasLatihan();
                 
             } catch(e) { alert("Gagal terhubung."); } finally { showLoading(false); }
         };
@@ -640,6 +668,23 @@
             }
         }
 
+        // FUNGSI BARU: MENGATUR TAMPILAN AREA SOAL CBT & TOMBOL UPLOAD
+        window.toggleTipeTugasLatihan = function() {
+            const tipe = document.getElementById('tugas-tipe-pengerjaan').value;
+            const wadahSoalCBT = document.getElementById('wadah-bank-soal-cbt');
+            const wadahLampiran = document.getElementById('wadah-lampiran-bebas');
+            
+            if (tipe === 'BEBAS') {
+                wadahSoalCBT.style.display = 'none'; // Sembunyikan Bank Soal
+                wadahLampiran.style.display = 'block'; // Munculkan tombol upload
+                document.getElementById('tugas-pengantar').placeholder = "Contoh: Kerjakan soal pada lampiran di bawah ini di buku tulis, lalu foto dan kumpulkan.";
+            } else {
+                wadahSoalCBT.style.display = 'block'; // Munculkan Bank Soal
+                wadahLampiran.style.display = 'none'; // Sembunyikan tombol upload
+                document.getElementById('tugas-pengantar').placeholder = "Contoh: Kerjakan dengan jujur. Pahami wacana sebelum menjawab.";
+            }
+        };
+
         window.terbitkanMateri = async function() {
             const judul = document.getElementById('materi-judul').value.trim();
             const kategori = document.getElementById('materi-kategori').value;
@@ -668,7 +713,8 @@
             const kategori = document.getElementById('tugas-kategori').value;
             const deadlineRaw = document.getElementById('tugas-deadline').value;
             const pengantar = document.getElementById('tugas-pengantar').value.trim();
-			const durasiMenit = document.getElementById('tugas-durasi').value;
+            const durasiMenit = document.getElementById('tugas-durasi').value;
+            const tipePengerjaan = document.getElementById('tugas-tipe-pengerjaan').value; 
             
             let targetKelas = [];
             let targetTingkat = [];
@@ -684,19 +730,64 @@
             }
 
             if (!judul || !deadlineRaw) return alert("Judul dan Batas Waktu wajib diisi!");
-            if (listSoalUntukModul.length === 0) return alert("Tarik minimal 1 soal dari Bank Soal!");
+            
+            if (tipePengerjaan === 'CBT' && listSoalUntukModul.length === 0) {
+                return alert("Tarik minimal 1 soal dari Bank Soal!");
+            }
+            if (tipePengerjaan === 'BEBAS' && pengantar === '' && document.getElementById('tugas-file').files.length === 0) {
+                return alert("Anda harus mengisi instruksi ATAU melampirkan file/foto untuk Tugas Bebas!");
+            }
 
-            showLoading(true, "Mendistribusikan Tugas...");
+            showLoading(true, "Memproses Tugas...");
             try {
                 const docId = "TGS-" + Date.now().toString().slice(-6);
                 const idSyarat = document.getElementById('tugas-syarat-materi').value;
 
+                let pengantarFinal = pengantar;
+                const fileInput = document.getElementById('tugas-file');
+
+                // JIKA GURU MENGUNGGAH LAMPIRAN FILE (PDF / FOTO)
+                if (tipePengerjaan === 'BEBAS' && fileInput.files.length > 0) {
+                    showLoading(true, "Mengunggah Lampiran ke Cloud...");
+                    const file = fileInput.files[0];
+                    const storageRef = storage.ref();
+                    const namaFileAman = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+                    const fileRef = storageRef.child('lampiran_tugas/' + Date.now() + '_' + namaFileAman);
+                    
+                    await fileRef.put(file);
+                    const urlLampiran = await fileRef.getDownloadURL();
+
+                    // Sisipkan ke HTML pengantar agar langsung tampil di layar siswa (Ruang Belajar)
+                    if (file.type === 'application/pdf') {
+                        pengantarFinal += `<div class="mt-6 w-full h-[70vh] bg-slate-100 rounded-xl overflow-hidden border border-slate-300"><iframe src="${urlLampiran}" class="w-full h-full border-none"></iframe></div>`;
+                    } else if (file.type.startsWith('image/')) {
+                        pengantarFinal += `<div class="mt-6"><img src="${urlLampiran}" class="max-w-full rounded-xl border border-slate-300 shadow-md"></div>`;
+                    } else {
+                        pengantarFinal += `<div class="mt-6 p-4 bg-indigo-50 border border-indigo-200 rounded-xl"><a href="${urlLampiran}" target="_blank" class="font-bold text-indigo-600 flex items-center gap-2"><i class="ph ph-download-simple text-xl"></i> Unduh Lampiran Tugas</a></div>`;
+                    }
+                }
+
+                showLoading(true, "Mendistribusikan Tugas...");
+
                 await db.collection('modul_sakti').doc(docId).set({
-                    id_modul: docId, tipe_konten: 'tugas', judul: judul, kategori: kategori, mapel: currentMapel,
-                    is_publik: isPublik, target_tingkat: targetTingkat, target_kelas: targetKelas, batas_waktu: deadlineRaw ? new Date(deadlineRaw).toISOString() : null, durasi_menit: durasiMenit ? parseInt(durasiMenit) : null,
-                    materi_html: pengantar, guru_id: currentUser.id, guru_nama: currentUser.nama, 
+                    id_modul: docId, 
+                    tipe_konten: 'tugas', 
+                    tipe_pengerjaan: tipePengerjaan, 
+                    judul: judul, 
+                    kategori: kategori, 
+                    mapel: currentMapel,
+                    is_publik: isPublik, 
+                    target_tingkat: targetTingkat, 
+                    target_kelas: targetKelas, 
+                    batas_waktu: deadlineRaw ? new Date(deadlineRaw).toISOString() : null, 
+                    durasi_menit: durasiMenit ? parseInt(durasiMenit) : null,
+                    materi_html: pengantarFinal, 
+                    guru_id: currentUser.id, 
+                    guru_nama: currentUser.nama, 
                     syarat_materi_id: idSyarat || null, 
-                    dibuat_pada: new Date().toISOString(), tugasAktif: true, soal_latihan: listSoalUntukModul 
+                    dibuat_pada: new Date().toISOString(), 
+                    tugasAktif: true, 
+                    soal_latihan: tipePengerjaan === 'CBT' ? listSoalUntukModul : []
                 });
                 alert("Tugas berhasil didistribusikan ke target sasaran!"); 
                 location.reload();
@@ -791,13 +882,10 @@
 
             let dataFilter = semuaModulGlobal;
             
-            // 1. Filter Kepemilikan
             if (filterMilik === "SAYA") dataFilter = dataFilter.filter(m => m.guru_id === currentUser.id);
             
-            // 2. Filter Kategori (KBM/TKA/UTBK)
             if (filterKategori !== "SEMUA") dataFilter = dataFilter.filter(m => m.kategori === filterKategori);
             
-            // 3. Filter Jenis Konten (Cerdas mendeteksi Video vs Teks)
             if (filterJenis !== "SEMUA") {
                 dataFilter = dataFilter.filter(m => {
                     if (filterJenis === 'materi') return m.tipe_konten === 'materi';
@@ -819,9 +907,13 @@
 
             wadah.innerHTML = dataFilter.map(m => {
                 const isMilikSaya = m.guru_id === currentUser.id;
+                
+                // LENCANA TIPE PENGERJAAN
                 const badgeTipe = m.tipe_konten === 'materi' 
                     ? '<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[10px] font-bold">Materi Ajar</span>' 
-                    : '<span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-[10px] font-bold">Tugas Latihan</span>';
+                    : (m.tipe_pengerjaan === 'BEBAS' 
+                        ? '<span class="bg-pink-100 text-pink-700 px-2 py-0.5 rounded text-[10px] font-bold">Tugas Bebas</span>'
+                        : '<span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-[10px] font-bold">Tugas CBT</span>');
                 
                 let targetText = "Belum Diatur";
                 if (m.is_publik && m.target_tingkat && m.target_tingkat.length > 0) {
@@ -849,10 +941,15 @@
                     aksiButtons = `<span class="text-xs text-slate-400 italic">Hanya dapat dilihat (Milik ${m.guru_nama})</span>`;
                 }
 
-                // Logika Tombol Tampilkan / Bahas (Sejajar Kelas, Lebar Seragam)
-                const btnTampilBahas = m.tipe_konten === 'materi' 
-                    ? `<button onclick="bukaTampilkanMateri('${m.id}')" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-3 py-1 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm border border-emerald-200 w-28 shrink-0"><i class="ph ph-presentation-chart text-sm"></i> Tampilkan</button>`
-                    : `<button onclick="bukaBahasSoal('${m.id}')" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-3 py-1 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm border border-indigo-200 w-28 shrink-0"><i class="ph ph-chalkboard-teacher text-sm"></i> Bahas</button>`;
+                // TOMBOL BERBEDA UNTUK TUGAS BEBAS
+                let btnTampilBahas = '';
+                if (m.tipe_konten === 'materi') {
+                    btnTampilBahas = `<button onclick="bukaTampilkanMateri('${m.id}')" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-3 py-1 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm border border-emerald-200 w-28 shrink-0"><i class="ph ph-presentation-chart text-sm"></i> Tampilkan</button>`;
+                } else if (m.tipe_pengerjaan === 'BEBAS') {
+                    btnTampilBahas = `<button onclick="bukaTampilkanMateri('${m.id}')" class="bg-pink-100 hover:bg-pink-200 text-pink-700 px-3 py-1 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm border border-pink-200 w-28 shrink-0"><i class="ph ph-file-text text-sm"></i> Instruksi</button>`;
+                } else {
+                    btnTampilBahas = `<button onclick="bukaBahasSoal('${m.id}')" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-3 py-1 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm border border-indigo-200 w-28 shrink-0"><i class="ph ph-chalkboard-teacher text-sm"></i> Bahas</button>`;
+                }
 
                 return `
                 <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 relative">
@@ -896,7 +993,6 @@
             }
         }
 
-		// --- MESIN DUPLIKASI MODUL/TUGAS ---
         window.duplikatModul = function(id) {
             const m = semuaModulGlobal.find(x => x.id === id);
             if (!m) return alert("Data tidak ditemukan!");
@@ -915,9 +1011,14 @@
             } else {
                 document.getElementById('tugas-judul').value = m.judul + " (Salinan)";
                 document.getElementById('tugas-kategori').value = m.kategori;
+                
+                // Setel dropdown tipe pengerjaan berdasarkan data yang disalin
+                const tipePeng = document.getElementById('tugas-tipe-pengerjaan');
+                if (tipePeng) tipePeng.value = m.tipe_pengerjaan || 'CBT';
+                
+                toggleTipeTugasLatihan();
                 toggleTargetTugas(); 
                 
-                // Set jeda agar struktur HTML kelas selesai dirender
                 setTimeout(() => {
                     if (m.kategori === 'KBM_Harian') {
                         document.querySelectorAll('.cb-kelas-tugas').forEach(cb => {
@@ -938,7 +1039,6 @@
                     document.getElementById('tugas-deadline').value = '';
                 }
                 
-                // Proteksi jika data lama belum punya field durasi
                 const durasiInput = document.getElementById('tugas-durasi');
                 if (durasiInput) durasiInput.value = m.durasi_menit || '';
                 
@@ -964,7 +1064,6 @@
             }
         }
 
-        // --- LOGIKA FILTER PANTAUAN ---
         let dataPantauanAktif = []; 
         let kamusProgresPantau = {};
 
@@ -992,12 +1091,10 @@
                 dataPantauanAktif.sort((a,b) => a.kelas.localeCompare(b.kelas) || a.nama.localeCompare(b.nama));
 
                 const dropdown = document.getElementById('filter-pantau-kelas');
-				// Hapus kondisi yang menyembunyikan filter. Selalu buat opsi dropdown.
 				const kelasUnik = [...new Set(dataPantauanAktif.map(s => s.kelas))].sort();
 				dropdown.innerHTML = '<option value="ALL">Semua Kelas</option>';
 				kelasUnik.forEach(k => dropdown.innerHTML += `<option value="${k}">${k}</option>`);
 
-				// Jika is_publik salah (berarti spesifik kelas tertentu), dan hanya ada 1 kelas, sembunyikan dropdown karena tidak diperlukan.
 				if (!modul.is_publik && kelasUnik.length <= 1) {
 					dropdown.classList.add('hidden');
 				} else {
@@ -1049,7 +1146,7 @@
             document.getElementById('modal-pantau').classList.add('hidden');
             document.getElementById('modal-pantau').classList.remove('flex');
         }
-		// --- MESIN PEMBONGKAR JAWABAN (SIMBOL MATA) ---
+
         window.bukaReviewSiswa = async function(nis) {
             if(!window.modulPantauAktif) return;
             const modul = window.modulPantauAktif;
@@ -1067,19 +1164,49 @@
             
             try {
                 let htmlReview = '';
-                // Mengurai setiap soal yang ada di modul tersebut
+                
+                // PENANGANAN KHUSUS UNTUK TUGAS BEBAS (TIDAK ADA OPSI)
+                if (modul.tipe_pengerjaan === 'BEBAS') {
+                    const jawabanSiswaBebas = (prog.jawaban_siswa && prog.jawaban_siswa.length > 0) ? prog.jawaban_siswa[0] : "Siswa belum / tidak mengisi apa-apa pada lembar tugas.";
+                    const nilaiSekarang = prog.nilai_akhir || 0;
+                    
+                    htmlReview = `
+                    <div class="p-5 mb-5 rounded-2xl border-2 border-pink-200 bg-pink-50 dark:bg-slate-800 shadow-sm">
+                        <h4 class="font-bold text-pink-700 dark:text-pink-400 mb-2 uppercase tracking-wider text-xs"><i class="ph ph-file-text"></i> Instruksi Tugas:</h4>
+                        <div class="text-sm text-slate-700 dark:text-slate-300 mb-6 pb-4 border-b border-pink-200 dark:border-slate-700">
+                            ${modul.materi_html || 'Tidak ada instruksi spesifik.'}
+                        </div>
+                        
+                        <h4 class="font-bold text-indigo-700 dark:text-indigo-400 mb-2 uppercase tracking-wider text-xs"><i class="ph ph-user"></i> Hasil Pengerjaan Siswa:</h4>
+                        <div class="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner text-sm text-slate-800 dark:text-slate-100 whitespace-pre-wrap leading-relaxed mb-6 font-medium">
+                            ${window.formatTextAman ? window.formatTextAman(jawabanSiswaBebas) : jawabanSiswaBebas}
+                        </div>
+                        
+                        <div class="flex items-center justify-between p-5 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">
+                            <div>
+                                <label class="block text-xs font-bold text-emerald-700 dark:text-emerald-400 mb-1 uppercase tracking-wider">Nilai Guru (Skala 0 - 100):</label>
+                                <input type="number" id="input-nilai-manual" class="w-24 p-2.5 text-center font-black text-xl text-emerald-700 border-2 border-emerald-300 dark:border-emerald-600 rounded-xl outline-none focus:ring-4 ring-emerald-500/30 bg-white dark:bg-slate-800 dark:text-emerald-400 shadow-inner" value="${nilaiSekarang}" min="0" max="100">
+                            </div>
+                            <button onclick="simpanNilaiManual('${nis}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-emerald-600/30 transition-all active:scale-95 flex items-center gap-2">
+                                <i class="ph ph-floppy-disk text-xl"></i> Simpan Nilai
+                            </button>
+                        </div>
+                    </div>`;
+                    
+                    wadah.innerHTML = htmlReview;
+                    return; // Selesai untuk tugas bebas
+                }
+
                 for(let i = 0; i < modul.soal_latihan.length; i++) {
                     const soal = modul.soal_latihan[i];
                     const jwbSiswa = prog.jawaban_siswa[i];
                     let kunci = null;
                     
-                    // Tarik kunci jawaban langsung dari bank rahasia
                     try {
                         const snapKunci = await db.collection('bank_soal_privat').doc(soal.id).get();
                         if(snapKunci.exists) kunci = snapKunci.data().kunci;
                     } catch(e) {}
 
-                    // Logika Status Benar/Salah (Sederhana untuk Visualisasi Layar Koreksi)
                     let isBenar = false;
                     if(!soal.type || soal.type === 'pg') {
                         if(String(jwbSiswa) === String(kunci)) isBenar = true;
@@ -1116,7 +1243,6 @@
                     const iconStatus = isBenar ? '<i class="ph ph-check-circle text-green-500 text-3xl"></i>' : '<i class="ph ph-x-circle text-red-500 text-3xl"></i>';
                     const bgWarna = isBenar ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
                     
-                    // Penerjemah Teks Opsi Jawaban (Mengubah indeks menjadi Teks ABCD)
                     let teksJwbSiswa = "Tidak Dijawab (Kosong)";
                     let teksKunci = "Kunci: " + (kunci || "Tidak ditemukan di server");
 
@@ -1165,7 +1291,6 @@
                 
                 wadah.innerHTML = htmlReview;
                 
-                // Minta MathJax untuk merender rumus matematika (LaTeX) di lembar koreksi
                 if(window.MathJax) {
                     setTimeout(() => { MathJax.typesetPromise([wadah]); }, 100);
                 }
@@ -1180,7 +1305,47 @@
             document.getElementById('modal-review').classList.remove('flex');
             window.modulPantauAktif = null;
         }
-		// --- MESIN FILTER KOREKSI (BENAR/SALAH) ---
+
+        window.simpanNilaiManual = async function(nis) {
+            if(!window.modulPantauAktif) return;
+            const nilaiBaru = parseFloat(document.getElementById('input-nilai-manual').value);
+            
+            if(isNaN(nilaiBaru) || nilaiBaru < 0 || nilaiBaru > 100) {
+                return alert("Masukkan nilai angka yang valid antara 0 hingga 100!");
+            }
+            
+            const btn = event.currentTarget;
+            const oriHtml = btn.innerHTML;
+            btn.innerHTML = `<i class="ph ph-spinner animate-spin text-xl"></i> Menyimpan...`;
+            btn.disabled = true;
+
+            const docId = `${nis}_${window.modulPantauAktif.id}`;
+            
+            try {
+                await db.collection('progres_belajar').doc(docId).update({ 
+                    nilai_akhir: nilaiBaru 
+                });
+                
+                await db.collection('hasil_ujian').doc(docId).set({ 
+                    skor: nilaiBaru, 
+                    timestamp: new Date().toISOString() 
+                }, { merge: true });
+                
+                if(kamusProgresPantau[nis]) {
+                    kamusProgresPantau[nis].nilai_akhir = nilaiBaru;
+                }
+                
+                alert("Hebat! Nilai tugas berhasil disimpan ke server.");
+                renderTabelPantau(); 
+                
+            } catch(e) {
+                alert("Gagal menyimpan nilai: " + e.message);
+            } finally {
+                btn.innerHTML = oriHtml;
+                btn.disabled = false;
+            }
+        };
+
         window.terapkanFilterKoreksi = function() {
             const val = document.getElementById('filter-koreksi').value;
             const cards = document.querySelectorAll('.kartu-koreksi');
@@ -1194,7 +1359,7 @@
                 }
             });
         }
-		// --- MESIN DISKUSI GURU ---
+
         let unsubscribeDiskusi = null;
         window.bukaDiskusiGuru = function(idModul) {
             const modul = semuaModulGlobal.find(m => m.id === idModul);
@@ -1204,7 +1369,6 @@
             
             document.getElementById('btn-kirim-diskusi-guru').onclick = function() { kirimBalasanGuru(idModul); };
             
-            // Pasang fungsi hapus semua ke tombol "Bersihkan Semua"
             const btnBersihkan = document.getElementById('btn-bersihkan-diskusi');
             if(btnBersihkan) btnBersihkan.onclick = function() { hapusSemuaPesan('diskusi_materi', idModul); };
             
@@ -1222,7 +1386,6 @@
                     }
                     
                     let pesanArray = [];
-                    // MENANGKAP ID DOKUMEN AGAR BISA DIHAPUS NANTI
                     snap.forEach(doc => { pesanArray.push({ id: doc.id, ...doc.data() }); });
                     pesanArray.sort((a, b) => new Date(b.waktu) - new Date(a.waktu));
 
@@ -1242,7 +1405,6 @@
                                     <span class="text-xs font-bold text-slate-700 dark:text-slate-300">${namaTampil}</span>
                                     <div class="flex items-center gap-2">
                                         <span class="text-[9px] font-semibold text-slate-400">${tgl}</span>
-                                        <!-- TOMBOL HAPUS SATUAN -->
                                         <button onclick="hapusPesanSatu('${d.id}', 'diskusi_materi')" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all" title="Hapus Pesan Ini"><i class="ph ph-trash text-sm"></i></button>
                                     </div>
                                 </div>
@@ -1270,7 +1432,6 @@
                 const btn = document.getElementById('btn-kirim-diskusi-guru');
                 const btnTextOri = btn.innerHTML;
                 
-                // Ubah ikon jadi loading berputar saat proses
                 btn.innerHTML = `<i class="ph ph-spinner animate-spin text-2xl"></i>`;
                 
                 await db.collection('diskusi_materi').add({
@@ -1284,14 +1445,14 @@
                 
                 input.value = '';
                 input.disabled = false;
-                btn.innerHTML = btnTextOri; // Kembalikan ikon kertas terbang
+                btn.innerHTML = btnTextOri; 
             } catch(e) {
                 console.error("Gagal kirim materi:", e);
                 alert("Gagal mengirim pesan: " + e.message);
                 input.disabled = false;
             }
         }
-		// --- MESIN FORUM GLOBAL (GURU) ---
+
         let unsubscribeForumGlobalGuru = null;
         window.loadForumGlobalGuru = async function() {
             const wadah = document.getElementById('list-pesan-global-guru');
@@ -1314,7 +1475,6 @@
                         snap.forEach(doc => { pesanArray.push({ id: doc.id, ...doc.data() }); });
                         pesanArray.sort((a, b) => new Date(b.waktu) - new Date(a.waktu));
                         
-                        // Batasi tampilan 50 pesan terakhir agar browser tetap ringan
                         pesanArray = pesanArray.slice(0, 50);
 
                         let html = '';
@@ -1336,7 +1496,6 @@
                                         <span class="text-sm font-bold ${warnaTeksNama}">${namaTampil} ${labelPeran}</span>
                                         <div class="flex items-center gap-3">
                                             <span class="text-[10px] font-semibold text-slate-400 bg-white/50 dark:bg-black/20 px-2 py-0.5 rounded-full">${tgl}</span>
-                                            <!-- TOMBOL HAPUS SATUAN -->
                                             <button onclick="hapusPesanSatu('${d.id}', 'diskusi_global')" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all" title="Hapus Pesan Ini"><i class="ph ph-trash text-lg"></i></button>
                                         </div>
                                     </div>
@@ -1380,9 +1539,6 @@
                 input.disabled = false;
             }
         }
-		// ==============================================================
-        // --- MESIN MODE PRESENTASI (DENGAN ZOOM, RENDER LATEX & PENA) ---
-        // ==============================================================
 
         window.bukaTampilkanMateri = function(id) {
             const m = semuaModulGlobal.find(x => x.id === id);
@@ -1423,19 +1579,17 @@
             if(document.fullscreenElement) document.exitFullscreen();
         }
 		
-		// --- MESIN FULLSCREEN UNTUK ALAT PERAGA 3D ---
         window.bukaFullscreen3D = function() {
             const wadah3D = document.getElementById('wadah-3d-guru');
             if (wadah3D) {
                 if (wadah3D.requestFullscreen) {
                     wadah3D.requestFullscreen();
-                } else if (wadah3D.webkitRequestFullscreen) { /* Untuk browser Safari */
+                } else if (wadah3D.webkitRequestFullscreen) { 
                     wadah3D.webkitRequestFullscreen();
                 }
             }
         };
 
-        // --- MESIN BAHAS SOAL, ZOOM & KANVAS PENA ---
         let modulBahasAktif = null;
         let indeksBahas = 0;
         let kunciBahasCache = {};
@@ -1443,20 +1597,18 @@
         let isPenaAktif = false;
         let isDrawing = false;
         let canvas, ctx;
-        let riwayatCoretan = []; // Memori untuk Undo
+        let riwayatCoretan = []; 
 
         function simpanRiwayatCoretan() {
             if(canvas) riwayatCoretan.push(canvas.toDataURL());
-            // Batasi memori agar browser tidak berat (maksimal simpan 20 langkah terakhir)
             if(riwayatCoretan.length > 20) riwayatCoretan.shift(); 
         }
 
         window.undoCoretan = function() {
             if(riwayatCoretan.length > 0) {
-                riwayatCoretan.pop(); // Buang coretan yang paling terakhir
-                ctx.clearRect(0, 0, canvas.width, canvas.height); // Bersihkan layar
+                riwayatCoretan.pop(); 
+                ctx.clearRect(0, 0, canvas.width, canvas.height); 
                 
-                // Gambar ulang memori sisa sebelumnya
                 if(riwayatCoretan.length > 0) {
                     const imgData = riwayatCoretan[riwayatCoretan.length - 1];
                     const img = new Image();
@@ -1467,16 +1619,16 @@
         }
 
 		window.bukaVisual3DBahas = function(resepStr) {
-			localStorage.setItem('sakti_resep_3d_temp', resepStr); // Titip resep ke memori
+			localStorage.setItem('sakti_resep_3d_temp', resepStr); 
 			document.getElementById('modal-bahas-3d').classList.remove('hidden');
 			document.getElementById('modal-bahas-3d').classList.add('flex');
-			document.getElementById('iframe-bahas-3d').src = 'visual 3d-guru.html'; // Buka aplikasi
+			document.getElementById('iframe-bahas-3d').src = 'visual 3d-guru.html'; 
 		}
 
 		window.tutupVisual3DBahas = function() {
 			document.getElementById('modal-bahas-3d').classList.add('hidden');
 			document.getElementById('modal-bahas-3d').classList.remove('flex');
-			document.getElementById('iframe-bahas-3d').src = ''; // Matikan agar tidak berat
+			document.getElementById('iframe-bahas-3d').src = ''; 
 		}
 
         window.bukaBahasSoal = function(id) {
@@ -1485,8 +1637,8 @@
             
             indeksBahas = 0;
             kunciBahasCache = {};
-			currentPresZoom = 100; // <- Pastikan ini dimasukkan untuk mereset zoom ke 100%
-            applyPresentationZoom(); // <- Terapkan ke layar
+			currentPresZoom = 100; 
+            applyPresentationZoom(); 
             isPenaAktif = false;
             
             document.getElementById('judul-bahas-soal').innerText = "Pembahasan: " + modulBahasAktif.judul;
@@ -1514,16 +1666,13 @@
             renderBahasSoal();
             hapusCoretan();
             
-            // KUNCI PERBAIKAN: Mengembalikan layar/scroll ke posisi paling atas
             const wadahScroll = document.getElementById('wadah-scroll-bahas');
             if(wadahScroll) wadahScroll.scrollTop = 0;
         }
 
-        // Kontrol Zoom via Pengaturan Font (Gaya Admin Ujian)
 		let currentPresZoom = 100;
 
 		window.changePresentationZoom = function(direction) {
-			// Perubahan 10% setiap klik, batas minimum 80%, maksimum 200%
 			currentPresZoom += (direction * 10);
 			if (currentPresZoom < 80) currentPresZoom = 80;
 			if (currentPresZoom > 200) currentPresZoom = 200;
@@ -1537,9 +1686,7 @@
             if (labelZoom) labelZoom.textContent = `${currentPresZoom}%`;
             
             if (kontenSoal) {
-                // Pastikan sisa transform lama dibersihkan
                 kontenSoal.style.transform = 'none'; 
-                // Gunakan mode font-size layaknya admin-ujian.html
                 kontenSoal.style.fontSize = `${currentPresZoom}%`;
             }
             
@@ -1548,7 +1695,6 @@
             }
         }
 
-        // Pengendali Kanvas Coret-coret Pena
         let warnaPenaAktif = '#ef4444';
         let ketebalanPenaAktif = 4;
 
@@ -1568,7 +1714,6 @@
 
             window.addEventListener('resize', sesuaikanUkuranKanvas);
 
-            // Pergerakan Mouse Laptop
             canvas.onmousedown = (e) => { if(!isPenaAktif) return; isDrawing = true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); };
             canvas.onmousemove = (e) => { 
                 if(!isPenaAktif || !isDrawing) return; 
@@ -1581,7 +1726,6 @@
             canvas.onmouseup = () => { if(isDrawing) { isDrawing = false; simpanRiwayatCoretan(); } };
             canvas.onmouseleave = () => { if(isDrawing) { isDrawing = false; simpanRiwayatCoretan(); } };
 
-            // Pergerakan Sentuhan Jari/Stylus di Layar Sentuh
             canvas.ontouchstart = (e) => {
                 if(!isPenaAktif) return;
                 isDrawing = true;
@@ -1630,11 +1774,10 @@
         window.hapusCoretan = function() {
             if(ctx && canvas) {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-                riwayatCoretan = []; // Kosongkan memori jika tong sampah diklik
+                riwayatCoretan = []; 
             }
         }
 
-        // Render Soal & Segenap Kunci (Dilengkapi MathJax Universal) - VERSI GROUP ID
         window.renderBahasSoal = function() {
             if(!modulBahasAktif || !modulBahasAktif.soal_latihan || modulBahasAktif.soal_latihan.length === 0) return;
             
@@ -1759,7 +1902,6 @@
 				</div>
 			`;
 
-			// --- MENGHUBUNGKAN TOMBOL DI FOOTER TETAP ---
 			document.getElementById('bahas-counter').textContent = `${startIndex + 1}${endIndex > startIndex ? '-' + (endIndex + 1) : ''} / ${modulBahasAktif.soal_latihan.length}`;
 
 			const btnPrev = document.getElementById('btn-bahas-prev');
@@ -1805,7 +1947,6 @@
                 }
 
                 if(kunci !== undefined && kunci !== null) {
-                    // Update Visual Opsi
                     if(!soal.type || soal.type === 'pg') {
                         const elOpsiContainer = document.getElementById(`container-bahas-${i}-${kunci}`);
                         const elIcon = document.getElementById(`icon-kunci-bahas-${i}-${kunci}`);
@@ -1851,7 +1992,6 @@
                     htmlKunciSummary += `<div class="mb-2 font-bold text-red-500 text-lg"><span class="inline-block w-20">Soal ${i+1}:</span> Kunci tidak ditemukan.</div>`;
                 }
 
-                // Munculkan kolom pembahasan untuk setiap soal di dalam grup
                 const elPembahasan = document.getElementById(`pembahasan-soal-${i}`);
                 if (elPembahasan) elPembahasan.classList.remove('hidden');
             }
@@ -1859,7 +1999,7 @@
             wadahKunci.innerHTML = htmlKunciSummary;
             if(window.MathJax) MathJax.typesetPromise([wadahKunci]);
         }
-		// --- MESIN MODERASI & PENGHAPUS PESAN ---
+        
         window.hapusPesanSatu = async function(docId, namaKoleksi) {
             if(confirm("Hapus pesan ini secara permanen? Pesan akan hilang dari layar siswa seketika.")) {
                 try {
@@ -1883,7 +2023,6 @@
                     const snap = await referensiTabel.get();
                     if(snap.empty) return alert("Ruang diskusi sudah bersih, tidak ada pesan yang bisa dihapus.");
                     
-                    // Menggunakan Batch agar ratusan pesan bisa dihapus dalam 1 detik sekaligus
                     const batch = db.batch();
                     snap.forEach(doc => {
                         batch.delete(doc.ref);

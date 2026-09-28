@@ -1167,9 +1167,61 @@
                 
                 // PENANGANAN KHUSUS UNTUK TUGAS BEBAS (TIDAK ADA OPSI)
                 if (modul.tipe_pengerjaan === 'BEBAS') {
-                    const jawabanSiswaBebas = (prog.jawaban_siswa && prog.jawaban_siswa.length > 0) ? prog.jawaban_siswa[0] : "Siswa belum / tidak mengisi apa-apa pada lembar tugas.";
+                    let jawabanSiswaBebas = (prog.jawaban_siswa && prog.jawaban_siswa.length > 0) ? prog.jawaban_siswa[0] : "Siswa belum / tidak mengisi apa-apa pada lembar tugas.";
                     const nilaiSekarang = prog.nilai_akhir || 0;
                     
+                    // --- MESIN PEMISAH TEKS DAN LAMPIRAN ---
+                    let lampiranTampilan = '';
+                    const penanda = '[FILE LAMPIRAN SISWA]: ';
+                    if (jawabanSiswaBebas.includes(penanda)) {
+                        const parts = jawabanSiswaBebas.split(penanda);
+                        jawabanSiswaBebas = parts[0].trim(); // Ambil teks ketikannya saja
+                        const linkFile = parts[1].trim(); // Ambil link Firebase-nya
+                        
+                        if (!jawabanSiswaBebas) {
+                            jawabanSiswaBebas = "<em class='text-slate-400'>Siswa hanya mengunggah file lampiran tanpa mengetikkan teks apa pun.</em>";
+                        }
+                        
+                        // Deteksi cerdas: Apakah ini PDF atau Gambar?
+                        const isPdf = linkFile.split('?')[0].toLowerCase().endsWith('.pdf');
+                        
+                        let viewerHtml = '';
+                        if (isPdf) {
+                            viewerHtml = `<iframe src="${linkFile}" class="w-full h-[500px] border-none rounded-xl" loading="lazy"></iframe>`;
+                        } else {
+                            // Penampil Gambar Khusus dengan Fitur Zoom & Rotate
+                            viewerHtml = `
+                            <div class="relative w-full h-[500px] bg-slate-200 dark:bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center border border-slate-300 dark:border-slate-700">
+                                <!-- Toolbar Melayang -->
+                                <div class="absolute top-4 right-4 z-10 flex gap-2 bg-white/90 dark:bg-slate-800/90 p-2 rounded-xl shadow-lg backdrop-blur-sm border border-slate-200 dark:border-slate-600">
+                                    <button onclick="zoomImgTugas('${nis}', 0.2)" class="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg text-slate-700 dark:text-slate-200" title="Perbesar (Zoom In)"><i class="ph ph-magnifying-glass-plus text-lg"></i></button>
+                                    <button onclick="zoomImgTugas('${nis}', -0.2)" class="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg text-slate-700 dark:text-slate-200" title="Perkecil (Zoom Out)"><i class="ph ph-magnifying-glass-minus text-lg"></i></button>
+                                    <div class="w-px h-6 bg-slate-300 dark:bg-slate-600 my-auto mx-1"></div>
+                                    <button onclick="rotateImgTugas('${nis}', -90)" class="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg text-slate-700 dark:text-slate-200" title="Putar Kiri"><i class="ph ph-arrow-u-up-left text-lg"></i></button>
+                                    <button onclick="rotateImgTugas('${nis}', 90)" class="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-lg text-slate-700 dark:text-slate-200" title="Putar Kanan"><i class="ph ph-arrow-u-up-right text-lg"></i></button>
+                                    <div class="w-px h-6 bg-slate-300 dark:bg-slate-600 my-auto mx-1"></div>
+                                    <button onclick="resetImgTugas('${nis}')" class="w-8 h-8 flex items-center justify-center bg-rose-100 hover:bg-rose-200 text-rose-600 rounded-lg" title="Kembalikan Semula"><i class="ph ph-arrows-in text-lg"></i></button>
+                                </div>
+                                <img id="img-tugas-${nis}" src="${linkFile}" class="max-w-full max-h-full object-contain transition-transform duration-300" style="transform: scale(1) rotate(0deg);" data-scale="1" data-rotate="0">
+                            </div>`;
+                        }
+
+                        lampiranTampilan = `
+                        <div class="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                            <div class="flex justify-between items-center mb-3">
+                                <p class="text-[10px] font-bold text-indigo-500 uppercase tracking-wider"><i class="ph ph-paperclip text-base"></i> Lampiran File / Foto dari Siswa:</p>
+                                <a href="${linkFile}" target="_blank" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                                    <i class="ph ph-arrow-square-out text-base"></i> Buka Layar Penuh
+                                </a>
+                            </div>
+                            ${viewerHtml}
+                        </div>`;
+                    }
+                    
+                    const teksJawabanAman = window.formatTextAman && jawabanSiswaBebas && !jawabanSiswaBebas.includes("<em") 
+                                            ? window.formatTextAman(jawabanSiswaBebas) 
+                                            : jawabanSiswaBebas;
+
                     htmlReview = `
                     <div class="p-5 mb-5 rounded-2xl border-2 border-pink-200 bg-pink-50 dark:bg-slate-800 shadow-sm">
                         <h4 class="font-bold text-pink-700 dark:text-pink-400 mb-2 uppercase tracking-wider text-xs"><i class="ph ph-file-text"></i> Instruksi Tugas:</h4>
@@ -1178,8 +1230,9 @@
                         </div>
                         
                         <h4 class="font-bold text-indigo-700 dark:text-indigo-400 mb-2 uppercase tracking-wider text-xs"><i class="ph ph-user"></i> Hasil Pengerjaan Siswa:</h4>
-                        <div class="p-5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner text-sm text-slate-800 dark:text-slate-100 whitespace-pre-wrap leading-relaxed mb-6 font-medium">
-                            ${window.formatTextAman ? window.formatTextAman(jawabanSiswaBebas) : jawabanSiswaBebas}
+                        <div class="p-6 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner text-sm text-slate-800 dark:text-slate-100 whitespace-pre-wrap leading-relaxed mb-6 font-medium">
+                            ${teksJawabanAman}
+                            ${lampiranTampilan}
                         </div>
                         
                         <div class="flex items-center justify-between p-5 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">
@@ -2035,6 +2088,40 @@
                 }
             }
         }
+		
+		// FUNGSI BARU: ALAT KONTROL FOTO JAWABAN SISWA
+        window.zoomImgTugas = function(nis, delta) {
+            const img = document.getElementById('img-tugas-' + nis);
+            if(!img) return;
+            let scale = parseFloat(img.getAttribute('data-scale')) + delta;
+            if(scale < 0.2) scale = 0.2; // Batas zoom terkecil
+            if(scale > 4) scale = 4;     // Batas zoom terbesar
+            img.setAttribute('data-scale', scale);
+            terapkanTransformImg(img);
+        };
+
+        window.rotateImgTugas = function(nis, deg) {
+            const img = document.getElementById('img-tugas-' + nis);
+            if(!img) return;
+            let rotate = parseFloat(img.getAttribute('data-rotate')) + deg;
+            img.setAttribute('data-rotate', rotate);
+            terapkanTransformImg(img);
+        };
+
+        window.resetImgTugas = function(nis) {
+            const img = document.getElementById('img-tugas-' + nis);
+            if(!img) return;
+            img.setAttribute('data-scale', 1);
+            img.setAttribute('data-rotate', 0);
+            terapkanTransformImg(img);
+        };
+
+        function terapkanTransformImg(img) {
+            const scale = img.getAttribute('data-scale');
+            const rotate = img.getAttribute('data-rotate');
+            img.style.transform = `scale(${scale}) rotate(${rotate}deg)`;
+        }
+		
     </script>
 </body>
 </html>

@@ -1145,6 +1145,7 @@
         window.tutupModalPantau = function() {
             document.getElementById('modal-pantau').classList.add('hidden');
             document.getElementById('modal-pantau').classList.remove('flex');
+			window.modulPantauAktif = null;
         }
 
         window.bukaReviewSiswa = async function(nis) {
@@ -1356,7 +1357,6 @@
         window.tutupModalReview = function() {
             document.getElementById('modal-review').classList.add('hidden');
             document.getElementById('modal-review').classList.remove('flex');
-            window.modulPantauAktif = null;
         }
 
         window.simpanNilaiManual = async function(nis) {

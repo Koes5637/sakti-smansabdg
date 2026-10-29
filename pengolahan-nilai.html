@@ -160,7 +160,13 @@
                         <label class="text-xs font-bold text-gray-500 block mb-1">Nama Kolom (Contoh: Tugas 1)</label>
                         <input type="text" id="new-col-name" class="w-full p-2 rounded-lg border outline-none focus:ring-2 ring-indigo-500 bg-white dark:bg-surface dark:text-white dark:border-gray-600" placeholder="Ketik nama...">
                     </div>
-                    <div class="w-24">
+                    <div class="w-28">
+                        <label class="text-xs font-bold text-gray-500 block mb-1">Target Kelas</label>
+                        <select id="new-col-class" class="w-full p-2 rounded-lg border outline-none focus:ring-2 ring-indigo-500 bg-white dark:bg-surface dark:text-white dark:border-gray-600 text-sm">
+                            <option value="ALL">Semua Kelas</option>
+                        </select>
+                    </div>
+                    <div class="w-20">
                         <label class="text-xs font-bold text-gray-500 block mb-1">Bobot</label>
                         <input type="number" id="new-col-weight" value="1" min="0.1" step="0.1" class="w-full p-2 rounded-lg border text-center outline-none focus:ring-2 ring-indigo-500 bg-white dark:bg-surface dark:text-white dark:border-gray-600">
                     </div>
@@ -427,20 +433,23 @@
             if (saveTimeout) clearTimeout(saveTimeout);
             saveTimeout = setTimeout(async () => {
                 const promises = [];
-                for (const nis in editedFinalGrades) {
+                const allNisToSave = new Set([...Object.keys(editedFinalGrades), ...Object.keys(customScores)]);
+                
+                for (const nis of allNisToSave) {
                     const finalVal = editedFinalGrades[nis];
                     const customVals = customScores[nis] || {};
                     
                     const docRef = doc(db, 'laporan_siswa', nis);
-                    promises.push(setDoc(docRef, {
-                        nilai_akhir: { [currentGuruMapel]: finalVal },
-                        nilai_kustom: { [currentGuruMapel]: customVals },
-                        last_updated: serverTimestamp()
-                    }, { merge: true }));
+                    const dataToSave = { last_updated: serverTimestamp() };
+                    
+                    if (finalVal !== undefined) dataToSave.nilai_akhir = { [currentGuruMapel]: finalVal };
+                    dataToSave.nilai_kustom = { [currentGuruMapel]: customVals };
+                    
+                    promises.push(setDoc(docRef, dataToSave, { merge: true }));
                 }
                 
                 if (promises.length > 0) {
-                    try { await Promise.all(promises); } catch(e) {}
+                    try { await Promise.all(promises); } catch(e) { console.error("AutoSave error:", e); }
                 }
             }, 1500); 
         }
@@ -601,6 +610,15 @@
         }
 
         function openCustomColModal() {
+            const classSelect = document.getElementById('new-col-class');
+            if (classSelect) {
+                classSelect.innerHTML = '<option value="ALL">Semua Kelas</option>';
+                const filterKelasOptions = document.getElementById('filter-kelas').options;
+                for (let i = 0; i < filterKelasOptions.length; i++) {
+                    const opt = filterKelasOptions[i];
+                    if (opt.value && opt.value !== "") classSelect.add(new Option(opt.text, opt.value));
+                }
+            }
             renderCustomColList();
             document.getElementById('custom-col-modal').classList.remove('hidden');
             document.getElementById('custom-col-modal').classList.add('flex');
@@ -640,15 +658,18 @@
         function addCustomCol() {
             const nameInput = document.getElementById('new-col-name');
             const weightInput = document.getElementById('new-col-weight');
+            const classInput = document.getElementById('new-col-class');
             const name = nameInput.value.trim();
             const weight = parseFloat(weightInput.value) || 1;
+            const targetKelas = classInput ? classInput.value : 'ALL';
 
             if(!name) return alert("Nama kolom harus diisi!");
             
             const id = 'col_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-            customColumns.push({ id, name, weight });
+            customColumns.push({ id, name, weight, targetKelas });
             nameInput.value = '';
             weightInput.value = '1';
+            if (classInput) classInput.value = 'ALL';
             renderCustomColList();
         }
 
@@ -1270,7 +1291,8 @@
                 });
             }
 
-            customColumns.forEach(col => {
+            const visibleCustomColumnsHeader = customColumns.filter(col => !col.targetKelas || col.targetKelas === 'ALL' || (filterK && col.targetKelas === filterK));
+            visibleCustomColumnsHeader.forEach(col => {
                 headerRow.innerHTML += `
                 <th class="px-2 py-4 text-center relative group align-bottom min-w-[80px] bg-indigo-50/50 dark:bg-indigo-900/10 border-l border-indigo-100 dark:border-indigo-800">
                     <div class="flex flex-col items-center justify-end h-full">
@@ -1322,6 +1344,8 @@
                 return e.targetKelas && e.targetKelas.includes(filterK);
             });
 
+            const visibleCustomColumns = customColumns.filter(col => !col.targetKelas || col.targetKelas === 'ALL' || col.targetKelas === filterK);
+
             filteredStudents.forEach(s => {
                 let totalWeightedScore = 0;
                 let totalWeight = 0;
@@ -1335,7 +1359,7 @@
                     }
                 });
 
-                customColumns.forEach(col => {
+                visibleCustomColumns.forEach(col => {
                     const cScore = customScores[s.id] && customScores[s.id][col.id] !== undefined ? customScores[s.id][col.id] : null;
                     if(cScore !== null && cScore !== "") {
                         const weight = parseFloat(col.weight) || 1;
@@ -1374,7 +1398,7 @@
                     <td class="px-6 py-4 text-center"><span class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs font-bold text-gray-600 dark:text-gray-300 whitespace-nowrap">${s.kelas}</span></td>
                 `;
 
-                if (visibleExams.length === 0 && customColumns.length === 0) {
+                if (visibleExams.length === 0 && visibleCustomColumns.length === 0) {
                      rowHtml += `<td class="px-6 py-4 text-center text-gray-300">-</td>`;
                 } else {
                     visibleExams.forEach(e => {
@@ -1406,7 +1430,7 @@
                     });
                 }
 
-                customColumns.forEach(col => {
+                visibleCustomColumns.forEach(col => {
                     const cVal = customScores[s.id] && customScores[s.id][col.id] !== undefined ? customScores[s.id][col.id] : '';
                     rowHtml += `
                     <td class="px-2 py-3 text-center border-l border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-900/5">

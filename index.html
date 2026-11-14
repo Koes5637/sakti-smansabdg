@@ -116,7 +116,7 @@
                 <!-- Tautan Admin Sekolah -->
                 <div class="text-center mt-6 pt-5 border-t border-gray-100 dark:border-gray-700/50">
                     <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Pusat kontrol pengaturan data Master Sekolah</p>
-                    <a href="setup-sekolah.html" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 transition-colors uppercase tracking-wider bg-emerald-50 dark:bg-emerald-900/30 px-4 py-2 rounded-lg border border-emerald-100 dark:border-emerald-800/50">
+                    <a href="pusat-kendali-asesmen.html" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 transition-colors uppercase tracking-wider bg-emerald-50 dark:bg-emerald-900/30 px-4 py-2 rounded-lg border border-emerald-100 dark:border-emerald-800/50">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
                         Pengaturan Admin Sekolah
                     </a>
@@ -347,22 +347,7 @@
                         Buka Aplikasi <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
                     </div>
                 </a>
-
-                <!-- 9. Pusat Kendali Asesmen -->
-                <a href="pusat-kendali-asesmen.html" target="_blank" id="card-pka" class="group app-card glass-card p-6 rounded-3xl hover:shadow-xl border-t-4 border-t-amber-500 relative overflow-hidden">
-                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                         <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"></path><path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"></path></svg>
-                    </div>
-                    <div class="app-icon-box w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4 shadow-sm">
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
-                    </div>
-                    <h4 class="text-lg font-bold mb-2 group-hover:text-amber-600 transition-colors">Pusat Kendali Asesmen</h4>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">Kelola event ujian (PAS/PAT/PSAJ), distribusi soal, dan monitoring kurikulum.</p>
-                    <div class="mt-6 flex items-center text-sm font-bold text-amber-600 dark:text-amber-400">
-                        Buka Aplikasi <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
-                    </div>
-                </a>
-
+                
                 <!-- 10. Aplikasi Wali Kelas -->
                 <a href="aplikasi-wali-kelas.html" target="_blank" id="card-wali" class="group app-card glass-card p-6 rounded-3xl hover:shadow-xl border-t-4 border-t-orange-500 relative overflow-hidden">
                     <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -658,7 +643,6 @@
                 monitoring: document.getElementById('card-monitoring'),
                 analisis: document.getElementById('card-analisis'),
                 nilai: document.getElementById('card-nilai'),
-                pka: document.getElementById('card-pka'),
                 wali: document.getElementById('card-wali'),
                 modul: document.getElementById('card-modul')
             };
@@ -674,24 +658,9 @@
                     if(infoBadge) infoBadge.remove();
                 }
             });
-            
-            // [TAMBAL SULAM 2: BUKA SEMUA AKSES ADMIN]
-            if (userMapel && userMapel.toUpperCase() === 'ADMIN PUSAT') {
-                if(apps.setup) apps.setup.classList.remove('hidden');
-                return; // Langsung keluar, biarkan semua aplikasi TERBUKA penuh!
-            }
-
-            // Guru Mapel Kurikulum
-            if (userMapel && userMapel.toUpperCase().includes('KURIKULUM')) {
-                if(apps.setup) apps.setup.classList.add('hidden');
-                const guruApps = ['presensi', 'editor', 'ujian', 'siswa', 'katalog', 'monitoring', 'analisis', 'nilai', 'wali', 'modul'];
-                guruApps.forEach(key => lockApp(apps[key]));
-                return;
-            }
 
             // Guru Biasa
             if(apps.setup) apps.setup.classList.add('hidden'); // Selalu sembunyikan setup dari guru
-            if(apps.pka) apps.pka.classList.add('hidden');
             
             if (!userWaliKelas) {
                 lockApp(apps.wali);

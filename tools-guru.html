@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="id" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tools Kelas - SAKTI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        'cyber': { 900: '#0f172a', 800: '#1e293b', 700: '#334155' },
+                        'teal': { 400: '#2dd4bf', 500: '#14b8a6', 600: '#0d9488' }
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FIREBASE COMPAT SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        .dark .glass-panel {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .nav-active { border-bottom: 3px solid #14b8a6; color: #0d9488; font-weight: 700; }
+        .dark .nav-active { color: #2dd4bf; }
+        
+        /* Spinner Styles */
+        #wheel-container { position: relative; width: 300px; height: 300px; border-radius: 50%; border: 4px solid #14b8a6; overflow: hidden; transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99); }
+        .wheel-segment { position: absolute; width: 50%; height: 50%; transform-origin: bottom right; display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; font-size: 12px; writing-mode: vertical-rl; text-orientation: mixed; }
+        .wheel-pointer { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 30px solid #ef4444; z-index: 10; }
+        
+        /* ================= FULLSCREEN STYLES ================= */
+        #panel-timer:fullscreen {
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background-color: #ffffff;
+        }
+        .dark #panel-timer:fullscreen { background-color: #0f172a; }
+        #panel-timer:fullscreen #timer-display { font-size: 25vw; line-height: 1; }
+        
+        #panel-spinner:fullscreen {
+            display: flex; flex-direction: row; justify-content: space-around; align-items: center;
+            background-color: #ffffff; padding: 5vw;
+        }
+        .dark #panel-spinner:fullscreen { background-color: #0f172a; }
+        
+        #panel-spinner:fullscreen #wheel-container { width: 70vmin; height: 70vmin; }
+        #panel-spinner:fullscreen .wheel-wrapper { order: 2; flex: 1; display: flex; justify-content: center; }
+        #panel-spinner:fullscreen .spin-btn-wrapper { order: 1; width: 25%; display: flex; justify-content: center; }
+        #panel-spinner:fullscreen .result-wrapper { order: 3; width: 25%; display: flex; justify-content: center; align-items: center;}
+        #panel-spinner:fullscreen #winner-name { font-size: 5vw; }
+        
+        /* Pertahankan posisi tombol Fullscreen */
+        #panel-timer:fullscreen > button.fs-btn, #panel-spinner:fullscreen > button.fs-btn {
+            position: fixed; top: 30px; right: 30px; transform: scale(1.5);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-cyber-900 text-gray-800 dark:text-gray-200 transition-colors duration-300 min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="bg-white/80 dark:bg-cyber-900/80 backdrop-blur border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center gap-3">
+                    <!-- Tombol Kembali (Disembunyikan di menu utama) -->
+                    <button id="btn-back-menu" onclick="window.switchTool('menu')" class="hidden mr-2 w-8 h-8 rounded-full bg-gray-100 dark:bg-cyber-800 text-gray-600 dark:text-gray-300 flex items-center justify-center hover:bg-teal-100 hover:text-teal-600 transition-colors shadow-sm">
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </button>
+                    <div class="w-10 h-10 rounded-xl bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 flex items-center justify-center text-xl shadow-sm"><i class="fa-solid fa-toolbox"></i></div>
+                    <div>
+                        <h1 class="font-bold text-lg leading-tight">Tools Kelas</h1>
+                        <p class="text-[10px] text-gray-500 uppercase tracking-widest">Peralatan Harian Guru</p>
+                    </div>
+                </div>
+                <div class="flex gap-4 items-center h-full">
+                    <!-- Tombol Tema Gelap -->
+                    <div class="flex items-center h-full">
+                        <button id="theme-toggle" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Peringatan Login -->
+    <div id="auth-warning" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mx-4 mt-4 rounded shadow-md max-w-7xl xl:mx-auto">
+        <p class="font-bold">Akses Ditolak!</p>
+        <p class="text-sm">Silakan login terlebih dahulu melalui Portal Utama SAKTI.</p>
+    </div>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-8 relative">
+	
+        <!-- 0. MENU UTAMA (DASHBOARD TOOLS) -->
+        <div id="tool-menu" class="animate-fade-in mb-10">
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                    <span class="w-2 h-8 bg-teal-500 rounded-full"></span> Katalog Alat Bantu
+                </h2>
+                <p class="text-gray-500 dark:text-gray-400 text-sm mt-2 ml-4">Pilih alat bantu interaktif untuk mengelola kelas Anda.</p>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                
+                <!-- Card Timer -->
+                <div onclick="window.switchTool('timer')" class="group p-5 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-cyber-800 hover:bg-blue-50 dark:hover:bg-cyber-700/50 cursor-pointer transition-all flex items-center gap-5 shadow-sm hover:shadow-md">
+                    <div class="w-16 h-16 shrink-0 rounded-2xl bg-gradient-to-br from-blue-400 to-blue-600 text-white flex items-center justify-center text-3xl shadow-inner group-hover:scale-105 transition-transform">
+                        <i class="fa-solid fa-stopwatch"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-base font-bold text-gray-800 dark:text-white mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">Timer Diskusi</h4>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">Pengatur waktu hitung mundur layar penuh dengan efek suara.</p>
+                    </div>
+                </div>
+
+                <!-- Card Spinner -->
+                <div onclick="window.switchTool('spinner')" class="group p-5 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-cyber-800 hover:bg-purple-50 dark:hover:bg-cyber-700/50 cursor-pointer transition-all flex items-center gap-5 shadow-sm hover:shadow-md">
+                    <div class="w-16 h-16 shrink-0 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-500 text-white flex items-center justify-center text-3xl shadow-inner group-hover:scale-105 transition-transform">
+                        <i class="fa-solid fa-dharmachakra"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-base font-bold text-gray-800 dark:text-white mb-1 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">Spinner Acak Nama</h4>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">Roda putar animasi untuk memilih siswa secara acak dan seru.</p>
+                    </div>
+                </div>
+
+                <!-- Card Smart Grouping -->
+                <div onclick="window.switchTool('kelompok')" class="group p-5 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-cyber-800 hover:bg-teal-50 dark:hover:bg-cyber-700/50 cursor-pointer transition-all flex items-center gap-5 shadow-sm hover:shadow-md">
+                    <div class="w-16 h-16 shrink-0 rounded-2xl bg-gradient-to-br from-teal-400 to-emerald-600 text-white flex items-center justify-center text-3xl shadow-inner group-hover:scale-105 transition-transform">
+                        <i class="fa-solid fa-users-viewfinder"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-base font-bold text-gray-800 dark:text-white mb-1 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">Smart Grouping</h4>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">Bentuk kelompok belajar adil dengan penempatan manual.</p>
+                    </div>
+                </div>
+                
+                <!-- Card 3D -->
+                <a href="visual 3d-guru.html" target="_blank" class="group p-5 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-cyber-800 hover:bg-indigo-50 dark:hover:bg-cyber-700/50 cursor-pointer transition-all flex items-center gap-5 shadow-sm hover:shadow-md block">
+                    <div class="w-16 h-16 shrink-0 rounded-2xl bg-gradient-to-br from-indigo-400 to-blue-500 text-white flex items-center justify-center text-3xl shadow-inner group-hover:scale-105 transition-transform">
+                        <i class="fa-solid fa-cube"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-base font-bold text-gray-800 dark:text-white mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">Geometri Ruang (3D)</h4>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">Visualisasi interaktif kubus, balok, dan limas.</p>
+                    </div>
+                </a>
+                
+                <!-- Card Lingkaran -->
+                <a href="visual 2d lingkaran.html" target="_blank" class="group p-5 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-cyber-800 hover:bg-emerald-50 dark:hover:bg-cyber-700/50 cursor-pointer transition-all flex items-center gap-5 shadow-sm hover:shadow-md block">
+                    <div class="w-16 h-16 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 text-white flex items-center justify-center text-3xl shadow-inner group-hover:scale-105 transition-transform">
+                        <i class="fa-solid fa-circle-notch"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-base font-bold text-gray-800 dark:text-white mb-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">Eksplorasi Lingkaran (2D)</h4>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">Kanvas dinamis untuk menggambar garis dan unsur lingkaran.</p>
+                    </div>
+                </a>
+
+            </div>
+        </div>
+
+        <!-- 1. TOOL: TIMER DISKUSI -->
+        <div id="tool-timer" class="hidden animate-fade-in space-y-6 max-w-3xl mx-auto">
+            <div id="panel-timer" class="glass-panel bg-white dark:bg-cyber-800 p-8 rounded-3xl shadow-lg border-t-4 border-t-blue-500 text-center relative overflow-hidden">
+                <button onclick="window.toggleFullScreen(this.parentElement)" class="fs-btn absolute top-4 right-4 text-gray-400 hover:text-blue-500 transition-colors z-20" title="Layar Penuh"><i class="fa-solid fa-expand text-xl"></i></button>
+                
+                <div class="absolute inset-0 bg-blue-50 dark:bg-blue-900/10 opacity-50"></div>
+                <div class="relative z-10">
+                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-2"><i class="fa-solid fa-stopwatch text-blue-500 mr-2"></i>Timer Diskusi / Ujian</h2>
+                    <p class="text-gray-500 text-sm mb-8">Atur waktu mundur yang terlihat jelas dari kursi belakang kelas.</p>
+
+                    <div class="flex justify-center items-end gap-4 mb-8">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 mb-1">Menit</label>
+                            <input type="number" id="timer-input-menit" value="15" min="0" max="180" class="w-24 text-center text-3xl font-bold p-3 border-2 border-blue-200 dark:border-blue-800 rounded-xl bg-white dark:bg-cyber-800 focus:ring-4 focus:ring-blue-500/30 outline-none">
+                        </div>
+                        <div class="text-3xl font-bold text-gray-400 pb-3">:</div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 mb-1">Detik</label>
+                            <input type="number" id="timer-input-detik" value="0" min="0" max="59" class="w-24 text-center text-3xl font-bold p-3 border-2 border-blue-200 dark:border-blue-800 rounded-xl bg-white dark:bg-cyber-800 focus:ring-4 focus:ring-blue-500/30 outline-none">
+                        </div>
+                    </div>
+
+                    <div id="timer-display-area" class="hidden mb-10">
+                        <span id="timer-display" class="text-[8rem] font-black tracking-tighter text-blue-600 dark:text-blue-400 font-mono drop-shadow-md">15:00</span>
+                    </div>
+
+                    <div class="flex justify-center gap-4">
+                        <button id="btn-timer-start" onclick="window.startTimer()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-blue-500/30 transition-all text-lg flex items-center gap-2"><i class="fa-solid fa-play"></i> Mulai</button>
+                        <button id="btn-timer-pause" onclick="window.pauseTimer()" class="hidden bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-xl shadow-lg transition-all text-lg flex items-center gap-2"><i class="fa-solid fa-pause"></i> Jeda</button>
+                        <button id="btn-timer-reset" onclick="window.resetTimer()" class="bg-gray-200 dark:bg-cyber-700 hover:bg-gray-300 dark:hover:bg-cyber-600 text-gray-700 dark:text-gray-300 font-bold py-3 px-8 rounded-xl shadow transition-all text-lg flex items-center gap-2"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex justify-center gap-2">
+                <button onclick="window.setPresetTimer(5)" class="px-4 py-2 bg-white dark:bg-cyber-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-bold text-gray-600 dark:text-gray-300 hover:border-blue-500">5 Menit</button>
+                <button onclick="window.setPresetTimer(10)" class="px-4 py-2 bg-white dark:bg-cyber-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-bold text-gray-600 dark:text-gray-300 hover:border-blue-500">10 Menit</button>
+                <button onclick="window.setPresetTimer(15)" class="px-4 py-2 bg-white dark:bg-cyber-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-bold text-gray-600 dark:text-gray-300 hover:border-blue-500">15 Menit</button>
+                <button onclick="window.setPresetTimer(30)" class="px-4 py-2 bg-white dark:bg-cyber-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-bold text-gray-600 dark:text-gray-300 hover:border-blue-500">30 Menit</button>
+            </div>
+        </div>
+
+        <!-- 2. TOOL: SPINNER NAMA -->
+        <div id="tool-spinner" class="hidden animate-fade-in space-y-6">
+            <div class="flex flex-col md:flex-row gap-6">
+                <!-- Panel Data -->
+                <div class="w-full md:w-1/3 glass-panel p-6 rounded-2xl shadow-sm border-t-4 border-t-purple-500 h-max">
+                    <h3 class="font-bold text-lg mb-4 flex items-center gap-2"><i class="fa-solid fa-users text-purple-500"></i> Pilih Kelas</h3>
+                    <select id="spin-kelas" onchange="window.loadSiswaForSpinner()" class="w-full p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-cyber-900 text-sm font-bold outline-none focus:ring-2 focus:ring-purple-500 mb-4">
+                        <option value="">-- Pilih Kelas Anda --</option>
+                    </select>
+                    
+                    <p class="text-xs text-gray-500 mb-2 font-bold uppercase tracking-wider">Atau Input Manual:</p>
+                    <textarea id="spin-manual-input" rows="6" class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-cyber-800 text-sm outline-none focus:ring-2 focus:ring-purple-500 mb-3" placeholder="Ketik nama-nama di sini... (satu nama per baris)" oninput="window.buildWheelFromManual()"></textarea>
+                    
+                    <!-- Pengaturan Coret Pemenang -->
+                    <div class="flex items-center gap-2 mb-4 px-1">
+                        <input type="checkbox" id="spin-auto-disable" checked class="w-4 h-4 text-purple-600 rounded focus:ring-purple-500 cursor-pointer">
+                        <label for="spin-auto-disable" class="text-xs font-bold text-gray-600 dark:text-gray-400 cursor-pointer">Otomatis coret siswa yang sudah menang</label>
+                    </div>
+
+                    <div class="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg border border-purple-100 dark:border-purple-800">
+                        <p class="text-xs text-purple-700 dark:text-purple-300 font-medium text-center">Total Kandidat: <strong id="spin-count" class="text-lg">0</strong></p>
+                    </div>
+                </div>
+
+                <!-- Panel Spinner -->
+                <div id="panel-spinner" class="w-full md:w-2/3 glass-panel bg-white dark:bg-cyber-800 p-6 rounded-2xl shadow-sm flex flex-col items-center justify-center min-h-[400px] relative">
+                    <button onclick="window.toggleFullScreen(this.parentElement)" class="fs-btn absolute top-4 right-4 text-gray-400 hover:text-purple-500 transition-colors z-20" title="Layar Penuh"><i class="fa-solid fa-expand text-xl"></i></button>
+                    
+                    <div class="wheel-wrapper relative flex flex-col items-center w-full">
+                        <div class="wheel-pointer"></div>
+                        <div id="wheel-container" class="shadow-xl bg-white dark:bg-cyber-800">
+                            <!-- Slices Injected by JS -->
+                            <div class="absolute inset-0 flex items-center justify-center text-gray-400 text-sm italic" id="wheel-placeholder">Pilih Kelas / Input Nama</div>
+                        </div>
+                    </div>
+                    
+                    <div id="spin-result" class="result-wrapper mt-8 text-center min-h-[60px] w-full flex flex-col items-center justify-center">
+                        <h2 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-500" id="winner-name">Siapa yang terpilih?</h2>
+                        <!-- Tombol Hapus Pemenang -->
+                        <button id="btn-remove-winner" onclick="window.removeWinner()" class="hidden mt-3 bg-rose-100 hover:bg-rose-200 text-rose-600 px-4 py-1.5 rounded-full text-xs font-bold border border-rose-200 transition-colors shadow-sm">
+                            <i class="fa-solid fa-user-xmark mr-1"></i> Hapus dari Roda
+                        </button>
+                    </div>
+
+                    <div class="spin-btn-wrapper mt-6 w-full flex justify-center">
+                        <button id="btn-spin" onclick="window.putarRoda()" disabled class="bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white font-bold py-3 px-12 rounded-full shadow-lg shadow-purple-500/30 transition-all text-xl disabled:opacity-50 disabled:cursor-not-allowed transform active:scale-95 whitespace-nowrap">
+                            <i class="fa-solid fa-dharmachakra mr-2"></i> PUTAR RODA
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. TOOL: SMART GROUPING (Kelompok Cerdas) -->
+        <div id="tool-kelompok" class="hidden animate-fade-in space-y-6">
+            <div class="bg-teal-50 dark:bg-teal-900/20 p-5 rounded-2xl border border-teal-200 dark:border-teal-800/30 flex justify-between items-center shadow-sm">
+                <div class="flex items-center gap-4">
+                    <div class="text-3xl text-teal-600">🧠</div>
+                    <div>
+                        <h3 class="font-bold text-teal-800 dark:text-teal-300 text-lg">Smart Grouping</h3>
+                        <p class="text-sm text-teal-700 dark:text-teal-400">Pembagi Kelompok Belajar secara acak, merata, dan adil.</p>
+                    </div>
+                </div>
+                <!-- TOMBOL PENGATURAN -->
+                <button onclick="document.getElementById('modal-rahasia').classList.remove('hidden')" class="bg-white dark:bg-cyber-800 text-teal-600 hover:text-teal-700 border border-teal-300 dark:border-teal-700 px-4 py-2 rounded-xl shadow-sm text-sm font-bold flex items-center gap-2 transition-all">
+                    <i class="fa-solid fa-sliders"></i> Pengaturan Kelompok
+                </button>
+            </div>
+
+            <!-- Panel Pengontrol Utama (Tampil di Proyektor) -->
+            <div class="glass-panel p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-wrap gap-4 items-end">
+                <div class="flex-1 min-w-[150px]">
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Pilih Kelas</label>
+                    <select id="group-kelas" onchange="window.loadSiswaForGroup()" class="w-full p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-cyber-900 text-sm font-bold outline-none focus:ring-2 focus:ring-teal-500">
+                        <option value="">-- Tarik Data Firebase --</option>
+                    </select>
+                </div>
+                <div class="flex-1 min-w-[150px]">
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Metode Distribusi</label>
+                    <select id="group-method" class="w-full p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-cyber-800 text-sm font-bold outline-none focus:ring-2 focus:ring-teal-500">
+                        <option value="smart">Smart (Patuhi Pengaturan Manual)</option>
+                        <option value="random">Pure Random (Acak Sepenuhnya)</option>
+                    </select>
+                </div>
+                <div class="w-24">
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Kelompok</label>
+                    <input type="number" id="group-amount" value="5" min="2" max="15" class="w-full p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-cyber-800 text-center text-xl font-bold text-teal-600 outline-none focus:ring-2 focus:ring-teal-500">
+                </div>
+                <button onclick="window.generateGroups()" id="btn-generate-group" disabled class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-colors flex-none disabled:opacity-50 h-max">
+                    <i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Bentuk
+                </button>
+                <button onclick="window.resetGroups()" id="btn-reset-group" class="hidden bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-colors flex-none h-max" title="Bersihkan">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
+
+            <!-- Hasil Kelompok (Tampil di Proyektor) -->
+            <div class="glass-panel p-6 rounded-2xl shadow-inner border border-gray-200 dark:border-gray-700 min-h-[300px] bg-gray-50 dark:bg-cyber-900/50">
+                <div id="group-results-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    <div class="col-span-full text-center py-12 text-gray-400">
+                        <i class="fa-solid fa-users-rays text-5xl mb-3 opacity-30"></i>
+                        <p>Hasil pembagian kelompok akan muncul di sini.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL PENGATURAN KELOMPOK (Pop-up) -->
+        <div id="modal-rahasia" class="fixed inset-0 z-[100] hidden bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white dark:bg-cyber-800 w-full max-w-lg rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col max-h-[80vh]">
+                <div class="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-teal-50 dark:bg-teal-900/20 rounded-t-2xl">
+                    <h3 class="text-lg font-bold text-teal-800 dark:text-teal-300 flex items-center gap-2"><i class="fa-solid fa-sliders"></i> Pengaturan Penempatan Manual</h3>
+                    <button onclick="document.getElementById('modal-rahasia').classList.add('hidden')" class="text-gray-400 hover:text-red-500 text-2xl font-bold transition-colors">&times;</button>
+                </div>
+                <div class="p-5 overflow-y-auto flex-1">
+                    <p class="text-xs text-gray-500 mb-4">Pilih kelompok tujuan untuk siswa tertentu. Siswa berstatus "Acak" akan disebar ke ruang yang kosong. <b>Pengaturan ini tidak akan tampil di layar utama (proyektor).</b></p>
+                    <div id="list-kandidat-pilar" class="space-y-1">
+                        <p class="text-xs text-center text-gray-400 mt-5 italic">Pilih kelas terlebih dahulu di halaman utama...</p>
+                    </div>
+                </div>
+                <div class="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-cyber-900 rounded-b-2xl flex justify-end">
+                    <button onclick="document.getElementById('modal-rahasia').classList.add('hidden')" class="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-bold text-sm shadow transition-colors">Selesai & Tutup</button>
+                </div>
+            </div>
+        </div>
+    </main>
+	
+    <script>
+        // CONFIG BUKU INDUK (Untuk Cek Auth Saja)
+        const masterConfig = {
+            apiKey: "AIzaSyAwIwimlyrE4qQqYa2gA8Pfygd59USsveQ",
+            authDomain: "aplikasi-ulangan-01.firebaseapp.com",
+            projectId: "aplikasi-ulangan-01",
+            storageBucket: "aplikasi-ulangan-01.firebasestorage.app",
+        };
+
+        let schoolApp = null;
+        let schoolDb = null;
+        let dataSiswaMentah = []; 
+        let timerInterval = null;
+        let timerTimeLeft = 0;
+        let isTimerRunning = false;
+		
+        // --- MESIN SUARA SINTESIS (ANTI-BLOKIR) ---
+        let audioCtx = null;
+        try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch(e) { console.log("Audio API tidak didukung"); }
+        
+        function playTone(freq, type, duration, vol = 0.3) {
+            try {
+                if(!audioCtx) return;
+                if(audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type; osc.frequency.value = freq;
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start();
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) { console.log("Audio diblokir browser"); }
+        }
+
+        const playTick = () => playTone(800, 'sine', 0.1, 0.5);
+        const playAlarm = () => {
+            let i = 0; 
+            let intv = setInterval(() => { playTone(900, 'square', 0.2, 0.5); i++; if(i > 5) clearInterval(intv); }, 300);
+        };
+        const playWin = () => {
+            playTone(523.25, 'sine', 0.3, 0.6); // Nada C
+            setTimeout(() => playTone(659.25, 'sine', 0.3, 0.6), 150); // Nada E
+            setTimeout(() => playTone(783.99, 'sine', 0.8, 0.6), 300); // Nada G
+        };
+        
+        let spinAudioTimeout;
+        const playSpin = () => {
+            if(!audioCtx) return;
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            let delay = 30; let elapsed = 0;
+            function tickSpin() {
+                playTone(1000, 'triangle', 0.05, 0.2);
+                elapsed += delay; 
+                delay += 1.5; // Angka perlambatan diperkecil agar detaknya kuat sampai 8 detik
+                if (elapsed < 7900) spinAudioTimeout = setTimeout(tickSpin, delay); // Angka 7900 = 7,9 detik
+            }
+            tickSpin();
+        };
+
+        // --- SISTEM TEMA GELAP ---
+        const btnTheme = document.getElementById('theme-toggle');
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        }
+        if (btnTheme) {
+            btnTheme.addEventListener('click', () => {
+                document.documentElement.classList.toggle('dark');
+                localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+            });
+        }
+
+        // --- SISTEM FULLSCREEN ---
+        window.toggleFullScreen = (elem) => {
+            if (!document.fullscreenElement) {
+                elem.requestFullscreen().catch(err => alert("Gagal mode layar penuh: " + err.message));
+            } else {
+                document.exitFullscreen();
+            }
+        };
+
+        // --- INISIALISASI ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            const userId = localStorage.getItem('cbt_user_id');
+            const savedConfigStr = localStorage.getItem('sakti_school_config');
+
+            if (!userId || !savedConfigStr) {
+                document.getElementById('auth-warning').classList.remove('hidden');
+                document.querySelector('main').classList.add('hidden');
+                return;
+            }
+
+            try {
+                if (firebase.apps.length === 0) firebase.initializeApp(masterConfig);
+                const configObj = JSON.parse(savedConfigStr);
+                
+                let isSchoolAppExists = false;
+                firebase.apps.forEach(app => { if(app.name === 'AppSekolah') isSchoolAppExists = true; });
+                
+                if (!isSchoolAppExists) {
+                    schoolApp = firebase.initializeApp(configObj, 'AppSekolah');
+                } else {
+                    schoolApp = firebase.app('AppSekolah');
+                }
+                
+                const schoolAuth = firebase.auth(schoolApp);
+                schoolDb = firebase.firestore(schoolApp);
+                
+                await schoolAuth.signInAnonymously();
+                preloadKelasGuru();
+                
+            } catch (e) {
+                console.error("Gagal init Firebase:", e);
+                alert("Kesalahan koneksi ke server sekolah: " + e.message);
+            }
+        });
+
+        window.switchTool = (toolId) => {
+            // Sembunyikan semua layar
+            ['menu', 'timer', 'spinner', 'kelompok'].forEach(t => {
+                const el = document.getElementById('tool-' + t);
+                if(el) el.classList.add('hidden');
+            });
+            
+            // Tampilkan layar yang diminta
+            document.getElementById('tool-' + toolId).classList.remove('hidden');
+            
+            // Atur visibilitas tombol kembali di Navbar
+            const btnBack = document.getElementById('btn-back-menu');
+            if (toolId === 'menu') {
+                btnBack.classList.add('hidden');
+            } else {
+                btnBack.classList.remove('hidden');
+            }
+        };
+
+        // ==========================================
+        // FITUR 1: TIMER DISKUSI
+        // ==========================================
+        window.setPresetTimer = (menit) => {
+            document.getElementById('timer-input-menit').value = menit;
+            document.getElementById('timer-input-detik').value = 0;
+            if(isTimerRunning) window.resetTimer();
+        };
+
+        function updateTimerDisplay(totalSeconds) {
+            const display = document.getElementById('timer-display');
+            if(totalSeconds <= 0) {
+                display.innerText = "00:00";
+                display.classList.add('text-red-500', 'animate-pulse');
+                return;
+            }
+            const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+            const s = (totalSeconds % 60).toString().padStart(2, '0');
+            display.innerText = `${m}:${s}`;
+            
+            if(totalSeconds <= 60) {
+                display.classList.remove('text-blue-600', 'dark:text-blue-400');
+                display.classList.add('text-amber-500');
+            }
+        }
+
+        window.startTimer = () => {
+            const btnStart = document.getElementById('btn-timer-start');
+            const btnPause = document.getElementById('btn-timer-pause');
+            const displayArea = document.getElementById('timer-display-area');
+            const inputMenit = document.getElementById('timer-input-menit');
+            const inputDetik = document.getElementById('timer-input-detik');
+
+            if(!isTimerRunning) {
+                if(timerTimeLeft === 0) {
+                    const m = parseInt(inputMenit.value) || 0;
+                    const s = parseInt(inputDetik.value) || 0;
+                    timerTimeLeft = (m * 60) + s;
+                }
+                
+                if(timerTimeLeft <= 0) return alert("Tentukan waktu terlebih dahulu!");
+
+                inputMenit.parentElement.classList.add('hidden');
+                inputDetik.parentElement.classList.add('hidden');
+                document.querySelector('.text-3xl.pb-3').classList.add('hidden'); 
+                
+                displayArea.classList.remove('hidden');
+                btnStart.classList.add('hidden');
+                btnPause.classList.remove('hidden');
+                
+                document.getElementById('timer-display').classList.remove('text-red-500', 'animate-pulse', 'text-amber-500');
+                document.getElementById('timer-display').classList.add('text-blue-600', 'dark:text-blue-400');
+
+                updateTimerDisplay(timerTimeLeft);
+                isTimerRunning = true;
+                
+                timerInterval = setInterval(() => {
+                    timerTimeLeft--;
+                    updateTimerDisplay(timerTimeLeft);
+                    
+                    if(timerTimeLeft <= 10 && timerTimeLeft > 0) playTick();
+                    
+                    if(timerTimeLeft <= 0) {
+                        clearInterval(timerInterval);
+                        isTimerRunning = false;
+                        btnPause.classList.add('hidden');
+                        btnStart.classList.remove('hidden');
+                        btnStart.innerHTML = '<i class="fa-solid fa-play"></i> Mulai Ulang';
+                        playAlarm();
+                    }
+                }, 1000);
+            }
+        };
+
+        window.pauseTimer = () => {
+            clearInterval(timerInterval);
+            isTimerRunning = false;
+            document.getElementById('btn-timer-pause').classList.add('hidden');
+            const btnStart = document.getElementById('btn-timer-start');
+            btnStart.classList.remove('hidden');
+            btnStart.innerHTML = '<i class="fa-solid fa-play"></i> Lanjut';
+        };
+
+        window.resetTimer = () => {
+            clearInterval(timerInterval);
+            isTimerRunning = false;
+            timerTimeLeft = 0;
+            
+            document.getElementById('timer-display-area').classList.add('hidden');
+            document.getElementById('timer-input-menit').parentElement.classList.remove('hidden');
+            document.getElementById('timer-input-detik').parentElement.classList.remove('hidden');
+            document.querySelector('.text-3xl.pb-3').classList.remove('hidden');
+            
+            document.getElementById('btn-timer-pause').classList.add('hidden');
+            const btnStart = document.getElementById('btn-timer-start');
+            btnStart.classList.remove('hidden');
+            btnStart.innerHTML = '<i class="fa-solid fa-play"></i> Mulai';
+        };
+
+        // ==========================================
+        // DATA HELPER
+        // ==========================================
+        function preloadKelasGuru() {
+            const savedKelas = localStorage.getItem('cbt_user_kelas');
+            let daftarKelas = [];
+            if(savedKelas) { try { daftarKelas = JSON.parse(savedKelas); } catch(e){} }
+
+            const selSpin = document.getElementById('spin-kelas');
+            const selGroup = document.getElementById('group-kelas');
+            let opts = '<option value="">-- Pilih Kelas Anda --</option>';
+            daftarKelas.forEach(k => opts += `<option value="${k}">${k}</option>`);
+            
+            if(selSpin) selSpin.innerHTML = opts;
+            if(selGroup) selGroup.innerHTML = opts;
+        }
+
+        async function fetchSiswaByKelas(kelas) {
+            if(!schoolDb) return [];
+            try {
+                const snap = await schoolDb.collection('siswa').where('kelas', '==', kelas).get();
+                let siswa = [];
+                snap.forEach(d => siswa.push({id: d.id, ...d.data()}));
+                siswa.sort((a,b) => (a.nama||'').localeCompare(b.nama||''));
+                return siswa;
+            } catch(e) { console.error(e); return []; }
+        }
+
+        // ==========================================
+        // FITUR 2: SPINNER NAMA (RODA PUTAR)
+        // ==========================================
+        let wheelNames = [];
+        let wonNames = new Set(); // Memori pencatat siapa yang sudah menang
+        
+        window.loadSiswaForSpinner = async () => {
+            const kelas = document.getElementById('spin-kelas').value;
+            const inputManual = document.getElementById('spin-manual-input');
+            const btnSpin = document.getElementById('btn-spin');
+            
+            wonNames.clear(); // Bersihkan ingatan jika guru ganti kelas
+            
+            if(kelas) {
+                const data = await fetchSiswaByKelas(kelas);
+                inputManual.value = data.map(s => s.nama).join('\n'); 
+                window.buildWheelFromManual();
+            } else {
+                inputManual.value = '';
+                wheelNames = [];
+                renderWheelSlices();
+                btnSpin.disabled = true;
+            }
+        };
+
+        window.buildWheelFromManual = () => {
+            const rawText = document.getElementById('spin-manual-input').value;
+            wheelNames = rawText.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+            
+            document.getElementById('spin-count').innerText = wheelNames.length;
+            const btnSpin = document.getElementById('btn-spin');
+            
+            if(wheelNames.length >= 2) {
+                btnSpin.disabled = false;
+                currentRotation = 0; // RESET ROTASI KE NOL
+                renderWheelSlices();
+            } else {
+                btnSpin.disabled = true;
+                const container = document.getElementById('wheel-container');
+                container.innerHTML = '<div class="absolute inset-0 flex items-center justify-center text-gray-400 text-sm italic">Minimal butuh 2 nama.</div>';
+                container.style.transition = 'none';
+                container.style.transform = `rotate(0deg)`;
+            }
+        };
+
+        const wheelColors = ['#14b8a6', '#6366f1', '#f43f5e', '#f59e0b', '#8b5cf6', '#3b82f6'];
+
+        function renderWheelSlices() {
+            const container = document.getElementById('wheel-container');
+            container.innerHTML = '';
+            if(wheelNames.length < 2) return;
+
+            const sliceAngle = 360 / wheelNames.length;
+            let gradientStr = 'conic-gradient(';
+            let accAngle = 0;
+            const namesHTML = [];
+            
+            for(let i=0; i<wheelNames.length; i++) {
+                const isWon = wonNames.has(wheelNames[i]);
+                // Warna jadi abu-abu gelap jika siswa sudah menang
+                const c1 = isWon ? '#475569' : wheelColors[i % wheelColors.length]; 
+                
+                const endAngle = accAngle + sliceAngle;
+                gradientStr += `${c1} ${accAngle}deg ${endAngle}deg, `;
+                
+                const textAngle = accAngle + (sliceAngle / 2);
+                const textStyle = isWon ? 'line-through opacity-50 text-gray-900' : 'text-white'; // Teks dicoret
+                
+                namesHTML.push(`
+                    <div style="position: absolute; top:0; left: 50%; transform-origin: bottom center; height: 50%; transform: translateX(-50%) rotate(${textAngle}deg); display: flex; align-items: flex-start; padding-top: 15px; font-weight: bold; font-size: 11px; z-index: 5;" class="${textStyle}">
+                        <span style="writing-mode: vertical-rl; text-orientation: mixed;">${wheelNames[i].substring(0, 12)}</span>
+                    </div>
+                `);
+                accAngle = endAngle;
+            }
+            gradientStr = gradientStr.slice(0, -2) + ')';
+            
+            container.style.background = gradientStr;
+            container.innerHTML = namesHTML.join('');
+            
+            // Pertahankan posisi putaran terakhir (jangan kembali ke nol saat di-render ulang)
+            container.style.transition = 'none';
+            container.style.transform = `rotate(${currentRotation}deg)`; 
+        }
+		
+		let lastWinnerIndex = -1;
+        let currentRotation = 0;
+        window.putarRoda = () => {
+            if(wheelNames.length < 2) return;
+            
+            // 1. Kumpulkan daftar indeks siswa yang BELUM menang
+            const validIndices = wheelNames.map((n, i) => wonNames.has(n) ? -1 : i).filter(i => i !== -1);
+            
+            if(validIndices.length === 0) {
+                alert("Semua siswa sudah terpilih! Roda akan di-reset untuk putaran baru.");
+                wonNames.clear();
+                renderWheelSlices();
+                return;
+            }
+
+            const btnSpin = document.getElementById('btn-spin');
+            btnSpin.disabled = true;
+            document.getElementById('winner-name').innerText = "...";
+            document.getElementById('spin-result').classList.add('animate-pulse');
+
+            // 2. Pilih HANYA dari indeks yang valid
+            const randomValidIndex = Math.floor(Math.random() * validIndices.length); 
+            const winnerIndex = validIndices[randomValidIndex];
+            const winnerName = wheelNames[winnerIndex];
+            
+            // Kalkulasi matematika rotasi
+            const sliceAngle = 360 / wheelNames.length;
+            const targetAngle = 360 - ((winnerIndex * sliceAngle) + (sliceAngle / 2));
+            
+            const previousRotation = currentRotation;
+            const currentRem = previousRotation % 360;
+            let diff = targetAngle - currentRem;
+            if (diff < 0) diff += 360; 
+            currentRotation = previousRotation + diff + (360 * 10); // 10x Putaran
+
+            // Eksekusi Roda
+            const container = document.getElementById('wheel-container');
+            container.style.transition = 'none';
+            container.style.transform = `rotate(${previousRotation}deg)`;
+            void container.offsetWidth; 
+            
+            container.style.transition = 'transform 8s cubic-bezier(0.17, 0.67, 0.12, 0.99)';
+            container.style.transform = `rotate(${currentRotation}deg)`;
+
+            clearTimeout(spinAudioTimeout);
+            try { playSpin(); } catch(e){}
+
+            setTimeout(() => {
+                try { playWin(); } catch(e){} 
+                const resBox = document.getElementById('spin-result');
+                resBox.classList.remove('animate-pulse');
+                document.getElementById('winner-name').innerText = `🎉 ${winnerName} 🎉`;
+                
+                // 3. Jika kotak centang aktif, catat pemenang dan coret dari roda
+                if (document.getElementById('spin-auto-disable').checked) {
+                    wonNames.add(winnerName);
+                    renderWheelSlices(); // Perbarui roda menjadi abu-abu
+                }
+                
+                btnSpin.disabled = false;
+            }, 8050); 
+        };
+		
+		window.removeWinner = () => {
+            if (lastWinnerIndex > -1 && wheelNames.length > 0) {
+                const removedName = wheelNames[lastWinnerIndex];
+                wheelNames.splice(lastWinnerIndex, 1); // Potong nama dari daftar
+                
+                // Perbarui daftar di kotak teks manual
+                document.getElementById('spin-manual-input').value = wheelNames.join('\n');
+                document.getElementById('spin-count').innerText = wheelNames.length;
+                
+                // Gambar ulang roda tanpa nama tersebut
+                currentRotation = 0; 
+                renderWheelSlices();
+                
+                document.getElementById('btn-remove-winner').classList.add('hidden');
+                document.getElementById('winner-name').innerText = `${removedName} dihapus!`;
+                
+                if (wheelNames.length < 2) document.getElementById('btn-spin').disabled = true;
+            }
+        };
+
+        // ==========================================
+        // FITUR 3: SMART GROUPING
+        // ==========================================
+        window.loadSiswaForGroup = async () => {
+            const kelas = document.getElementById('group-kelas').value;
+            const container = document.getElementById('list-kandidat-pilar');
+            const btnGen = document.getElementById('btn-generate-group');
+            
+            if(!kelas) {
+                container.innerHTML = '<p class="text-xs text-center text-gray-400 mt-10 italic">Pilih kelas terlebih dahulu...</p>';
+                btnGen.disabled = true;
+                dataSiswaMentah = [];
+                return;
+            }
+
+            container.innerHTML = '<div class="text-center py-4 text-teal-600"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Memuat siswa...</div>';
+            dataSiswaMentah = await fetchSiswaByKelas(kelas);
+            
+            if(dataSiswaMentah.length === 0) {
+                container.innerHTML = '<p class="text-xs text-center text-red-500 mt-10 italic">Data siswa kelas ini kosong.</p>';
+                btnGen.disabled = true;
+                return;
+            }
+
+            let html = '<div class="space-y-1">';
+            dataSiswaMentah.forEach(s => {
+                html += `
+                <div class="flex items-center justify-between p-2 hover:bg-white dark:hover:bg-cyber-800 rounded-lg transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-700">
+                    <div>
+                        <p class="text-sm font-bold text-gray-800 dark:text-white">${s.nama}</p>
+                        <p class="text-[10px] text-gray-500 font-mono">${s.id || s.nis}</p>
+                    </div>
+                    <select id="assign-${s.id}" class="p-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-cyber-900 outline-none w-28 text-gray-700 dark:text-gray-300 font-bold focus:ring-1 focus:ring-teal-500">
+                        <option value="0">Acak (Bebas)</option>
+                        <option value="1">Kelompok 1</option>
+                        <option value="2">Kelompok 2</option>
+                        <option value="3">Kelompok 3</option>
+                        <option value="4">Kelompok 4</option>
+                        <option value="5">Kelompok 5</option>
+                        <option value="6">Kelompok 6</option>
+                        <option value="7">Kelompok 7</option>
+                        <option value="8">Kelompok 8</option>
+                    </select>
+                </div>`;
+            });
+            html += '</div>';
+            container.innerHTML = html;
+            btnGen.disabled = false;
+        };
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        window.generateGroups = () => {
+            if(dataSiswaMentah.length === 0) return alert("Data siswa kosong!");
+            
+            const jumlahKelompok = parseInt(document.getElementById('group-amount').value);
+            const metode = document.getElementById('group-method').value; 
+
+            if(isNaN(jumlahKelompok) || jumlahKelompok < 2 || jumlahKelompok > dataSiswaMentah.length) {
+                return alert("Jumlah kelompok tidak valid!");
+            }
+
+            const btn = document.getElementById('btn-generate-group');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Mengaduk...';
+            btn.disabled = true;
+
+            setTimeout(() => {
+                try {
+                    let groups = Array.from({length: jumlahKelompok}, () => []);
+                    let unassigned = [];
+
+                    if (metode === 'smart') {
+                        dataSiswaMentah.forEach(s => {
+                            const selectEl = document.getElementById(`assign-${s.id}`);
+                            const assignedVal = selectEl ? parseInt(selectEl.value) : 0;
+                            if (assignedVal > 0 && assignedVal <= jumlahKelompok) {
+                                groups[assignedVal - 1].push(s);
+                            } else {
+                                unassigned.push(s); 
+                            }
+                        });
+                    } else {
+                        unassigned = [...dataSiswaMentah];
+                    }
+
+                    unassigned = shuffleArray(unassigned);
+
+                    unassigned.forEach(s => {
+                        let minIndex = 0;
+                        let minCount = groups[0].length;
+                        for(let i=1; i<jumlahKelompok; i++) {
+                            if(groups[i].length < minCount) {
+                                minCount = groups[i].length;
+                                minIndex = i;
+                            }
+                        }
+                        groups[minIndex].push(s);
+                    });
+
+                    renderGroupResults(groups);
+                    document.getElementById('btn-reset-group').classList.remove('hidden');
+                } catch (e) {
+                    console.error(e);
+                    alert("Terjadi kesalahan saat membagi kelompok.");
+                } finally {
+                    btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Bentuk';
+                    btn.disabled = false;
+                }
+            }, 500);
+        };
+
+        function renderGroupResults(groups) {
+            const container = document.getElementById('group-results-container');
+            container.innerHTML = '';
+            
+            const groupColors = ['border-teal-500', 'border-blue-500', 'border-purple-500', 'border-pink-500', 'border-amber-500', 'border-rose-500', 'border-indigo-500', 'border-green-500'];
+
+            groups.forEach((gData, index) => {
+                const bColor = groupColors[index % groupColors.length];
+                let listHtml = '<ul class="divide-y divide-gray-100 dark:divide-gray-700">';
+                gData.forEach(s => {
+                    listHtml += `<li class="py-2 text-sm font-medium text-gray-700 dark:text-gray-300">${s.nama}</li>`;
+                });
+                listHtml += '</ul>';
+
+                container.innerHTML += `
+                <div class="bg-white dark:bg-cyber-800 rounded-xl p-5 border-t-4 ${bColor} shadow-sm">
+                    <div class="flex justify-between items-center mb-3 pb-2 border-b border-gray-100 dark:border-gray-700">
+                        <h5 class="font-bold text-gray-800 dark:text-white">Kelompok ${index + 1}</h5>
+                        <span class="text-[10px] font-bold bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-gray-500">${gData.length} Siswa</span>
+                    </div>
+                    ${listHtml}
+                </div>`;
+            });
+        }
+        
+        window.resetGroups = () => {
+            document.getElementById('group-results-container').innerHTML = `
+                <div class="col-span-full text-center py-12 text-gray-400">
+                    <i class="fa-solid fa-users-rays text-5xl mb-3 opacity-30"></i>
+                    <p>Hasil pembagian kelompok akan muncul di sini.</p>
+                </div>`;
+            document.getElementById('btn-reset-group').classList.add('hidden');
+            document.getElementById('btn-generate-group').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Bentuk';
+        };
+
+    </script>
+</body>
+</html>

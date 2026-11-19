@@ -90,13 +90,17 @@
                         <p class="text-[10px] text-gray-500 uppercase tracking-widest">Peralatan Harian Guru</p>
                     </div>
                 </div>
-                <div class="flex gap-4 items-center h-full">
+                <div class="flex gap-3 items-center h-full">
                     <!-- Tombol Tema Gelap -->
-                    <div class="flex items-center h-full">
-                        <button id="theme-toggle" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
-                        </button>
-                    </div>
+                    <button id="theme-toggle" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400" title="Ganti Tema">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                    </button>
+
+                    <!-- Tombol Keluar -->
+                    <button onclick="window.close(); window.location.href='index.html';" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40 border border-rose-200 dark:border-rose-800/50 text-xs font-bold transition-colors" title="Keluar ke Portal Utama">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                        <span class="hidden sm:inline">Keluar</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -174,6 +178,50 @@
                     <div>
                         <h4 class="text-base font-bold text-gray-800 dark:text-white mb-1 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">Eksplorasi Lingkaran (2D)</h4>
                         <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">Kanvas dinamis untuk menggambar garis dan unsur lingkaran.</p>
+                    </div>
+                </a>
+				
+				<!-- Card Papan Tulis Virtual -->
+                <a href="ptv-sakti.html" target="_blank" class="group p-5 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-cyber-800 hover:bg-amber-50 dark:hover:bg-cyber-700/50 cursor-pointer transition-all flex items-center gap-5 shadow-sm hover:shadow-md block">
+                    <div class="w-16 h-16 shrink-0 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center text-3xl shadow-inner group-hover:scale-105 transition-transform">
+                        <i class="fa-solid fa-chalkboard"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-base font-bold text-gray-800 dark:text-white mb-1 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">Papan Tulis Virtual</h4>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">Kanvas interaktif dengan Auto-Bentuk, arsiran, Kartesius, dan tempel gambar soal.</p>
+                    </div>
+                </a>
+				
+				<!-- Card Papan Skor Kelas -->
+                <a href="papan-skor.html" target="_blank" class="group p-5 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-cyber-800 hover:bg-rose-50 dark:hover:bg-cyber-700/50 cursor-pointer transition-all flex items-center gap-5 shadow-sm hover:shadow-md block">
+                    <div class="w-16 h-16 shrink-0 rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 text-white flex items-center justify-center text-3xl shadow-inner group-hover:scale-105 transition-transform">
+                        <i class="fa-solid fa-trophy"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-base font-bold text-gray-800 dark:text-white mb-1 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">Papan Skor Kelas</h4>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">Hitung poin kuis dan cerdas cermat kelompok lengkap dengan podium juara.</p>
+                    </div>
+                </a>
+
+                <!-- Card Pengukur Kebisingan Kelas -->
+                <a href="pengukur-suara.html" target="_blank" class="group p-5 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-cyber-800 hover:bg-sky-50 dark:hover:bg-cyber-700/50 cursor-pointer transition-all flex items-center gap-5 shadow-sm hover:shadow-md block">
+                    <div class="w-16 h-16 shrink-0 rounded-2xl bg-gradient-to-br from-sky-400 to-cyan-600 text-white flex items-center justify-center text-3xl shadow-inner group-hover:scale-105 transition-transform">
+                        <i class="fa-solid fa-microphone-lines"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-base font-bold text-gray-800 dark:text-white mb-1 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">Pengukur Kebisingan</h4>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">Pantau ketenangan kelas secara real-time dengan visual emoji dan bola pantul.</p>
+                    </div>
+                </a>
+
+                <!-- Card Pengacak Angka & Dadu -->
+                <a href="pengacak-dadu.html" target="_blank" class="group p-5 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-cyber-800 hover:bg-violet-50 dark:hover:bg-cyber-700/50 cursor-pointer transition-all flex items-center gap-5 shadow-sm hover:shadow-md block">
+                    <div class="w-16 h-16 shrink-0 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white flex items-center justify-center text-3xl shadow-inner group-hover:scale-105 transition-transform">
+                        <i class="fa-solid fa-dice"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-base font-bold text-gray-800 dark:text-white mb-1 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">Pengacak Angka & Dadu</h4>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">Undi nomor absen, lempar dadu virtual dengan grafik peluang, dan koin 3D.</p>
                     </div>
                 </a>
 
@@ -724,9 +772,20 @@
             const winnerIndex = validIndices[randomValidIndex];
             const winnerName = wheelNames[winnerIndex];
             
-            // Kalkulasi matematika rotasi
+            // Kalkulasi matematika rotasi (berhenti acak di dalam area warna pemenang)
+            // Kalkulasi matematika rotasi (dengan efek dramatis nyaris di garis batas)
             const sliceAngle = 360 / wheelNames.length;
-            const targetAngle = 360 - ((winnerIndex * sliceAngle) + (sliceAngle / 2));
+            let offsetRatio;
+            if (Math.random() < 0.45) {
+                // 45% peluang mepet garis batas (3%–12% dari pinggir kiri atau kanan)
+                const edge = 0.03 + Math.random() * 0.09;
+                offsetRatio = Math.random() < 0.5 ? edge : (1 - edge);
+            } else {
+                // 55% peluang normal di area dalam irisan (12%–88%)
+                offsetRatio = 0.12 + Math.random() * 0.76;
+            }
+            const randomOffset = offsetRatio * sliceAngle;
+            const targetAngle = 360 - ((winnerIndex * sliceAngle) + randomOffset);
             
             const previousRotation = currentRotation;
             const currentRem = previousRotation % 360;

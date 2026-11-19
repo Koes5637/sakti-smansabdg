@@ -54,29 +54,33 @@
 </head>
 <body class="bg-gray-50 dark:bg-cyber-900 text-gray-800 dark:text-gray-200 transition-colors duration-300 min-h-screen flex overflow-hidden">
 
-    <!-- SECURITY OVERLAY ADMIN -->
-    <div id="security-overlay" class="fixed inset-0 z-[100] bg-slate-100 dark:bg-cyber-900 flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-cyber-800 p-8 rounded-3xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-700 text-center relative overflow-hidden">
-            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-accent to-purple-500"></div>
-            <div class="w-20 h-20 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl text-accent">🛡️</div>
-            <h2 class="text-2xl font-bold text-slate-800 dark:text-white mb-2">Pusat Kendali Akademik</h2>
-            <p class="text-slate-500 dark:text-slate-400 text-sm mb-6">Masukkan kode dan sandi akses Admin Sekolah.</p>
+    <!-- SECURITY OVERLAY ADMIN (DARK MODE) -->
+    <div id="security-overlay" class="fixed inset-0 z-[100] bg-[#05110f] flex items-center justify-center p-4">
+        <div class="bg-[#051c16] p-8 rounded-3xl shadow-2xl w-full max-w-md border border-[#0d3b2e] text-center relative overflow-hidden">
+            <!-- Garis Gradien Atas -->
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-emerald-400"></div>
+            
+            <!-- Ikon Gedung Sekolah -->
+            <div class="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-5 text-3xl">🏫</div>
+            
+            <h2 class="text-2xl font-bold text-white mb-2">Pusat Kendali Akademik</h2>
+            <p class="text-gray-400 text-sm mb-8">Masukkan kode dan sandi akses Admin Sekolah.</p>
             
             <form id="admin-login-form" class="space-y-4">
                 <div>
-                    <input type="text" id="login-kode" class="w-full p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-cyber-900 text-center text-lg font-bold focus:ring-2 focus:ring-accent outline-none dark:text-white uppercase tracking-wider" placeholder="KODE SEKOLAH" required>
+                    <input type="text" id="login-kode" class="w-full p-4 rounded-2xl border border-[#164e3f] bg-[#031510] text-center text-lg font-bold text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none uppercase tracking-[0.2em] placeholder-gray-600 transition-all shadow-inner" placeholder="KODE SEKOLAH" required>
                 </div>
                 <div>
-                    <input type="password" id="login-pass" class="w-full p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-cyber-900 text-center text-lg font-bold focus:ring-2 focus:ring-accent outline-none dark:text-white tracking-widest" placeholder="PASSWORD ADMIN" required>
+                    <input type="password" id="login-pass" class="w-full p-4 rounded-2xl border border-[#164e3f] bg-[#031510] text-center text-lg font-bold text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none tracking-[0.3em] placeholder-gray-600 transition-all shadow-inner" placeholder="PASSWORD" required>
                 </div>
-                <button type="submit" class="w-full bg-accent hover:bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg transition-all">Masuk PKA</button>
+                <button type="submit" class="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-3.5 rounded-xl shadow-[0_0_15px_rgba(59,130,246,0.3)] transition-all mt-4">Masuk PKA</button>
             </form>
-            <p id="login-msg" class="mt-4 text-red-500 text-sm font-bold hidden animate-pulse"></p>
+            <p id="login-msg" class="mt-4 text-red-400 text-sm font-bold hidden animate-pulse"></p>
         </div>
     </div>
 
     <!-- SIDEBAR -->
-    <aside class="w-64 bg-white dark:bg-cyber-800 border-r border-gray-200 dark:border-gray-700 hidden md:flex flex-col z-20 shadow-xl">
+    <aside class="w-64 h-screen bg-white dark:bg-cyber-800 border-r border-gray-200 dark:border-gray-700 hidden md:flex flex-col z-20 shadow-xl">
         <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3">
             <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-accent to-purple-600 flex items-center justify-center text-white font-bold shadow-lg">
                 <i class="fa-solid fa-network-wired"></i>
@@ -87,7 +91,7 @@
             </div>
         </div>
 
-        <nav class="flex-1 overflow-y-auto py-4">
+        <nav class="flex-1 overflow-y-auto custom-scrollbar py-4 pr-1">
             <div class="px-4 mb-2 text-xs font-semibold text-gray-400 uppercase">Menu Utama</div>
             <a href="#" onclick="window.switchTab('dashboard')" id="nav-dashboard" class="sidebar-active flex items-center gap-3 px-6 py-3 text-sm font-medium hover:bg-gray-50 dark:hover:bg-cyber-700 transition-all">
                 <i class="fa-solid fa-chart-pie w-5"></i> Dashboard
@@ -781,7 +785,7 @@
                         </div>
                         <div class="lg:col-span-3">
                             <label class="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Nama Lengkap & Gelar</label>
-                            <input type="text" id="t-fullname" class="w-full p-2.5 border rounded-lg bg-white dark:bg-cyber-900 border-gray-300 dark:border-gray-700 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Cth: Drs. Budi Santoso">
+                            <input type="text" id="t-fullname" oninput="window.generateAutoId()" class="w-full p-2.5 border rounded-lg bg-white dark:bg-cyber-900 border-gray-300 dark:border-gray-700 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Cth: Drs. Budi Santoso">
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1455,6 +1459,24 @@
                 </span>
             `).join('');
         };
+		
+		window.generateAutoId = () => {
+            // Hanya buat otomatis jika kotak ID tidak sedang dikunci (bukan mode Edit)
+            const idInput = document.getElementById('t-nickname');
+            if(idInput.disabled) return; 
+            
+            const kode = document.getElementById('t-kode').value.trim() || 'xx';
+            const namaLengkap = document.getElementById('t-fullname').value;
+            
+            let namaBersih = namaLengkap.replace(/[^a-zA-Z0-9 ]/g, "").trim();
+            if(!namaBersih) return;
+            
+            let kataPertama = namaBersih.split(" ")[0].toLowerCase();
+            if(kataPertama.length < 2 && namaBersih.split(" ").length > 1) {
+                kataPertama = namaBersih.split(" ")[1].toLowerCase();
+            }
+            idInput.value = kataPertama + kode;
+        };
 
         window.saveTeacher = async () => {
             const id = document.getElementById('t-nickname').value.toLowerCase().replace(/\s/g, '');
@@ -1505,8 +1527,9 @@
 
         // EXCEL IMPORT SISWA & GURU
         window.downloadFormatGuruExcel = () => {
-            const header = "KODE_ID\tID_PORTAL\tPIN_LOGIN\tNIP_GURU\tNAMA_GURU_DAN_GELAR\tMAPEL\tKELAS\tWALI_KELAS\n";
-            const contohData = "'01\tbudi123\t123456\t'198001012005011001\tDrs. Budi Santoso, M.Pd\tMATEMATIKA, FISIKA\tX-1, X-2\tX-1\n";
+            // Kolom ID_PORTAL dihapus
+            const header = "KODE_ID\tPIN_LOGIN\tNIP_GURU\tNAMA_GURU_DAN_GELAR\tMAPEL\tKELAS\tWALI_KELAS\n";
+            const contohData = "'01\t123456\t'198001012005011001\tDrs. Budi Santoso, M.Pd\tMATEMATIKA, FISIKA\tX-1, X-2\tX-1\n";
             const blob = new Blob([header + contohData], { type: "application/vnd.ms-excel;charset=utf-8" });
             const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "Template_Import_Guru.xls"; link.click();
         };
@@ -1530,16 +1553,25 @@
                 const batch = writeBatch(db);
                 let c = 0;
                 json.forEach(row => {
-                    const id = (row[1]||'').toString().toLowerCase().replace(/\s/g,'');
-                    if(id) {
-                        const wk = (row[7]||'').toString().trim();
-                        batch.set(doc(db, 'users_guru', id), {
-                            kodeId: (row[0]||'').toString().padStart(2, '0'), // Kolom 0 adalah Kode
-                            pin: (row[2]||'').toString(),
-                            nip: (row[3]||'').toString().replace(/\s/g,''),
-                            fullName: row[4]||'Guru',
-                            mapel: (row[5]||'').toString().split(',').map(s=>s.trim().toUpperCase()).filter(Boolean),
-                            kelas: (row[6]||'').toString().split(',').map(s=>s.trim().toUpperCase()).filter(Boolean),
+                    const kodeStr = (row[0]||'').toString().padStart(2, '0');
+                    const namaLengkap = row[3]||'Guru';
+                    
+                    // OTOMATISASI ID PORTAL: Kata pertama nama (huruf kecil) + Kode ID (mencegah nama kembar)
+                    // Contoh: "Drs. Budi Santoso" dengan Kode "05" -> "drs05" atau "budi05" (sistem otomatis membersihkan titik)
+                    let namaBersih = namaLengkap.replace(/[^a-zA-Z0-9 ]/g, "").trim();
+                    let kataPertama = namaBersih.split(" ")[0].toLowerCase();
+                    if(kataPertama.length < 2 && namaBersih.split(" ").length > 1) kataPertama = namaBersih.split(" ")[1].toLowerCase(); // Hindari singkatan gelar seperti H.
+                    const generatedId = kataPertama + kodeStr;
+
+                    if(kodeStr !== '00') {
+                        const wk = (row[6]||'').toString().trim(); // Geser index karena ID Portal hilang
+                        batch.set(doc(db, 'users_guru', generatedId), {
+                            kodeId: kodeStr,
+                            pin: (row[1]||'').toString(),
+                            nip: (row[2]||'').toString().replace(/\s/g,''),
+                            fullName: namaLengkap,
+                            mapel: (row[4]||'').toString().split(',').map(s=>s.trim().toUpperCase()).filter(Boolean),
+                            kelas: (row[5]||'').toString().split(',').map(s=>s.trim().toUpperCase()).filter(Boolean),
                             waliKelas: wk !== '' ? wk : null,
                             updatedAt: new Date().toISOString()
                         });

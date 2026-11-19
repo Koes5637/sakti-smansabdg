@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="id" class="antialiased">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Papan Skor Kelas - SAKTI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        };
+    </script>
+    <style>
+        /* Animasi pop saat skor berubah */
+        @keyframes scorePop {
+            0% { transform: scale(1); }
+            40% { transform: scale(1.22); }
+            100% { transform: scale(1); }
+        }
+        .animate-score-pop {
+            animation: scorePop 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        /* Animasi mahkota melayang */
+        @keyframes crownFloat {
+            0%, 100% { transform: translateY(0) rotate(-6deg); }
+            50% { transform: translateY(-4px) rotate(6deg); }
+        }
+        .animate-crown {
+            animation: crownFloat 2.2s ease-in-out infinite;
+        }
+
+        /* Animasi podium muncul */
+        @keyframes podiumRise {
+            from { opacity: 0; transform: translateY(28px) scale(0.96); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-podium {
+            animation: podiumRise 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        /* Toast notifikasi */
+        #toast-notif {
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+        #toast-notif.toast-hidden {
+            opacity: 0;
+            transform: translate(-50%, 16px);
+            pointer-events: none;
+        }
+        #toast-notif.toast-visible {
+            opacity: 1;
+            transform: translate(-50%, 0);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300 select-none">
+
+    <!-- ===================================================================== -->
+    <!-- HEADER STICKY                                                         -->
+    <!-- ===================================================================== -->
+    <header class="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm">
+        <div class="max-w-7xl mx-auto px-3 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+            
+            <!-- Kiri: Keluar & Judul -->
+            <div class="flex items-center gap-3">
+                <button onclick="window.close(); window.location.href='tools-guru.html';" class="h-10 px-3.5 rounded-xl bg-rose-50 dark:bg-rose-900/25 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50 text-xs font-bold flex items-center gap-2 transition cursor-pointer" title="Keluar ke Tools Guru">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    <span class="hidden sm:inline">Keluar</span>
+                </button>
+
+                <div class="flex items-center gap-2.5">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center text-lg shadow-sm shrink-0">
+                        <i class="fa-solid fa-trophy"></i>
+                    </div>
+                    <div class="leading-tight">
+                        <h1 class="font-extrabold text-base sm:text-lg tracking-tight text-slate-800 dark:text-white">Papan Skor Kelas</h1>
+                        <p class="text-[10px] sm:text-[11px] font-semibold text-teal-600 dark:text-teal-400 uppercase tracking-wider">SAKTI • Gamifikasi &amp; Cerdas Cermat</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kanan: Tombol Kontrol -->
+            <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <button id="btn-add-group" class="h-10 px-3 sm:px-3.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition active:scale-95 cursor-pointer" title="Tambah Kelompok Baru (Maks. 12)">
+                    <i class="fa-solid fa-plus"></i>
+                    <span class="hidden md:inline">Tambah</span>
+                </button>
+
+                <button id="btn-sort" class="h-10 px-3 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer" title="Urutkan Berdasarkan Peringkat Tertinggi">
+                    <i class="fa-solid fa-arrow-down-wide-short"></i>
+                    <span class="hidden lg:inline">Urutkan</span>
+                </button>
+
+                <button id="btn-winner" class="h-10 px-3 sm:px-3.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-amber-950 text-xs font-extrabold flex items-center gap-1.5 shadow-sm transition active:scale-95 cursor-pointer" title="Umumkan Juara & Tampilkan Podium">
+                    <i class="fa-solid fa-crown"></i>
+                    <span class="hidden sm:inline">Umumkan Juara</span>
+                </button>
+
+                <button id="btn-reset-all" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 border border-slate-200 dark:border-slate-700 flex items-center justify-center transition cursor-pointer" title="Reset Semua Skor ke 0">
+                    <i class="fa-solid fa-rotate-left text-sm"></i>
+                </button>
+
+                <button id="btn-mute" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center justify-center transition cursor-pointer" title="Matikan / Nyalakan Suara">
+                    <i id="icon-mute" class="fa-solid fa-volume-high text-sm"></i>
+                </button>
+
+                <button id="btn-theme" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center justify-center transition cursor-pointer" title="Ganti Mode Terang / Gelap">
+                    <i id="icon-theme" class="fa-solid fa-moon text-sm"></i>
+                </button>
+
+                <button id="btn-fullscreen" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center justify-center transition cursor-pointer" title="Layar Penuh">
+                    <i id="icon-fullscreen" class="fa-solid fa-expand text-sm"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===================================================================== -->
+    <!-- KONTEN UTAMA: GRID KARTU KELOMPOK                                     -->
+    <!-- ===================================================================== -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <div id="groups-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
+            <!-- Kartu kelompok dirender oleh JavaScript -->
+        </div>
+    </main>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL +/- KUSTOM POIN                                                 -->
+    <!-- ===================================================================== -->
+    <div id="modal-custom-score" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-sm w-full p-5">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-base font-extrabold text-slate-800 dark:text-white">Poin Kustom</h3>
+                    <p id="custom-modal-group-name" class="text-xs font-semibold text-teal-600 dark:text-teal-400">Kelompok 1</p>
+                </div>
+                <button id="btn-close-custom" class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-rose-500 flex items-center justify-center transition cursor-pointer">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="mb-4">
+                <label for="input-custom-val" class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1.5">Masukkan Jumlah Poin</label>
+                <input type="number" id="input-custom-val" min="1" max="10000" value="20" class="w-full px-4 py-3 text-center text-2xl font-black rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white focus:border-teal-500 outline-none">
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5">
+                <button id="btn-custom-sub" class="py-3 rounded-xl bg-rose-100 dark:bg-rose-900/30 hover:bg-rose-200 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 font-extrabold text-sm flex items-center justify-center gap-1.5 transition cursor-pointer">
+                    <i class="fa-solid fa-minus"></i> Kurangi
+                </button>
+                <button id="btn-custom-add" class="py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-sm flex items-center justify-center gap-1.5 shadow-md transition cursor-pointer">
+                    <i class="fa-solid fa-plus"></i> Tambah
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL KONFIRMASI RESET SKOR                                           -->
+    <!-- ===================================================================== -->
+    <div id="modal-reset-confirm" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-sm w-full p-5">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-11 h-11 rounded-xl bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 flex items-center justify-center text-lg shrink-0">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-extrabold text-slate-800 dark:text-white">Reset Semua Skor?</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Semua poin kelompok akan dikembalikan menjadi 0. Nama kelompok tetap dipertahankan.</p>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button id="btn-cancel-reset" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition cursor-pointer">Batal</button>
+                <button id="btn-confirm-reset" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm transition cursor-pointer">Ya, Reset ke 0</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL UMUMKAN JUARA (PODIUM + CONFETTI)                               -->
+    <!-- ===================================================================== -->
+    <div id="modal-winner" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+        <canvas id="confetti-canvas" class="fixed inset-0 w-full h-full pointer-events-none z-0"></canvas>
+        
+        <div class="relative z-10 bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-2xl w-full p-6 sm:p-8 text-center">
+            <button id="btn-close-winner" class="absolute top-4 right-4 w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-rose-500 flex items-center justify-center transition cursor-pointer">
+                <i class="fa-solid fa-xmark text-base"></i>
+            </button>
+
+            <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-extrabold uppercase tracking-wider mb-3">
+                <i class="fa-solid fa-trophy"></i> Podium Kemenangan
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white mb-6">Selamat kepada Para Juara!</h2>
+
+            <!-- Area Podium 2 - 1 - 3 -->
+            <div id="podium-container" class="flex items-end justify-center gap-3 sm:gap-5 pt-4 pb-2 min-h-[260px]">
+                <!-- Dirender via JS -->
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-center">
+                <button id="btn-close-winner-bottom" class="px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold shadow-md transition cursor-pointer">
+                    Tutup Podium
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifikasi -->
+    <div id="toast-notif" class="toast-hidden fixed bottom-6 left-1/2 z-50 px-4 py-2.5 rounded-full bg-slate-900/90 dark:bg-white/95 text-white dark:text-slate-900 text-xs font-bold shadow-xl backdrop-blur-md">
+        <span id="toast-text">Notifikasi</span>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- LOGIKA JAVASCRIPT                                                     -->
+    <!-- ===================================================================== -->
+    <script>
+        (function () {
+            'use strict';
+
+            // -----------------------------------------------------------------
+            // 1. KONFIGURASI WARNA TEMA KARTU & STATE
+            // -----------------------------------------------------------------
+            const STORAGE_KEY = 'sakti_papan_skor_data';
+            const MAX_GROUPS = 12;
+
+            const CARD_THEMES = [
+                { name: 'blue',    border: 'border-t-blue-500',    badge: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',       score: 'text-blue-600 dark:text-blue-400',       btn: 'bg-blue-600 hover:bg-blue-700 text-white' },
+                { name: 'purple',  border: 'border-t-purple-500',  badge: 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300', score: 'text-purple-600 dark:text-purple-400',   btn: 'bg-purple-600 hover:bg-purple-700 text-white' },
+                { name: 'emerald', border: 'border-t-emerald-500', badge: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300', score: 'text-emerald-600 dark:text-emerald-400', btn: 'bg-emerald-600 hover:bg-emerald-700 text-white' },
+                { name: 'orange',  border: 'border-t-orange-500',  badge: 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300', score: 'text-orange-600 dark:text-orange-400',   btn: 'bg-orange-500 hover:bg-orange-600 text-white' },
+                { name: 'pink',    border: 'border-t-pink-500',    badge: 'bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300',       score: 'text-pink-600 dark:text-pink-400',       btn: 'bg-pink-600 hover:bg-pink-700 text-white' },
+                { name: 'cyan',    border: 'border-t-cyan-500',    badge: 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300',       score: 'text-cyan-600 dark:text-cyan-400',       btn: 'bg-cyan-600 hover:bg-cyan-700 text-white' },
+                { name: 'indigo',  border: 'border-t-indigo-500',  badge: 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300', score: 'text-indigo-600 dark:text-indigo-400',   btn: 'bg-indigo-600 hover:bg-indigo-700 text-white' },
+                { name: 'rose',    border: 'border-t-rose-500',    badge: 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300',       score: 'text-rose-600 dark:text-rose-400',       btn: 'bg-rose-600 hover:bg-rose-700 text-white' }
+            ];
+
+            let groups = [];
+            let isMuted = false;
+            let customTargetId = null;
+            let toastTimer = null;
+
+            // Referensi DOM
+            const groupsGrid = document.getElementById('groups-grid');
+            const btnAddGroup = document.getElementById('btn-add-group');
+            const btnSort = document.getElementById('btn-sort');
+            const btnWinner = document.getElementById('btn-winner');
+            const btnResetAll = document.getElementById('btn-reset-all');
+            const btnMute = document.getElementById('btn-mute');
+            const iconMute = document.getElementById('icon-mute');
+            const btnTheme = document.getElementById('btn-theme');
+            const iconTheme = document.getElementById('icon-theme');
+            const btnFullscreen = document.getElementById('btn-fullscreen');
+            const iconFullscreen = document.getElementById('icon-fullscreen');
+
+            const modalCustomScore = document.getElementById('modal-custom-score');
+            const customModalGroupName = document.getElementById('custom-modal-group-name');
+            const inputCustomVal = document.getElementById('input-custom-val');
+            const btnCloseCustom = document.getElementById('btn-close-custom');
+            const btnCustomAdd = document.getElementById('btn-custom-add');
+            const btnCustomSub = document.getElementById('btn-custom-sub');
+
+            const modalResetConfirm = document.getElementById('modal-reset-confirm');
+            const btnCancelReset = document.getElementById('btn-cancel-reset');
+            const btnConfirmReset = document.getElementById('btn-confirm-reset');
+
+            const modalWinner = document.getElementById('modal-winner');
+            const podiumContainer = document.getElementById('podium-container');
+            const btnCloseWinner = document.getElementById('btn-close-winner');
+            const btnCloseWinnerBottom = document.getElementById('btn-close-winner-bottom');
+            const confettiCanvas = document.getElementById('confetti-canvas');
+            const confettiCtx = confettiCanvas.getContext('2d');
+
+            const toastNotif = document.getElementById('toast-notif');
+            const toastText = document.getElementById('toast-text');
+
+            // -----------------------------------------------------------------
+            // 2. MESIN SUARA WEB AUDIO API (TANPA FILE EKSTERNAL)
+            // -----------------------------------------------------------------
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            let audioCtx = null;
+
+            function ensureAudio() {
+                if (isMuted || !AudioCtx) return null;
+                if (!audioCtx) audioCtx = new AudioCtx();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                return audioCtx;
+            }
+
+            // Bunyi "ding" ceria saat poin ditambah
+            function playSoundAdd() {
+                const ctx = ensureAudio();
+                if (!ctx) return;
+                const now = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, now);       // D5
+                osc.frequency.exponentialRampToValueAtTime(880, now + 0.08); // A5
+                gain.gain.setValueAtTime(0.22, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.26);
+            }
+
+            // Bunyi "buzz" pelan saat poin dikurangi
+            function playSoundSub() {
+                const ctx = ensureAudio();
+                if (!ctx) return;
+                const now = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.linearRampToValueAtTime(155, now + 0.16);
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.19);
+            }
+
+            // Bunyi fanfare kemenangan saat Umumkan Juara
+            function playSoundFanfare() {
+                const ctx = ensureAudio();
+                if (!ctx) return;
+                const notes = [
+                    { f: 523.25, t: 0.00, d: 0.14 }, // C5
+                    { f: 659.25, t: 0.13, d: 0.14 }, // E5
+                    { f: 783.99, t: 0.26, d: 0.14 }, // G5
+                    { f: 1046.50, t: 0.40, d: 0.55 } // C6
+                ];
+                const base = ctx.currentTime;
+                notes.forEach(n => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(n.f, base + n.t);
+                    gain.gain.setValueAtTime(0.24, base + n.t);
+                    gain.gain.exponentialRampToValueAtTime(0.001, base + n.t + n.d);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(base + n.t);
+                    osc.stop(base + n.t + n.d + 0.02);
+                });
+            }
+
+            // -----------------------------------------------------------------
+            // 3. TOAST & TEMA GELAP/TERANG
+            // -----------------------------------------------------------------
+            function showToast(msg) {
+                toastText.textContent = msg;
+                toastNotif.classList.remove('toast-hidden');
+                toastNotif.classList.add('toast-visible');
+                if (toastTimer) clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => {
+                    toastNotif.classList.remove('toast-visible');
+                    toastNotif.classList.add('toast-hidden');
+                }, 2000);
+            }
+
+            function applyTheme() {
+                const isDark = localStorage.theme === 'dark' ||
+                    (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                document.documentElement.classList.toggle('dark', isDark);
+                iconTheme.className = isDark ? 'fa-solid fa-sun text-sm text-amber-400' : 'fa-solid fa-moon text-sm';
+            }
+
+            btnTheme.addEventListener('click', () => {
+                const nowDark = !document.documentElement.classList.contains('dark');
+                document.documentElement.classList.toggle('dark', nowDark);
+                localStorage.theme = nowDark ? 'dark' : 'light';
+                iconTheme.className = nowDark ? 'fa-solid fa-sun text-sm text-amber-400' : 'fa-solid fa-moon text-sm';
+            });
+
+            // -----------------------------------------------------------------
+            // 4. PENYIMPANAN LOCALSTORAGE
+            // -----------------------------------------------------------------
+            function saveData() {
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
+                } catch (e) {
+                    console.error('Gagal menyimpan skor:', e);
+                }
+            }
+
+            function loadData() {
+                try {
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    if (raw) {
+                        const parsed = JSON.parse(raw);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            groups = parsed;
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Gagal memuat skor:', e);
+                }
+                // Default 4 kelompok
+                groups = [
+                    { id: 'g1', name: 'Kelompok 1', score: 0, themeIdx: 0 },
+                    { id: 'g2', name: 'Kelompok 2', score: 0, themeIdx: 1 },
+                    { id: 'g3', name: 'Kelompok 3', score: 0, themeIdx: 2 },
+                    { id: 'g4', name: 'Kelompok 4', score: 0, themeIdx: 3 }
+                ];
+                saveData();
+            }
+
+            // -----------------------------------------------------------------
+            // 5. RENDER KARTU KELOMPOK
+            // -----------------------------------------------------------------
+            function getMaxScore() {
+                let max = 0;
+                groups.forEach(g => {
+                    if (g.score > max) max = g.score;
+                });
+                return max;
+            }
+
+            function renderGroups(animatedId = null) {
+                const maxScore = getMaxScore();
+                groupsGrid.innerHTML = '';
+
+                groups.forEach((group) => {
+                    const theme = CARD_THEMES[group.themeIdx % CARD_THEMES.length];
+                    const isLeader = maxScore > 0 && group.score === maxScore;
+
+                    const card = document.createElement('div');
+                    card.className = `relative bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 shadow-sm hover:shadow-lg border border-slate-200 dark:border-slate-800 border-t-4 ${theme.border} flex flex-col justify-between transition-all duration-200`;
+
+                    card.innerHTML = `
+                        <!-- Header Kartu: Nama & Tombol Hapus -->
+                        <div class="flex items-start justify-between gap-2 mb-3">
+                            <div class="flex items-center gap-2 min-w-0 flex-1">
+                                ${isLeader ? `<span class="text-xl animate-crown shrink-0" title="Skor Tertinggi">👑</span>` : ''}
+                                <button data-action="edit-name" data-id="${group.id}" class="group/name text-left font-extrabold text-lg text-slate-800 dark:text-white truncate hover:text-teal-600 dark:hover:text-teal-400 flex items-center gap-1.5 cursor-pointer" title="Klik untuk ubah nama kelompok">
+                                    <span class="truncate">${escapeHtml(group.name)}</span>
+                                    <i class="fa-solid fa-pen text-[10px] opacity-0 group-hover/name:opacity-60 transition-opacity shrink-0"></i>
+                                </button>
+                            </div>
+                            <button data-action="delete" data-id="${group.id}" class="w-7 h-7 rounded-lg text-slate-300 dark:text-slate-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 hover:text-rose-500 flex items-center justify-center transition shrink-0 cursor-pointer" title="Hapus Kelompok">
+                                <i class="fa-solid fa-xmark text-xs"></i>
+                            </button>
+                        </div>
+
+                        <!-- Angka Skor Besar -->
+                        <div class="my-4 py-3 text-center">
+                            <div id="score-val-${group.id}" class="text-6xl sm:text-7xl font-black tracking-tight tabular-nums ${theme.score} ${animatedId === group.id ? 'animate-score-pop' : ''}">
+                                ${group.score}
+                            </div>
+                        </div>
+
+                        <!-- Tombol Cepat Tambah Poin -->
+                        <div class="space-y-2 mt-2">
+                            <div class="grid grid-cols-3 gap-1.5">
+                                <button data-action="delta" data-id="${group.id}" data-val="1" class="py-2.5 rounded-xl ${theme.btn} font-extrabold text-sm shadow-sm active:scale-95 transition cursor-pointer">+1</button>
+                                <button data-action="delta" data-id="${group.id}" data-val="5" class="py-2.5 rounded-xl ${theme.btn} font-extrabold text-sm shadow-sm active:scale-95 transition cursor-pointer">+5</button>
+                                <button data-action="delta" data-id="${group.id}" data-val="10" class="py-2.5 rounded-xl ${theme.btn} font-extrabold text-sm shadow-sm active:scale-95 transition cursor-pointer">+10</button>
+                            </div>
+
+                            <!-- Tombol Kurang & Kustom -->
+                            <div class="grid grid-cols-3 gap-1.5">
+                                <button data-action="delta" data-id="${group.id}" data-val="-1" class="py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-slate-700 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 font-bold text-xs active:scale-95 transition cursor-pointer">-1</button>
+                                <button data-action="delta" data-id="${group.id}" data-val="-5" class="py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-slate-700 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 font-bold text-xs active:scale-95 transition cursor-pointer">-5</button>
+                                <button data-action="custom" data-id="${group.id}" class="py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-teal-100 dark:hover:bg-teal-900/40 text-slate-700 dark:text-slate-300 hover:text-teal-700 dark:hover:text-teal-300 font-bold text-xs active:scale-95 transition cursor-pointer" title="Tambah/Kurangi Poin Kustom">+/-</button>
+                            </div>
+                        </div>
+                    `;
+
+                    groupsGrid.appendChild(card);
+                });
+
+                btnAddGroup.disabled = groups.length >= MAX_GROUPS;
+                btnAddGroup.classList.toggle('opacity-50', groups.length >= MAX_GROUPS);
+            }
+
+            function escapeHtml(str) {
+                return String(str).replace(/[&<>"']/g, s => ({
+                    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+                }[s]));
+            }
+
+            // -----------------------------------------------------------------
+            // 6. INTERAKSI KARTU (EVENT DELEGATION)
+            // -----------------------------------------------------------------
+            function updateScore(id, delta) {
+                const g = groups.find(item => item.id === id);
+                if (!g) return;
+                g.score += delta;
+                if (delta > 0) playSoundAdd();
+                else if (delta < 0) playSoundSub();
+                saveData();
+                renderGroups(id);
+            }
+
+            function startInlineEditName(id, buttonEl) {
+                const g = groups.find(item => item.id === id);
+                if (!g) return;
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = g.name;
+                input.maxLength = 24;
+                input.className = 'w-full px-2 py-0.5 rounded-lg border-2 border-teal-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-extrabold text-base outline-none';
+
+                buttonEl.replaceWith(input);
+                input.focus();
+                input.select();
+
+                let committed = false;
+                const commit = () => {
+                    if (committed) return;
+                    committed = true;
+                    const newName = input.value.trim();
+                    if (newName) g.name = newName;
+                    saveData();
+                    renderGroups();
+                };
+
+                input.addEventListener('blur', commit);
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') commit();
+                    if (e.key === 'Escape') {
+                        committed = true;
+                        renderGroups();
+                    }
+                });
+            }
+
+            groupsGrid.addEventListener('click', (e) => {
+                const btn = e.target.closest('button[data-action]');
+                if (!btn) return;
+
+                const action = btn.dataset.action;
+                const id = btn.dataset.id;
+
+                if (action === 'delta') {
+                    updateScore(id, parseInt(btn.dataset.val, 10));
+                } else if (action === 'custom') {
+                    const g = groups.find(item => item.id === id);
+                    if (!g) return;
+                    customTargetId = id;
+                    customModalGroupName.textContent = g.name;
+                    inputCustomVal.value = 20;
+                    modalCustomScore.classList.remove('hidden');
+                    setTimeout(() => { inputCustomVal.focus(); inputCustomVal.select(); }, 30);
+                } else if (action === 'edit-name') {
+                    startInlineEditName(id, btn);
+                } else if (action === 'delete') {
+                    if (groups.length <= 1) {
+                        showToast('Minimal harus ada 1 kelompok');
+                        return;
+                    }
+                    const g = groups.find(item => item.id === id);
+                    groups = groups.filter(item => item.id !== id);
+                    saveData();
+                    renderGroups();
+                    if (g) showToast(`${g.name} dihapus`);
+                }
+            });
+
+            // -----------------------------------------------------------------
+            // 7. KONTROL HEADER & MODAL
+            // -----------------------------------------------------------------
+            btnAddGroup.addEventListener('click', () => {
+                if (groups.length >= MAX_GROUPS) {
+                    showToast(`Maksimal ${MAX_GROUPS} kelompok`);
+                    return;
+                }
+                const nextNum = groups.length + 1;
+                groups.push({
+                    id: 'g_' + Date.now(),
+                    name: `Kelompok ${nextNum}`,
+                    score: 0,
+                    themeIdx: groups.length % CARD_THEMES.length
+                });
+                saveData();
+                renderGroups();
+                showToast(`Kelompok ${nextNum} ditambahkan`);
+            });
+
+            btnSort.addEventListener('click', () => {
+                groups.sort((a, b) => b.score - a.score);
+                saveData();
+                renderGroups();
+                showToast('Diurutkan dari skor tertinggi');
+            });
+
+            // Modal Kustom Poin
+            function closeCustomModal() {
+                modalCustomScore.classList.add('hidden');
+                customTargetId = null;
+            }
+            btnCloseCustom.addEventListener('click', closeCustomModal);
+            btnCustomAdd.addEventListener('click', () => {
+                const val = Math.abs(parseInt(inputCustomVal.value, 10) || 0);
+                if (val > 0 && customTargetId) updateScore(customTargetId, val);
+                closeCustomModal();
+            });
+            btnCustomSub.addEventListener('click', () => {
+                const val = Math.abs(parseInt(inputCustomVal.value, 10) || 0);
+                if (val > 0 && customTargetId) updateScore(customTargetId, -val);
+                closeCustomModal();
+            });
+            inputCustomVal.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') btnCustomAdd.click();
+                if (e.key === 'Escape') closeCustomModal();
+            });
+
+            // Modal Reset Skor
+            btnResetAll.addEventListener('click', () => modalResetConfirm.classList.remove('hidden'));
+            btnCancelReset.addEventListener('click', () => modalResetConfirm.classList.add('hidden'));
+            btnConfirmReset.addEventListener('click', () => {
+                groups.forEach(g => g.score = 0);
+                saveData();
+                renderGroups();
+                modalResetConfirm.classList.add('hidden');
+                showToast('Semua skor direset ke 0');
+            });
+
+            // Mute / Unmute
+            btnMute.addEventListener('click', () => {
+                isMuted = !isMuted;
+                iconMute.className = isMuted ? 'fa-solid fa-volume-xmark text-sm text-rose-500' : 'fa-solid fa-volume-high text-sm';
+                showToast(isMuted ? 'Suara dimatikan' : 'Suara diaktifkan');
+            });
+
+            // Fullscreen
+            btnFullscreen.addEventListener('click', () => {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(() => {});
+                } else {
+                    document.exitFullscreen().catch(() => {});
+                }
+            });
+            document.addEventListener('fullscreenchange', () => {
+                iconFullscreen.className = document.fullscreenElement ? 'fa-solid fa-compress text-sm' : 'fa-solid fa-expand text-sm';
+            });
+
+            // -----------------------------------------------------------------
+            // 8. MODAL UMUMKAN JUARA & ANIMASI CONFETTI CANVAS
+            // -----------------------------------------------------------------
+            let confettiParticles = [];
+            let confettiAnimId = null;
+
+            function startConfetti() {
+                confettiCanvas.width = window.innerWidth;
+                confettiCanvas.height = window.innerHeight;
+                const colors = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6', '#ef4444', '#06b6d4'];
+                confettiParticles = Array.from({ length: 120 }, () => ({
+                    x: Math.random() * confettiCanvas.width,
+                    y: Math.random() * -confettiCanvas.height,
+                    w: 6 + Math.random() * 6,
+                    h: 8 + Math.random() * 8,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    vy: 2 + Math.random() * 3.5,
+                    vx: (Math.random() - 0.5) * 2.2,
+                    rot: Math.random() * Math.PI * 2,
+                    vrot: (Math.random() - 0.5) * 0.14
+                }));
+
+                function loop() {
+                    confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+                    confettiParticles.forEach(p => {
+                        p.y += p.vy;
+                        p.x += p.vx;
+                        p.rot += p.vrot;
+                        if (p.y > confettiCanvas.height + 20) {
+                            p.y = -20;
+                            p.x = Math.random() * confettiCanvas.width;
+                        }
+                        confettiCtx.save();
+                        confettiCtx.translate(p.x, p.y);
+                        confettiCtx.rotate(p.rot);
+                        confettiCtx.fillStyle = p.color;
+                        confettiCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+                        confettiCtx.restore();
+                    });
+                    confettiAnimId = requestAnimationFrame(loop);
+                }
+                if (confettiAnimId) cancelAnimationFrame(confettiAnimId);
+                loop();
+            }
+
+            function stopConfetti() {
+                if (confettiAnimId) {
+                    cancelAnimationFrame(confettiAnimId);
+                    confettiAnimId = null;
+                }
+                confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            }
+
+            btnWinner.addEventListener('click', () => {
+                const sorted = [...groups].sort((a, b) => b.score - a.score);
+                const top1 = sorted[0] || null;
+                const top2 = sorted[1] || null;
+                const top3 = sorted[2] || null;
+
+                // Susunan visual podium: Juara 2 (kiri), Juara 1 (tengah), Juara 3 (kanan)
+                const slots = [
+                    { data: top2, rank: 2, medal: '🥈', height: 'h-32 sm:h-36', bg: 'from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-700', text: 'text-slate-800 dark:text-white' },
+                    { data: top1, rank: 1, medal: '👑', height: 'h-44 sm:h-48', bg: 'from-amber-400 to-orange-500', text: 'text-amber-950' },
+                    { data: top3, rank: 3, medal: '🥉', height: 'h-24 sm:h-28', bg: 'from-amber-600 to-amber-700', text: 'text-amber-50' }
+                ];
+
+                podiumContainer.innerHTML = slots.map((slot, idx) => {
+                    if (!slot.data) return '';
+                    return `
+                        <div class="flex flex-col items-center w-1/3 max-w-[170px] animate-podium" style="animation-delay: ${idx * 100}ms">
+                            <div class="text-3xl sm:text-4xl mb-1">${slot.medal}</div>
+                            <p class="font-extrabold text-sm sm:text-base text-slate-800 dark:text-white truncate w-full px-1">${escapeHtml(slot.data.name)}</p>
+                            <p class="text-xs sm:text-sm font-black text-teal-600 dark:text-teal-400 mb-2">${slot.data.score} Poin</p>
+                            <div class="w-full ${slot.height} rounded-t-2xl bg-gradient-to-b ${slot.bg} shadow-lg flex items-center justify-center">
+                                <span class="text-3xl sm:text-4xl font-black ${slot.text}">#${slot.rank}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                modalWinner.classList.remove('hidden');
+                playSoundFanfare();
+                startConfetti();
+            });
+
+            function closeWinnerModal() {
+                modalWinner.classList.add('hidden');
+                stopConfetti();
+            }
+            btnCloseWinner.addEventListener('click', closeWinnerModal);
+            btnCloseWinnerBottom.addEventListener('click', closeWinnerModal);
+
+            // -----------------------------------------------------------------
+            // 9. INISIALISASI
+            // -----------------------------------------------------------------
+            applyTheme();
+            loadData();
+            renderGroups();
+        })();
+    </script>
+</body>
+</html>

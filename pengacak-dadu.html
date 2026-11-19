@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="id" class="antialiased">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengacak Angka &amp; Dadu Virtual - SAKTI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        };
+    </script>
+    <style>
+        /* Pill tab aktif */
+        .main-tab-btn.active {
+            background: linear-gradient(135deg, #7c3aed, #d946ef);
+            color: #ffffff !important;
+            box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
+        }
+
+        /* Tombol pilihan opsi aktif */
+        .opt-pill.active {
+            background-color: #7c3aed;
+            color: #ffffff !important;
+            border-color: transparent;
+            box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
+        }
+
+        /* Animasi pop angka hasil akhir */
+        @keyframes numberPop {
+            0% { transform: scale(0.82); opacity: 0.6; }
+            55% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-number-pop {
+            animation: numberPop 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        /* Animasi kocokan dadu */
+        @keyframes diceTumble {
+            0%   { transform: translate(0, 0) rotate(0deg) scale(1); }
+            15%  { transform: translate(-8px, -10px) rotate(-18deg) scale(1.06); }
+            30%  { transform: translate(9px, 6px) rotate(22deg) scale(0.95); }
+            45%  { transform: translate(-7px, 8px) rotate(-25deg) scale(1.08); }
+            60%  { transform: translate(8px, -9px) rotate(16deg) scale(0.96); }
+            75%  { transform: translate(-5px, -4px) rotate(-10deg) scale(1.04); }
+            90%  { transform: translate(3px, 2px) rotate(5deg) scale(1.01); }
+            100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+        }
+        .animate-dice-roll {
+            animation: diceTumble 0.78s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* Efek 3D Dadu */
+        .die-card-3d {
+            box-shadow:
+                0 12px 24px -6px rgba(15, 23, 42, 0.22),
+                inset 0 -5px 0 rgba(15, 23, 42, 0.12),
+                inset 0 2px 0 rgba(255, 255, 255, 0.85);
+        }
+        .dark .die-card-3d {
+            box-shadow:
+                0 14px 28px -6px rgba(0, 0, 0, 0.55),
+                inset 0 -5px 0 rgba(15, 23, 42, 0.28),
+                inset 0 2px 0 rgba(255, 255, 255, 0.6);
+        }
+
+        /* Efek 3D Koin Peluang */
+        .coin-scene {
+            perspective: 900px;
+        }
+        .coin-3d {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .coin-face {
+            position: absolute;
+            inset: 0;
+            border-radius: 9999px;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow:
+                0 16px 30px -8px rgba(15, 23, 42, 0.32),
+                inset 0 0 0 6px rgba(255, 255, 255, 0.35),
+                inset 0 -6px 12px rgba(0, 0, 0, 0.2);
+        }
+        .coin-face-front {
+            background: radial-gradient(circle at 30% 25%, #fef08a 0%, #f59e0b 55%, #b45309 100%);
+            border: 4px solid #fcd34d;
+            color: #451a03;
+        }
+        .coin-face-back {
+            background: radial-gradient(circle at 30% 25%, #f8fafc 0%, #cbd5e1 55%, #64748b 100%);
+            border: 4px solid #e2e8f0;
+            color: #0f172a;
+            transform: rotateY(180deg);
+        }
+
+        /* Toast notifikasi */
+        #toast-notif {
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+        #toast-notif.toast-hidden {
+            opacity: 0;
+            transform: translate(-50%, 16px);
+            pointer-events: none;
+        }
+        #toast-notif.toast-visible {
+            opacity: 1;
+            transform: translate(-50%, 0);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300 select-none">
+
+    <!-- ===================================================================== -->
+    <!-- NAVBAR ATAS STICKY                                                    -->
+    <!-- ===================================================================== -->
+    <header class="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm shrink-0">
+        <div class="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3">
+            
+            <!-- Kiri: Tombol Keluar, Ikon Dadu, Judul -->
+            <div class="flex items-center gap-3">
+                <button onclick="window.close(); window.location.href='tools-guru.html';" class="h-10 px-3.5 rounded-xl bg-rose-50 dark:bg-rose-900/25 hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50 text-xs font-bold flex items-center gap-2 transition cursor-pointer" title="Keluar ke Tools Guru">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    <span class="hidden sm:inline">Keluar</span>
+                </button>
+
+                <div class="flex items-center gap-2.5">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white flex items-center justify-center text-lg shadow-sm shrink-0">
+                        <i class="fa-solid fa-dice"></i>
+                    </div>
+                    <div class="leading-tight">
+                        <h1 class="font-extrabold text-base sm:text-lg tracking-tight text-slate-800 dark:text-white">Pengacak Angka &amp; Dadu</h1>
+                        <p class="text-[10px] sm:text-[11px] font-semibold text-violet-600 dark:text-violet-400 uppercase tracking-wider">SAKTI • Alat Bantu Kelas &amp; Peluang</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kanan: Mute/Unmute, Fullscreen, Mode Gelap/Terang -->
+            <div class="flex items-center gap-2">
+                <button id="btn-mute" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center justify-center transition cursor-pointer" title="Matikan / Nyalakan Suara">
+                    <i id="icon-mute" class="fa-solid fa-volume-high text-sm"></i>
+                </button>
+
+                <button id="btn-fullscreen" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center justify-center transition cursor-pointer" title="Layar Penuh">
+                    <i id="icon-fullscreen" class="fa-solid fa-expand text-sm"></i>
+                </button>
+
+                <button id="btn-theme" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center justify-center transition cursor-pointer" title="Ganti Mode Gelap / Terang">
+                    <i id="icon-theme" class="fa-solid fa-moon text-sm"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===================================================================== -->
+    <!-- KONTEN UTAMA                                                          -->
+    <!-- ===================================================================== -->
+    <main class="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-5 flex flex-col gap-4">
+
+        <!-- NAVIGASI 3 TAB PILL MODERN -->
+        <nav class="flex justify-center">
+            <div class="inline-flex p-1.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm gap-1 sm:gap-1.5 w-full sm:w-auto">
+                <button data-tab="number" class="main-tab-btn active flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center gap-2 transition cursor-pointer">
+                    <i class="fa-solid fa-hashtag"></i>
+                    <span>Angka Acak</span>
+                </button>
+                <button data-tab="dice" class="main-tab-btn flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center gap-2 transition cursor-pointer">
+                    <i class="fa-solid fa-dice"></i>
+                    <span>Dadu Virtual</span>
+                </button>
+                <button data-tab="coin" class="main-tab-btn flex-1 sm:flex-none px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center gap-2 transition cursor-pointer">
+                    <i class="fa-solid fa-coins"></i>
+                    <span>Koin Peluang</span>
+                </button>
+            </div>
+        </nav>
+
+        <!-- ================================================================= -->
+        <!-- TAB 1: ANGKA ACAK (RANDOM NUMBER GENERATOR)                       -->
+        <!-- ================================================================= -->
+        <section id="panel-number" class="tab-panel flex-1 flex flex-col gap-4">
+
+            <!-- Bar Pengaturan Ringkas -->
+            <div class="bg-white dark:bg-slate-900 rounded-2xl p-3.5 sm:p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="flex items-center gap-2">
+                        <label for="num-min" class="text-xs font-bold text-slate-500 dark:text-slate-400">Dari</label>
+                        <input type="number" id="num-min" value="1" class="w-20 px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-center font-extrabold text-sm text-slate-800 dark:text-white focus:border-violet-500 outline-none">
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <label for="num-max" class="text-xs font-bold text-slate-500 dark:text-slate-400">Sampai</label>
+                        <input type="number" id="num-max" value="36" class="w-20 px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-center font-extrabold text-sm text-slate-800 dark:text-white focus:border-violet-500 outline-none">
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <label for="num-count" class="text-xs font-bold text-slate-500 dark:text-slate-400">Ambil</label>
+                        <select id="num-count" class="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-extrabold text-sm text-slate-800 dark:text-white focus:border-violet-500 outline-none cursor-pointer">
+                            <option value="1" selected>1 Angka</option>
+                            <option value="2">2 Angka</option>
+                            <option value="3">3 Angka</option>
+                            <option value="4">4 Angka</option>
+                            <option value="5">5 Angka</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Saklar Tanpa Pengulangan + Indikator Sisa + Reset -->
+                <div class="flex flex-wrap items-center gap-3">
+                    <label class="inline-flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                        <span class="text-xs font-bold text-slate-700 dark:text-slate-200">Tanpa Pengulangan</span>
+                        <input type="checkbox" id="num-no-repeat" checked class="sr-only peer">
+                        <div class="relative w-9 h-5 bg-slate-300 dark:bg-slate-700 rounded-full peer peer-checked:bg-violet-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+                    </label>
+
+                    <span id="num-remaining-badge" class="px-3 py-1.5 rounded-xl bg-violet-50 dark:bg-violet-950/50 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/60 text-xs font-extrabold tabular-nums">
+                        Sisa: 36 / 36
+                    </span>
+
+                    <button id="btn-num-reset" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 border border-slate-200 dark:border-slate-700 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer">
+                        <i class="fa-solid fa-rotate-left"></i> Reset Riwayat
+                    </button>
+                </div>
+            </div>
+
+            <!-- Area Tampilan Proyektor Raksasa -->
+            <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center min-h-[260px] sm:min-h-[300px] relative overflow-hidden">
+                <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-violet-500/5 via-transparent to-fuchsia-500/5"></div>
+
+                <div id="num-display-area" class="relative z-10 flex flex-wrap items-center justify-center gap-4 sm:gap-6 my-auto py-3">
+                    <div class="text-7xl sm:text-9xl font-black tracking-tight tabular-nums text-slate-300 dark:text-slate-700">?</div>
+                </div>
+
+                <div class="relative z-10 mt-6 flex flex-col items-center gap-2">
+                    <button id="btn-roll-number" class="px-9 py-4 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white font-black text-base sm:text-lg shadow-lg shadow-violet-600/25 active:scale-95 transition flex items-center gap-2.5 cursor-pointer">
+                        <i class="fa-solid fa-shuffle"></i>
+                        <span>Acak Angka</span>
+                    </button>
+                    <p class="text-[11px] font-semibold text-slate-400">Tekan <kbd class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-mono text-[10px]">Spasi</kbd> untuk mengacak cepat</p>
+                </div>
+            </div>
+
+            <!-- Panel Riwayat Angka Terpilih -->
+            <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div class="flex items-center justify-between mb-2.5">
+                    <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-violet-500"></i> Riwayat Angka Terpilih
+                    </h2>
+                    <span id="num-history-count" class="text-xs font-bold text-slate-400">0 angka</span>
+                </div>
+                <div id="num-history-list" class="flex flex-wrap gap-2 min-h-[34px] items-center">
+                    <span class="text-xs text-slate-400 italic">Belum ada angka yang terpilih.</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- TAB 2: DADU VIRTUAL (GAMES & MATERI PELUANG)                      -->
+        <!-- ================================================================= -->
+        <section id="panel-dice" class="tab-panel hidden flex-1 flex flex-col gap-4">
+
+            <!-- Bar Pengaturan Jumlah & Jenis Dadu -->
+            <div class="bg-white dark:bg-slate-900 rounded-2xl p-3.5 sm:p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-3">
+                    <span class="text-xs font-bold text-slate-500 dark:text-slate-400">Jumlah Dadu:</span>
+                    <div class="inline-flex gap-1.5" id="dice-count-group">
+                        <button data-dice-count="1" class="opt-pill px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-extrabold text-slate-700 dark:text-slate-200 transition cursor-pointer">1</button>
+                        <button data-dice-count="2" class="opt-pill active px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-extrabold text-slate-700 dark:text-slate-200 transition cursor-pointer">2</button>
+                        <button data-dice-count="3" class="opt-pill px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-extrabold text-slate-700 dark:text-slate-200 transition cursor-pointer">3</button>
+                        <button data-dice-count="4" class="opt-pill px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-extrabold text-slate-700 dark:text-slate-200 transition cursor-pointer">4</button>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <label for="dice-sides" class="text-xs font-bold text-slate-500 dark:text-slate-400">Jenis Dadu:</label>
+                    <select id="dice-sides" class="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-extrabold text-xs sm:text-sm text-slate-800 dark:text-white focus:border-violet-500 outline-none cursor-pointer">
+                        <option value="6" selected>D6 Klasik (Titik)</option>
+                        <option value="8">D8 (Oktahedron)</option>
+                        <option value="10">D10 (10 Sisi)</option>
+                        <option value="12">D12 (Dodekahedron)</option>
+                        <option value="20">D20 (Ikosahedron)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Area Visual Dadu + Total Jumlah Mata Dadu -->
+            <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center min-h-[260px] relative overflow-hidden">
+                <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-indigo-500/5 via-transparent to-emerald-500/5"></div>
+
+                <!-- Wadah Dadu -->
+                <div id="dice-stage" class="relative z-10 flex flex-wrap items-center justify-center gap-5 sm:gap-7 my-2">
+                    <!-- Dadu dirender via JS -->
+                </div>
+
+                <!-- Total Jumlah Mata Dadu -->
+                <div class="relative z-10 mt-5 px-5 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 flex items-center gap-3 shadow-inner">
+                    <span class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Jumlah Mata Dadu:</span>
+                    <span id="dice-total-display" class="text-2xl sm:text-3xl font-black text-violet-600 dark:text-violet-400 tabular-nums">-</span>
+                </div>
+
+                <!-- Tombol Utama Lempar Dadu -->
+                <div class="relative z-10 mt-5 flex flex-col items-center gap-2">
+                    <button id="btn-roll-dice" class="px-9 py-4 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white font-black text-base sm:text-lg shadow-lg shadow-violet-600/25 active:scale-95 transition flex items-center gap-2.5 cursor-pointer">
+                        <i class="fa-solid fa-dice-d20"></i>
+                        <span>Lempar Dadu</span>
+                    </button>
+                    <p class="text-[11px] font-semibold text-slate-400">Tekan <kbd class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-mono text-[10px]">Spasi</kbd> untuk melempar dadu</p>
+                </div>
+            </div>
+
+            <!-- Panel Riwayat & Grafik Frekuensi Lemparan -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <!-- Grafik Batang Frekuensi (Frekuensi Harapan) -->
+                <div class="lg:col-span-7 bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                            <i class="fa-solid fa-chart-column text-violet-500"></i> Frekuensi Kemunculan Total (<span id="dice-rolls-total">0</span>x Lempar)
+                        </h2>
+                        <button id="btn-dice-reset" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-slate-600 dark:text-slate-300 hover:text-rose-600 text-[11px] font-bold flex items-center gap-1 transition cursor-pointer">
+                            <i class="fa-solid fa-rotate-left"></i> Reset Statistik
+                        </button>
+                    </div>
+                    <div id="dice-freq-chart" class="flex-1 min-h-[120px] flex items-end gap-1.5 pt-4 pb-1 px-1 overflow-x-auto">
+                        <div class="w-full text-center text-xs text-slate-400 italic my-auto">Lempar dadu untuk melihat grafik distribusi frekuensi.</div>
+                    </div>
+                </div>
+
+                <!-- Riwayat Lemparan Terakhir -->
+                <div class="lg:col-span-5 bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
+                    <h2 class="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2 mb-3">
+                        <i class="fa-solid fa-list-ol text-fuchsia-500"></i> Riwayat Lemparan Terakhir
+                    </h2>
+                    <div id="dice-history-list" class="flex flex-wrap gap-1.5 max-h-[130px] overflow-y-auto content-start">
+                        <span class="text-xs text-slate-400 italic">Belum ada riwayat lemparan.</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- TAB 3: KOIN PELUANG (3D COIN FLIP)                                -->
+        <!-- ================================================================= -->
+        <section id="panel-coin" class="tab-panel hidden flex-1 flex flex-col gap-4">
+
+            <!-- Bar Pilihan Jumlah Koin -->
+            <div class="bg-white dark:bg-slate-900 rounded-2xl p-3.5 sm:p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <span class="text-xs font-bold text-slate-500 dark:text-slate-400">Jumlah Koin:</span>
+                    <div class="inline-flex gap-1.5" id="coin-count-group">
+                        <button data-coin-count="1" class="opt-pill active px-4 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-extrabold text-slate-700 dark:text-slate-200 transition cursor-pointer">1 Koin</button>
+                        <button data-coin-count="2" class="opt-pill px-4 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-extrabold text-slate-700 dark:text-slate-200 transition cursor-pointer">2 Koin</button>
+                        <button data-coin-count="3" class="opt-pill px-4 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-extrabold text-slate-700 dark:text-slate-200 transition cursor-pointer">3 Koin</button>
+                    </div>
+                </div>
+
+                <button id="btn-coin-reset" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-slate-600 dark:text-slate-300 hover:text-rose-600 border border-slate-200 dark:border-slate-700 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer">
+                    <i class="fa-solid fa-rotate-left"></i> Reset Statistik
+                </button>
+            </div>
+
+            <!-- Area Visual Koin 3D -->
+            <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center min-h-[280px] relative overflow-hidden">
+                <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-amber-500/5 via-transparent to-slate-500/5"></div>
+
+                <!-- Wadah Koin -->
+                <div id="coin-stage" class="relative z-10 flex flex-wrap items-center justify-center gap-6 sm:gap-9 my-2">
+                    <!-- Koin 3D dirender via JS -->
+                </div>
+
+                <!-- Ringkasan Kombinasi Hasil -->
+                <div class="relative z-10 mt-6 px-5 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 flex items-center gap-3 shadow-inner">
+                    <span class="text-xs sm:text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Hasil Kombinasi:</span>
+                    <span id="coin-combo-display" class="text-xl sm:text-2xl font-black text-amber-600 dark:text-amber-400 tracking-widest">-</span>
+                </div>
+
+                <!-- Tombol Utama Lempar Koin -->
+                <div class="relative z-10 mt-5 flex flex-col items-center gap-2">
+                    <button id="btn-flip-coin" class="px-9 py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-amber-950 font-black text-base sm:text-lg shadow-lg shadow-amber-500/25 active:scale-95 transition flex items-center gap-2.5 cursor-pointer">
+                        <i class="fa-solid fa-coins"></i>
+                        <span>Lempar Koin</span>
+                    </button>
+                    <p class="text-[11px] font-semibold text-slate-400">Tekan <kbd class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-mono text-[10px]">Spasi</kbd> untuk melempar koin</p>
+                </div>
+            </div>
+
+            <!-- Panel Statistik Angka vs Gambar -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-11 h-11 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 text-amber-950 font-black text-lg flex items-center justify-center shadow-sm">A</div>
+                        <div>
+                            <p class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Sisi Angka (A)</p>
+                            <p id="coin-stat-a-pct" class="text-xs font-semibold text-amber-600 dark:text-amber-400">0%</p>
+                        </div>
+                    </div>
+                    <span id="coin-stat-a" class="text-3xl font-black text-slate-800 dark:text-white tabular-nums">0</span>
+                </div>
+
+                <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-11 h-11 rounded-full bg-gradient-to-br from-slate-200 to-slate-400 text-slate-900 font-black text-lg flex items-center justify-center shadow-sm">G</div>
+                        <div>
+                            <p class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Sisi Gambar (G)</p>
+                            <p id="coin-stat-g-pct" class="text-xs font-semibold text-slate-500 dark:text-slate-400">0%</p>
+                        </div>
+                    </div>
+                    <span id="coin-stat-g" class="text-3xl font-black text-slate-800 dark:text-white tabular-nums">0</span>
+                </div>
+
+                <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-11 h-11 rounded-xl bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 text-lg flex items-center justify-center">
+                            <i class="fa-solid fa-repeat"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Total Lemparan</p>
+                            <p id="coin-stat-faces" class="text-xs font-semibold text-slate-400">0 sisi tercatat</p>
+                        </div>
+                    </div>
+                    <span id="coin-stat-total" class="text-3xl font-black text-violet-600 dark:text-violet-400 tabular-nums">0</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Toast Notifikasi Melayang -->
+    <div id="toast-notif" class="toast-hidden fixed bottom-6 left-1/2 z-50 px-4 py-2.5 rounded-full bg-slate-900/90 dark:bg-white/95 text-white dark:text-slate-900 text-xs font-bold shadow-xl backdrop-blur-md">
+        <span id="toast-text">Notifikasi</span>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- LOGIKA JAVASCRIPT                                                     -->
+    <!-- ===================================================================== -->
+    <script>
+        (function () {
+            'use strict';
+
+            // -----------------------------------------------------------------
+            // 1. STATE GLOBAL & REFERENSI DOM
+            // -----------------------------------------------------------------
+            const state = {
+                activeTab: 'number', // 'number' | 'dice' | 'coin'
+                isMuted: false,
+                isBusy: false,
+
+                // Tab 1: Angka Acak
+                numHistory: [],
+
+                // Tab 2: Dadu Virtual
+                diceCount: 2,
+                diceSides: 6,
+                diceValues: [1, 6],
+                diceFreq: {},      // total -> count
+                diceHistory: [],   // array of { vals: [], total: N }
+                diceTotalRolls: 0,
+
+                // Tab 3: Koin Peluang
+                coinCount: 1,
+                coinRotations: [0, 0, 0], // akumulasi derajat agar selalu berputar mulus
+                coinCountA: 0,
+                coinCountG: 0,
+                coinTotalFlips: 0
+            };
+
+            const btnMute = document.getElementById('btn-mute');
+            const iconMute = document.getElementById('icon-mute');
+            const btnFullscreen = document.getElementById('btn-fullscreen');
+            const iconFullscreen = document.getElementById('icon-fullscreen');
+            const btnTheme = document.getElementById('btn-theme');
+            const iconTheme = document.getElementById('icon-theme');
+            const toastNotif = document.getElementById('toast-notif');
+            const toastText = document.getElementById('toast-text');
+
+            // Tab 1 DOM
+            const numMinInput = document.getElementById('num-min');
+            const numMaxInput = document.getElementById('num-max');
+            const numCountSelect = document.getElementById('num-count');
+            const numNoRepeat = document.getElementById('num-no-repeat');
+            const numRemainingBadge = document.getElementById('num-remaining-badge');
+            const btnNumReset = document.getElementById('btn-num-reset');
+            const numDisplayArea = document.getElementById('num-display-area');
+            const btnRollNumber = document.getElementById('btn-roll-number');
+            const numHistoryList = document.getElementById('num-history-list');
+            const numHistoryCount = document.getElementById('num-history-count');
+
+            // Tab 2 DOM
+            const diceSidesSelect = document.getElementById('dice-sides');
+            const diceStage = document.getElementById('dice-stage');
+            const diceTotalDisplay = document.getElementById('dice-total-display');
+            const btnRollDice = document.getElementById('btn-roll-dice');
+            const btnDiceReset = document.getElementById('btn-dice-reset');
+            const diceRollsTotal = document.getElementById('dice-rolls-total');
+            const diceFreqChart = document.getElementById('dice-freq-chart');
+            const diceHistoryList = document.getElementById('dice-history-list');
+
+            // Tab 3 DOM
+            const coinStage = document.getElementById('coin-stage');
+            const coinComboDisplay = document.getElementById('coin-combo-display');
+            const btnFlipCoin = document.getElementById('btn-flip-coin');
+            const btnCoinReset = document.getElementById('btn-coin-reset');
+            const coinStatA = document.getElementById('coin-stat-a');
+            const coinStatG = document.getElementById('coin-stat-g');
+            const coinStatAPct = document.getElementById('coin-stat-a-pct');
+            const coinStatGPct = document.getElementById('coin-stat-g-pct');
+            const coinStatTotal = document.getElementById('coin-stat-total');
+            const coinStatFaces = document.getElementById('coin-stat-faces');
+
+            let toastTimer = null;
+
+            // -----------------------------------------------------------------
+            // 2. MESIN SUARA WEB AUDIO API (AMAN & TANPA FILE EKSTERNAL)
+            // -----------------------------------------------------------------
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            let audioCtx = null;
+
+            function getAudio() {
+                if (state.isMuted || !AudioCtx) return null;
+                try {
+                    if (!audioCtx) audioCtx = new AudioCtx();
+                    if (audioCtx.state === 'suspended') audioCtx.resume();
+                    return audioCtx;
+                } catch (_) {
+                    return null;
+                }
+            }
+
+            // Detak cepat saat angka bergulir
+            function playTickSound() {
+                const ctx = getAudio();
+                if (!ctx) return;
+                const now = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(720 + Math.random() * 140, now);
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.04);
+            }
+
+            // Lonceng ceria saat angka berhenti
+            function playSuccessChime() {
+                const ctx = getAudio();
+                if (!ctx) return;
+                const now = ctx.currentTime;
+                [587.33, 880, 1174.66].forEach((freq, idx) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.065);
+                    gain.gain.setValueAtTime(0.18, now + idx * 0.065);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.065 + 0.32);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now + idx * 0.065);
+                    osc.stop(now + idx * 0.065 + 0.34);
+                });
+            }
+
+            // Suara kocokan dadu sintesis (serangkaian ketukan acak cepat)
+            function playDiceRattle() {
+                const ctx = getAudio();
+                if (!ctx) return;
+                const now = ctx.currentTime;
+                const hits = [0, 0.07, 0.14, 0.23, 0.33, 0.45, 0.59, 0.72];
+                hits.forEach((offset, idx) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(260 + Math.random() * 220, now + offset);
+                    osc.frequency.exponentialRampToValueAtTime(110, now + offset + 0.03);
+                    const vol = idx === hits.length - 1 ? 0.14 : 0.08;
+                    gain.gain.setValueAtTime(vol, now + offset);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.035);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now + offset);
+                    osc.stop(now + offset + 0.04);
+                });
+            }
+
+            // Suara denting koin logam
+            function playCoinClink() {
+                const ctx = getAudio();
+                if (!ctx) return;
+                const now = ctx.currentTime;
+                [2450, 3680].forEach((freq, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now);
+                    osc.frequency.exponentialRampToValueAtTime(freq * 1.03, now + 0.12);
+                    gain.gain.setValueAtTime(i === 0 ? 0.16 : 0.09, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.58);
+                });
+            }
+
+            // -----------------------------------------------------------------
+            // 3. UTILITAS: TOAST, TEMA, FULLSCREEN, NAVIGASI TAB
+            // -----------------------------------------------------------------
+            function showToast(msg) {
+                toastText.textContent = msg;
+                toastNotif.classList.remove('toast-hidden');
+                toastNotif.classList.add('toast-visible');
+                if (toastTimer) clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => {
+                    toastNotif.classList.remove('toast-visible');
+                    toastNotif.classList.add('toast-hidden');
+                }, 2200);
+            }
+
+            function applyTheme() {
+                const isDark = localStorage.theme === 'dark' ||
+                    (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                document.documentElement.classList.toggle('dark', isDark);
+                iconTheme.className = isDark ? 'fa-solid fa-sun text-sm text-amber-400' : 'fa-solid fa-moon text-sm';
+            }
+
+            btnTheme.addEventListener('click', () => {
+                const nowDark = !document.documentElement.classList.contains('dark');
+                document.documentElement.classList.toggle('dark', nowDark);
+                localStorage.theme = nowDark ? 'dark' : 'light';
+                iconTheme.className = nowDark ? 'fa-solid fa-sun text-sm text-amber-400' : 'fa-solid fa-moon text-sm';
+            });
+
+            btnMute.addEventListener('click', () => {
+                state.isMuted = !state.isMuted;
+                iconMute.className = state.isMuted ? 'fa-solid fa-volume-xmark text-sm text-rose-500' : 'fa-solid fa-volume-high text-sm';
+                showToast(state.isMuted ? 'Suara dimatikan' : 'Suara diaktifkan');
+            });
+
+            btnFullscreen.addEventListener('click', () => {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(() => {});
+                } else {
+                    document.exitFullscreen().catch(() => {});
+                }
+            });
+            document.addEventListener('fullscreenchange', () => {
+                iconFullscreen.className = document.fullscreenElement ? 'fa-solid fa-compress text-sm' : 'fa-solid fa-expand text-sm';
+            });
+
+            function switchTab(tabName) {
+                if (state.isBusy) return;
+                state.activeTab = tabName;
+                document.querySelectorAll('.main-tab-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.tab === tabName);
+                });
+                document.querySelectorAll('.tab-panel').forEach(panel => {
+                    panel.classList.toggle('hidden', panel.id !== `panel-${tabName}`);
+                });
+            }
+
+            document.querySelectorAll('.main-tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+            });
+
+            // -----------------------------------------------------------------
+            // 4. LOGIKA TAB 1: ANGKA ACAK
+            // -----------------------------------------------------------------
+            function getNumberRange() {
+                let min = parseInt(numMinInput.value, 10);
+                let max = parseInt(numMaxInput.value, 10);
+                if (isNaN(min)) min = 1;
+                if (isNaN(max)) max = 36;
+                if (min > max) {
+                    const tmp = min;
+                    min = max;
+                    max = tmp;
+                }
+                return { min, max, total: max - min + 1 };
+            }
+
+            function getAvailablePool() {
+                const { min, max } = getNumberRange();
+                const usedSet = new Set(state.numHistory);
+                const pool = [];
+                for (let n = min; n <= max; n++) {
+                    if (!numNoRepeat.checked || !usedSet.has(n)) {
+                        pool.push(n);
+                    }
+                }
+                return pool;
+            }
+
+            function updateNumberMetaUI() {
+                const { total } = getNumberRange();
+                if (numNoRepeat.checked) {
+                    const pool = getAvailablePool();
+                    numRemainingBadge.textContent = `Sisa: ${pool.length} / ${total}`;
+                    numRemainingBadge.classList.remove('opacity-50');
+                } else {
+                    numRemainingBadge.textContent = `Rentang: ${total} angka`;
+                    numRemainingBadge.classList.add('opacity-50');
+                }
+
+                numHistoryCount.textContent = `${state.numHistory.length} angka`;
+                if (state.numHistory.length === 0) {
+                    numHistoryList.innerHTML = '<span class="text-xs text-slate-400 italic">Belum ada angka yang terpilih.</span>';
+                } else {
+                    numHistoryList.innerHTML = state.numHistory.map((val, idx) => `
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-violet-50 dark:bg-violet-950/60 border border-violet-200 dark:border-violet-800/60 text-violet-700 dark:text-violet-300 font-extrabold text-xs tabular-nums">
+                            <span class="text-[9px] text-violet-400 font-bold">#${idx + 1}</span>
+                            ${val}
+                        </span>
+                    `).join('');
+                }
+            }
+
+            function renderNumberCards(values, isFinal) {
+                const count = values.length;
+                const sizeClass = count === 1
+                    ? 'text-8xl sm:text-9xl px-10 py-4'
+                    : (count <= 3 ? 'text-6xl sm:text-8xl px-7 py-3' : 'text-5xl sm:text-7xl px-5 py-3');
+
+                numDisplayArea.innerHTML = values.map(v => `
+                    <div class="${sizeClass} rounded-3xl ${isFinal ? 'bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-950/60 dark:to-fuchsia-950/50 border-2 border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 shadow-md animate-number-pop' : 'bg-slate-50 dark:bg-slate-800/80 border-2 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-300'} font-black tracking-tight tabular-nums leading-none">
+                        ${v}
+                    </div>
+                `).join('');
+            }
+
+            function rollNumbers() {
+                if (state.isBusy) return;
+                const { min, max } = getNumberRange();
+                if (max - min > 10000) {
+                    showToast('Rentang maksimal 10.000 angka agar tetap cepat');
+                    return;
+                }
+
+                const wantCount = parseInt(numCountSelect.value, 10) || 1;
+                let pool = getAvailablePool();
+
+                if (numNoRepeat.checked && pool.length === 0) {
+                    showToast('Semua angka sudah keluar! Klik Reset Riwayat untuk mengulang.');
+                    return;
+                }
+
+                const actualCount = numNoRepeat.checked ? Math.min(wantCount, pool.length) : wantCount;
+                const finalResults = [];
+
+                if (numNoRepeat.checked) {
+                    const copy = pool.slice();
+                    for (let i = 0; i < actualCount; i++) {
+                        const idx = Math.floor(Math.random() * copy.length);
+                        finalResults.push(copy.splice(idx, 1)[0]);
+                    }
+                } else {
+                    for (let i = 0; i < actualCount; i++) {
+                        finalResults.push(min + Math.floor(Math.random() * (max - min + 1)));
+                    }
+                }
+
+                // Animasi rolling numbers ~1.2 detik
+                state.isBusy = true;
+                btnRollNumber.disabled = true;
+                const startTime = performance.now();
+                const duration = 1200;
+                let lastTick = 0;
+
+                function step(now) {
+                    const elapsed = now - startTime;
+                    const progress = Math.min(1, elapsed / duration);
+                    // Interval melambat di akhir agar dramatis
+                    const interval = 45 + progress * progress * 110;
+
+                    if (elapsed < duration) {
+                        if (now - lastTick >= interval) {
+                            lastTick = now;
+                            const fakeVals = Array.from({ length: actualCount }, () =>
+                                min + Math.floor(Math.random() * (max - min + 1))
+                            );
+                            renderNumberCards(fakeVals, false);
+                            playTickSound();
+                        }
+                        requestAnimationFrame(step);
+                    } else {
+                        renderNumberCards(finalResults, true);
+                        playSuccessChime();
+                        state.numHistory.push(...finalResults);
+                        updateNumberMetaUI();
+                        state.isBusy = false;
+                        btnRollNumber.disabled = false;
+
+                        if (numNoRepeat.checked && actualCount < wantCount) {
+                            showToast(`Hanya tersisa ${actualCount} angka terakhir`);
+                        }
+                    }
+                }
+                requestAnimationFrame(step);
+            }
+
+            btnRollNumber.addEventListener('click', rollNumbers);
+            btnNumReset.addEventListener('click', () => {
+                if (state.isBusy) return;
+                state.numHistory = [];
+                numDisplayArea.innerHTML = '<div class="text-7xl sm:text-9xl font-black tracking-tight tabular-nums text-slate-300 dark:text-slate-700">?</div>';
+                updateNumberMetaUI();
+                showToast('Riwayat angka direset');
+            });
+
+            [numMinInput, numMaxInput].forEach(inp => {
+                inp.addEventListener('change', () => {
+                    const { min, max } = getNumberRange();
+                    numMinInput.value = min;
+                    numMaxInput.value = max;
+                    state.numHistory = state.numHistory.filter(n => n >= min && n <= max);
+                    updateNumberMetaUI();
+                });
+            });
+            numNoRepeat.addEventListener('change', updateNumberMetaUI);
+
+            // -----------------------------------------------------------------
+            // 5. LOGIKA TAB 2: DADU VIRTUAL & GRAFIK FREKUENSI
+            // -----------------------------------------------------------------
+            const DICE_THEMES = [
+                { border: 'border-indigo-400', pip: 'bg-indigo-600', text: 'text-indigo-600', polyFill: '#eef2ff', polyStroke: '#4f46e5', badge: 'bg-indigo-100 text-indigo-700' },
+                { border: 'border-emerald-400', pip: 'bg-emerald-600', text: 'text-emerald-600', polyFill: '#ecfdf5', polyStroke: '#059669', badge: 'bg-emerald-100 text-emerald-700' },
+                { border: 'border-amber-400', pip: 'bg-amber-600', text: 'text-amber-600', polyFill: '#fffbeb', polyStroke: '#d97706', badge: 'bg-amber-100 text-amber-700' },
+                { border: 'border-rose-400', pip: 'bg-rose-600', text: 'text-rose-600', polyFill: '#fff1f2', polyStroke: '#e11d48', badge: 'bg-rose-100 text-rose-700' }
+            ];
+
+            // Posisi pip 3x3 (index 0..8) untuk D6 Klasik
+            const D6_PIPS = {
+                1: [4],
+                2: [2, 6],
+                3: [2, 4, 6],
+                4: [0, 2, 6, 8],
+                5: [0, 2, 4, 6, 8],
+                6: [0, 2, 3, 5, 6, 8]
+            };
+
+            function buildPolygonSvg(sides, theme) {
+                if (sides === 8) {
+                    return `<svg class="absolute inset-0 w-full h-full p-2" viewBox="0 0 100 100"><polygon points="50,4 96,50 50,96 4,50" fill="${theme.polyFill}" stroke="${theme.polyStroke}" stroke-width="4" stroke-linejoin="round"/></svg>`;
+                }
+                if (sides === 10) {
+                    return `<svg class="absolute inset-0 w-full h-full p-2" viewBox="0 0 100 100"><polygon points="50,4 92,38 50,96 8,38" fill="${theme.polyFill}" stroke="${theme.polyStroke}" stroke-width="4" stroke-linejoin="round"/></svg>`;
+                }
+                if (sides === 12) {
+                    return `<svg class="absolute inset-0 w-full h-full p-2" viewBox="0 0 100 100"><polygon points="50,5 93,36 77,88 23,88 7,36" fill="${theme.polyFill}" stroke="${theme.polyStroke}" stroke-width="4" stroke-linejoin="round"/></svg>`;
+                }
+                return `<svg class="absolute inset-0 w-full h-full p-2" viewBox="0 0 100 100"><polygon points="50,4 90,27 90,73 50,96 10,73 10,27" fill="${theme.polyFill}" stroke="${theme.polyStroke}" stroke-width="4" stroke-linejoin="round"/></svg>`;
+            }
+
+            function renderDiceVisuals(values, animate = false) {
+                const sides = state.diceSides;
+                diceStage.innerHTML = values.map((val, i) => {
+                    const theme = DICE_THEMES[i % DICE_THEMES.length];
+                    const animClass = animate ? 'animate-dice-roll' : '';
+
+                    if (sides === 6) {
+                        const activePips = D6_PIPS[val] || [4];
+                        const cells = Array.from({ length: 9 }, (_, idx) => {
+                            const hasPip = activePips.includes(idx);
+                            return `<div class="flex items-center justify-center">
+                                ${hasPip ? `<span class="w-4 h-4 sm:w-5 sm:h-5 rounded-full ${theme.pip} shadow-inner block"></span>` : ''}
+                            </div>`;
+                        }).join('');
+
+                        return `
+                            <div class="die-card-3d ${animClass} w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white border-2 ${theme.border} p-3.5 sm:p-4 grid grid-cols-3 grid-rows-3 gap-1">
+                                ${cells}
+                            </div>
+                        `;
+                    } else {
+                        return `
+                            <div class="die-card-3d ${animClass} relative w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white border-2 ${theme.border} flex items-center justify-center">
+                                ${buildPolygonSvg(sides, theme)}
+                                <span class="relative z-10 text-4xl sm:text-5xl font-black ${theme.text} tabular-nums">${val}</span>
+                                <span class="absolute bottom-1.5 right-2 text-[9px] font-extrabold text-slate-400">D${sides}</span>
+                            </div>
+                        `;
+                    }
+                }).join('');
+            }
+
+            function renderDiceStats() {
+                diceRollsTotal.textContent = String(state.diceTotalRolls);
+
+                // Daftar riwayat lemparan terakhir (maks 24 terbaru)
+                if (state.diceHistory.length === 0) {
+                    diceHistoryList.innerHTML = '<span class="text-xs text-slate-400 italic">Belum ada riwayat lemparan.</span>';
+                    diceFreqChart.innerHTML = '<div class="w-full text-center text-xs text-slate-400 italic my-auto">Lempar dadu untuk melihat grafik distribusi frekuensi.</div>';
+                    return;
+                }
+
+                diceHistoryList.innerHTML = state.diceHistory.slice(0, 24).map(item => `
+                    <span class="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-700 dark:text-slate-200 tabular-nums">
+                        ${item.vals.join(' + ')} = <strong class="text-violet-600 dark:text-violet-400">${item.total}</strong>
+                    </span>
+                `).join('');
+
+                // Grafik batang frekuensi
+                const minSum = state.diceCount;
+                const maxSum = state.diceCount * state.diceSides;
+                let keys = [];
+
+                if (maxSum - minSum <= 18) {
+                    for (let s = minSum; s <= maxSum; s++) keys.push(s);
+                } else {
+                    keys = Object.keys(state.diceFreq).map(Number).sort((a, b) => a - b);
+                }
+
+                const maxCount = Math.max(1, ...keys.map(k => state.diceFreq[k] || 0));
+
+                diceFreqChart.innerHTML = keys.map(k => {
+                    const cnt = state.diceFreq[k] || 0;
+                    const heightPct = cnt > 0 ? Math.max(10, Math.round((cnt / maxCount) * 100)) : 3;
+                    const barColor = cnt > 0
+                        ? 'bg-gradient-to-t from-violet-600 to-fuchsia-500'
+                        : 'bg-slate-200 dark:bg-slate-800';
+
+                    return `
+                        <div class="flex-1 min-w-[22px] flex flex-col items-center justify-end h-[112px] gap-1" title="Total ${k}: ${cnt} kali">
+                            <span class="text-[10px] font-extrabold ${cnt > 0 ? 'text-violet-600 dark:text-violet-400' : 'text-slate-300 dark:text-slate-700'} tabular-nums leading-none">${cnt > 0 ? cnt : ''}</span>
+                            <div class="w-full flex-1 flex items-end">
+                                <div class="w-full rounded-t-lg ${barColor} transition-all duration-300" style="height: ${heightPct}%"></div>
+                            </div>
+                            <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 tabular-nums leading-none">${k}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            function resetDiceStats(silent = false) {
+                state.diceFreq = {};
+                state.diceHistory = [];
+                state.diceTotalRolls = 0;
+                state.diceValues = Array.from({ length: state.diceCount }, (_, i) => ((i * 2) % state.diceSides) + 1);
+                renderDiceVisuals(state.diceValues, false);
+                diceTotalDisplay.textContent = '-';
+                renderDiceStats();
+                if (!silent) showToast('Statistik dadu direset');
+            }
+
+            function rollDice() {
+                if (state.isBusy) return;
+                state.isBusy = true;
+                btnRollDice.disabled = true;
+
+                const finalVals = Array.from({ length: state.diceCount }, () =>
+                    1 + Math.floor(Math.random() * state.diceSides)
+                );
+
+                playDiceRattle();
+                renderDiceVisuals(state.diceValues, true);
+
+                // Pergantian angka cepat selama animasi guncangan (~0.8 detik)
+                let ticks = 0;
+                const tickTimer = setInterval(() => {
+                    ticks++;
+                    const tempVals = Array.from({ length: state.diceCount }, () =>
+                        1 + Math.floor(Math.random() * state.diceSides)
+                    );
+                    renderDiceVisuals(tempVals, true);
+                    if (ticks >= 7) {
+                        clearInterval(tickTimer);
+                    }
+                }, 95);
+
+                setTimeout(() => {
+                    clearInterval(tickTimer);
+                    state.diceValues = finalVals;
+                    renderDiceVisuals(finalVals, false);
+
+                    const total = finalVals.reduce((a, b) => a + b, 0);
+                    diceTotalDisplay.textContent = String(total);
+                    diceTotalDisplay.classList.remove('animate-number-pop');
+                    void diceTotalDisplay.offsetWidth;
+                    diceTotalDisplay.classList.add('animate-number-pop');
+
+                    state.diceTotalRolls++;
+                    state.diceFreq[total] = (state.diceFreq[total] || 0) + 1;
+                    state.diceHistory.unshift({ vals: finalVals, total });
+                    renderDiceStats();
+
+                    state.isBusy = false;
+                    btnRollDice.disabled = false;
+                }, 800);
+            }
+
+            document.querySelectorAll('#dice-count-group .opt-pill').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (state.isBusy) return;
+                    state.diceCount = parseInt(btn.dataset.diceCount, 10);
+                    document.querySelectorAll('#dice-count-group .opt-pill').forEach(b => b.classList.toggle('active', b === btn));
+                    resetDiceStats(true);
+                });
+            });
+
+            diceSidesSelect.addEventListener('change', (e) => {
+                if (state.isBusy) return;
+                state.diceSides = parseInt(e.target.value, 10);
+                resetDiceStats(true);
+            });
+
+            btnRollDice.addEventListener('click', rollDice);
+            btnDiceReset.addEventListener('click', () => {
+                if (!state.isBusy) resetDiceStats(false);
+            });
+
+            // -----------------------------------------------------------------
+            // 6. LOGIKA TAB 3: KOIN PELUANG (3D FLIP)
+            // -----------------------------------------------------------------
+            function buildCoinStage() {
+                state.coinRotations = Array.from({ length: state.coinCount }, () => 0);
+                coinStage.innerHTML = Array.from({ length: state.coinCount }, (_, i) => `
+                    <div class="coin-scene w-28 h-28 sm:w-36 sm:h-36">
+                        <div id="coin-el-${i}" class="coin-3d" style="transform: rotateY(0deg);">
+                            <div class="coin-face coin-face-front">
+                                <span class="text-4xl sm:text-5xl font-black leading-none">A</span>
+                                <span class="text-[10px] sm:text-xs font-extrabold tracking-widest mt-1 uppercase">Angka</span>
+                            </div>
+                            <div class="coin-face coin-face-back">
+                                <span class="text-4xl sm:text-5xl font-black leading-none">G</span>
+                                <span class="text-[10px] sm:text-xs font-extrabold tracking-widest mt-1 uppercase">Gambar</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            function updateCoinStatsUI() {
+                const totalFaces = state.coinCountA + state.coinCountG;
+                const pctA = totalFaces > 0 ? Math.round((state.coinCountA / totalFaces) * 100) : 0;
+                const pctG = totalFaces > 0 ? Math.round((state.coinCountG / totalFaces) * 100) : 0;
+
+                coinStatA.textContent = String(state.coinCountA);
+                coinStatG.textContent = String(state.coinCountG);
+                coinStatAPct.textContent = `${pctA}%`;
+                coinStatGPct.textContent = `${pctG}%`;
+                coinStatTotal.textContent = String(state.coinTotalFlips);
+                coinStatFaces.textContent = `${totalFaces} sisi tercatat`;
+            }
+
+            function resetCoinStats(silent = false) {
+                state.coinCountA = 0;
+                state.coinCountG = 0;
+                state.coinTotalFlips = 0;
+                coinComboDisplay.textContent = '-';
+                buildCoinStage();
+                updateCoinStatsUI();
+                if (!silent) showToast('Statistik koin direset');
+            }
+
+            function flipCoins() {
+                if (state.isBusy) return;
+                state.isBusy = true;
+                btnFlipCoin.disabled = true;
+
+                playCoinClink();
+                const results = [];
+
+                for (let i = 0; i < state.coinCount; i++) {
+                    const isAngka = Math.random() < 0.5;
+                    results.push(isAngka ? 'A' : 'G');
+
+                    // Tambah 4 putaran penuh (1440deg) agar animasi flip selalu terlihat kencang & realistis
+                    const currentRot = state.coinRotations[i] || 0;
+                    const baseFullTurns = Math.floor(currentRot / 360) * 360 + 1440;
+                    const targetDeg = baseFullTurns + (isAngka ? 0 : 180);
+                    state.coinRotations[i] = targetDeg;
+
+                    const el = document.getElementById(`coin-el-${i}`);
+                    if (el) {
+                        el.style.transform = `rotateY(${targetDeg}deg)`;
+                    }
+                }
+
+                setTimeout(() => {
+                    coinComboDisplay.textContent = results.join(' - ');
+                    coinComboDisplay.classList.remove('animate-number-pop');
+                    void coinComboDisplay.offsetWidth;
+                    coinComboDisplay.classList.add('animate-number-pop');
+
+                    results.forEach(r => {
+                        if (r === 'A') state.coinCountA++;
+                        else state.coinCountG++;
+                    });
+                    state.coinTotalFlips++;
+                    updateCoinStatsUI();
+
+                    state.isBusy = false;
+                    btnFlipCoin.disabled = false;
+                }, 920);
+            }
+
+            document.querySelectorAll('#coin-count-group .opt-pill').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (state.isBusy) return;
+                    state.coinCount = parseInt(btn.dataset.coinCount, 10);
+                    document.querySelectorAll('#coin-count-group .opt-pill').forEach(b => b.classList.toggle('active', b === btn));
+                    resetCoinStats(true);
+                });
+            });
+
+            btnFlipCoin.addEventListener('click', flipCoins);
+            btnCoinReset.addEventListener('click', () => {
+                if (!state.isBusy) resetCoinStats(false);
+            });
+
+            // -----------------------------------------------------------------
+            // 7. PINTASAN KEYBOARD (SPASI UNTUK MENGACAK / MELEMPAR)
+            // -----------------------------------------------------------------
+            window.addEventListener('keydown', (e) => {
+                if (e.code !== 'Space') return;
+                const tag = document.activeElement && document.activeElement.tagName;
+                if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+                e.preventDefault();
+                if (state.activeTab === 'number') rollNumbers();
+                else if (state.activeTab === 'dice') rollDice();
+                else if (state.activeTab === 'coin') flipCoins();
+            });
+
+            // -----------------------------------------------------------------
+            // 8. INISIALISASI AWAL
+            // -----------------------------------------------------------------
+            applyTheme();
+            updateNumberMetaUI();
+            resetDiceStats(true);
+            resetCoinStats(true);
+        })();
+    </script>
+</body>
+</html>

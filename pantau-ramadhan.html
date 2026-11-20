@@ -111,13 +111,18 @@
                                 <span id="conn-dot" class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                                 <span id="conn-text">Mode Pratinjau</span>
                             </span>
+                            <!-- Badge Peran Akses (Wali Kelas / Admin / Mode Pantau) -->
+                            <span id="role-badge" class="hidden inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 border border-sky-300/60 dark:border-sky-700/60">
+                                <i id="role-icon" class="fa-solid fa-user-shield text-[9px]"></i>
+                                <span id="role-text">Admin</span>
+                            </span>
                         </div>
                         <p class="text-[10px] sm:text-[11px] font-semibold text-teal-600 dark:text-teal-400 uppercase tracking-wider truncate">SAKTI • Dasbor Pemantauan Ibadah Siswa</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Kanan: Tombol Hubungkan Sekolah, Refresh, Dark/Light Mode -->
+            <!-- Kanan: Tombol Hubungkan Sekolah (hanya tampil saat belum terhubung), Refresh, Dark/Light Mode -->
             <div class="flex items-center gap-1.5 sm:gap-2">
                 <button id="btn-open-connect" class="h-10 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer" title="Hubungkan Kode Sekolah Firebase">
                     <i class="fa-solid fa-link"></i>
@@ -186,6 +191,11 @@
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2">
+                    <span id="readonly-notice" class="hidden inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[11px] font-bold">
+                        <i class="fa-solid fa-eye text-teal-500"></i>
+                        <span>Mode Pantau (Paraf &amp; WA Khusus Wali Kelas/Admin)</span>
+                    </span>
+
                     <button id="btn-mass-paraf" class="h-10 px-4 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-extrabold flex items-center gap-2 shadow-sm active:scale-95 transition cursor-pointer">
                         <i class="fa-solid fa-check-double"></i>
                         <span>Paraf Massal Hari Ini</span>
@@ -417,30 +427,44 @@
 
             <!-- Footer Form Catatan & Paraf Guru -->
             <div class="px-5 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/95 space-y-3">
-                <div>
-                    <div class="flex items-center justify-between mb-1.5">
-                        <label for="md-teacher-note" class="text-xs font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-300">
-                            <i class="fa-solid fa-comment-dots text-emerald-500 mr-1"></i> Catatan / Apresiasi Guru
-                        </label>
+                <!-- Mode Lihat Saja (Untuk Guru Bukan Wali Kelas) -->
+                <div id="md-readonly-info" class="hidden space-y-2">
+                    <div id="md-readonly-note-box" class="hidden p-3 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/60 text-xs text-sky-800 dark:text-sky-200">
+                        <p class="text-[10px] font-extrabold uppercase text-sky-600 dark:text-sky-400 mb-0.5">Catatan Wali Kelas / Guru:</p>
+                        <p id="md-readonly-note-text"></p>
                     </div>
-                    <!-- Chip Pujian Cepat -->
-                    <div class="flex flex-wrap gap-1.5 mb-2">
-                        <button type="button" data-praise="MasyaAllah, pertahankan!" class="praise-chip px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 text-[11px] font-bold transition cursor-pointer">MasyaAllah, pertahankan!</button>
-                        <button type="button" data-praise="Tadarusnya luar biasa!" class="praise-chip px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 text-[11px] font-bold transition cursor-pointer">Tadarusnya luar biasa!</button>
-                        <button type="button" data-praise="Yuk tingkatkan sholat berjamaahnya!" class="praise-chip px-2.5 py-1 rounded-full bg-sky-50 dark:bg-sky-900/30 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800/60 text-[11px] font-bold transition cursor-pointer">Yuk tingkatkan sholat berjamaahnya!</button>
-                        <button type="button" data-praise="Ringkasan kultum sangat baik & inspiratif!" class="praise-chip px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 text-[11px] font-bold transition cursor-pointer">Catatan kultum sangat baik!</button>
+                    <div class="flex items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+                        <span class="inline-flex items-center gap-1.5 font-semibold"><i class="fa-solid fa-lock text-slate-400"></i> Mode Pantau — Paraf &amp; catatan hanya dapat diisi oleh Wali Kelas / Admin.</span>
                     </div>
-                    <textarea id="md-teacher-note" rows="2" placeholder="Tulis pesan motivasi atau catatan untuk siswa..." class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-white focus:border-emerald-500 outline-none resize-none"></textarea>
                 </div>
 
-                <div class="flex flex-wrap items-center justify-end gap-2">
-                    <button id="btn-md-unparaf" class="hidden px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 text-xs font-extrabold transition cursor-pointer">
-                        <i class="fa-solid fa-rotate-left mr-1"></i> Batalkan Paraf
-                    </button>
-                    <button id="btn-md-save-paraf" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-extrabold shadow-md flex items-center gap-2 transition cursor-pointer">
-                        <i class="fa-solid fa-circle-check"></i>
-                        <span>Simpan &amp; Beri Paraf</span>
-                    </button>
+                <!-- Mode Akses Penuh (Wali Kelas / Admin) -->
+                <div id="md-teacher-actions" class="space-y-3">
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label for="md-teacher-note" class="text-xs font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                                <i class="fa-solid fa-comment-dots text-emerald-500 mr-1"></i> Catatan / Apresiasi Guru
+                            </label>
+                        </div>
+                        <!-- Chip Pujian Cepat -->
+                        <div class="flex flex-wrap gap-1.5 mb-2">
+                            <button type="button" data-praise="MasyaAllah, pertahankan!" class="praise-chip px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 text-[11px] font-bold transition cursor-pointer">MasyaAllah, pertahankan!</button>
+                            <button type="button" data-praise="Tadarusnya luar biasa!" class="praise-chip px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 text-[11px] font-bold transition cursor-pointer">Tadarusnya luar biasa!</button>
+                            <button type="button" data-praise="Yuk tingkatkan sholat berjamaahnya!" class="praise-chip px-2.5 py-1 rounded-full bg-sky-50 dark:bg-sky-900/30 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800/60 text-[11px] font-bold transition cursor-pointer">Yuk tingkatkan sholat berjamaahnya!</button>
+                            <button type="button" data-praise="Ringkasan kultum sangat baik & inspiratif!" class="praise-chip px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 text-[11px] font-bold transition cursor-pointer">Catatan kultum sangat baik!</button>
+                        </div>
+                        <textarea id="md-teacher-note" rows="2" placeholder="Tulis pesan motivasi atau catatan untuk siswa..." class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-white focus:border-emerald-500 outline-none resize-none"></textarea>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-end gap-2">
+                        <button id="btn-md-unparaf" class="hidden px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 text-xs font-extrabold transition cursor-pointer">
+                            <i class="fa-solid fa-rotate-left mr-1"></i> Batalkan Paraf
+                        </button>
+                        <button id="btn-md-save-paraf" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-extrabold shadow-md flex items-center gap-2 transition cursor-pointer">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <span>Simpan &amp; Beri Paraf</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -607,7 +631,12 @@
             searchQuery: '',
             activeTab: 'daily', // 'daily' | 'matrix'
             detailTarget: null, // { nis, day }
-            toastTimer: null
+            toastTimer: null,
+            userAccess: {       // Hak akses: 'admin' | 'wali' | 'guru' | 'demo'
+                role: 'demo',
+                name: 'Mode Pratinjau',
+                waliKelas: null
+            }
         };
 
         // Referensi DOM Utama
@@ -632,11 +661,20 @@
         const modalWa = document.getElementById('modal-wa');
 
         // ---------------------------------------------------------------------
-        // 3. UTILITAS: TEMA, TOAST, ESCAPE HTML, & NORMALISASI DATA FIRESTORE
+        // 3. UTILITAS: STORAGE AMAN, TEMA, TOAST, ESCAPE HTML, & HAK AKSES
         // ---------------------------------------------------------------------
+        function safeGetStorage(key) {
+            try { return localStorage.getItem(key); } catch (_) { return null; }
+        }
+
+        function safeSetStorage(key, val) {
+            try { localStorage.setItem(key, val); } catch (_) {}
+        }
+
         function applyTheme() {
-            const isDark = localStorage.theme === 'dark' ||
-                (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            const savedTheme = safeGetStorage('theme');
+            const isDark = savedTheme === 'dark' ||
+                (!savedTheme && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
             document.documentElement.classList.toggle('dark', isDark);
             const icon = document.getElementById('icon-theme');
             icon.className = isDark ? 'fa-solid fa-sun text-sm text-amber-400' : 'fa-solid fa-moon text-sm';
@@ -661,15 +699,107 @@
         }
 
         function updateConnectionBadge(connected, schoolLabel = '') {
+            const btnConnect = document.getElementById('btn-open-connect');
             if (connected) {
                 connBadge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-700/60';
                 connDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse';
                 connText.textContent = schoolLabel ? `Firebase (${schoolLabel})` : 'Terhubung Firebase';
+                // Sembunyikan tombol Hubungkan Sekolah saat sudah terhubung dari login portal
+                if (btnConnect) btnConnect.classList.add('hidden');
             } else {
                 connBadge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-700/60';
                 connDot.className = 'w-1.5 h-1.5 rounded-full bg-amber-500';
                 connText.textContent = 'Mode Pratinjau';
+                if (btnConnect) btnConnect.classList.remove('hidden');
             }
+        }
+
+        // Cek apakah pengguna berhak memberi paraf/catatan pada siswa tertentu
+        function canManageStudent(student) {
+            const role = state.userAccess.role;
+            if (role === 'admin' || role === 'demo') return true;
+            if (role === 'wali' && state.userAccess.waliKelas && student) {
+                return String(student.kelas || '').trim().toUpperCase() === String(state.userAccess.waliKelas).trim().toUpperCase();
+            }
+            return false;
+        }
+
+        // Cek apakah pengguna berhak memakai Paraf Massal & Rekap WA pada filter kelas aktif
+        function canManageCurrentClass() {
+            const role = state.userAccess.role;
+            if (role === 'admin' || role === 'demo') return true;
+            if (role === 'wali' && state.userAccess.waliKelas) {
+                return String(state.selectedClass).trim().toUpperCase() === String(state.userAccess.waliKelas).trim().toUpperCase();
+            }
+            return false;
+        }
+
+        // Deteksi otomatis peran pengguna dari localStorage + Firestore (users_guru)
+        async function resolveUserAccess(db) {
+            const guruId = safeGetStorage('cbt_user_id');
+            const adminKode = safeGetStorage('sakti_school_kode');
+
+            if (guruId && db) {
+                try {
+                    const guruSnap = await getDoc(doc(db, 'users_guru', guruId));
+                    if (guruSnap.exists()) {
+                        const g = guruSnap.data() || {};
+                        const wk = g.waliKelas ? String(g.waliKelas).trim() : '';
+                        if (wk) {
+                            state.userAccess = { role: 'wali', name: g.fullName || guruId, waliKelas: wk };
+                        } else {
+                            state.userAccess = { role: 'guru', name: g.fullName || guruId, waliKelas: null };
+                        }
+                        return;
+                    }
+                } catch (e) {
+                    console.warn('Gagal membaca profil guru:', e);
+                }
+                state.userAccess = { role: 'guru', name: guruId, waliKelas: null };
+                return;
+            }
+
+            // Jika masuk tanpa cbt_user_id tetapi punya sesi PKA (sakti_school_kode) -> Admin Sekolah
+            if (adminKode) {
+                state.userAccess = { role: 'admin', name: 'Admin / Kurikulum', waliKelas: null };
+                return;
+            }
+
+            // Fallback aman: Mode Pantau (lihat saja)
+            state.userAccess = { role: 'guru', name: 'Guru', waliKelas: null };
+        }
+
+        // Perbarui lencana peran & visibilitas tombol Paraf Massal / Rekap WA
+        function updateAccessUI() {
+            const roleBadge = document.getElementById('role-badge');
+            const roleIcon = document.getElementById('role-icon');
+            const roleText = document.getElementById('role-text');
+            const btnMass = document.getElementById('btn-mass-paraf');
+            const btnWa = document.getElementById('btn-open-wa');
+            const readonlyNotice = document.getElementById('readonly-notice');
+
+            const { role, waliKelas } = state.userAccess;
+
+            if (role === 'demo') {
+                roleBadge.classList.add('hidden');
+            } else if (role === 'admin') {
+                roleBadge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border border-indigo-300/60 dark:border-indigo-700/60';
+                roleIcon.className = 'fa-solid fa-user-shield text-[9px]';
+                roleText.textContent = 'Admin Sekolah';
+            } else if (role === 'wali') {
+                roleBadge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 border border-sky-300/60 dark:border-sky-700/60';
+                roleIcon.className = 'fa-solid fa-chalkboard-user text-[9px]';
+                roleText.textContent = `Wali Kelas ${waliKelas}`;
+            } else {
+                roleBadge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-300/70 dark:border-slate-700';
+                roleIcon.className = 'fa-solid fa-eye text-[9px]';
+                roleText.textContent = 'Mode Pantau';
+            }
+
+            const canManage = canManageCurrentClass();
+            btnMass.classList.toggle('hidden', !canManage);
+            btnWa.classList.toggle('hidden', !canManage);
+            readonlyNotice.classList.toggle('hidden', canManage);
         }
 
         /**
@@ -852,7 +982,7 @@
 
             // Cek apakah sudah ada data demo tersimpan di localStorage
             try {
-                const saved = localStorage.getItem(DEMO_STORAGE_KEY);
+                const saved = safeGetStorage(DEMO_STORAGE_KEY);
                 if (saved) {
                     const parsed = JSON.parse(saved);
                     if (parsed && parsed.students && parsed.journals) {
@@ -865,10 +995,8 @@
             demoStudents.forEach((st, idx) => {
                 const days = {};
                 const missionsCompleted = {};
-                // Variasi keaktifan siswa pada Hari 1 s.d. 10
                 for (let d = 1; d <= 10; d++) {
                     const seed = (idx * 7 + d * 13) % 10;
-                    // Sebagian siswa belum mengisi hari-hari tertentu (khususnya hari ke-10 agar terlihat realistis)
                     if (d === 10 && (idx === 4 || idx === 6 || idx === 12)) continue;
                     if (d > 7 && idx % 5 === 4 && seed < 4) continue;
                     if (seed === 0 && d > 2) continue;
@@ -895,7 +1023,6 @@
                     const misiDone = (idx + d) % 4 !== 0;
                     if (misiDone) missionsCompleted[String(d)] = true;
 
-                    // Hari 1-7 mayoritas sudah diparaf, hari 8-10 sebagian menunggu paraf
                     const isParaf = d <= 7 ? ((idx + d) % 4 !== 0) : (d <= 9 ? ((idx + d) % 3 === 0) : (idx % 4 === 0));
 
                     days[String(d)] = {
@@ -947,21 +1074,15 @@
             });
 
             const bundle = { students: demoStudents, journals: demoJournals };
-            try {
-                localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(bundle));
-            } catch (_) {}
+            safeSetStorage(DEMO_STORAGE_KEY, JSON.stringify(bundle));
             return bundle;
         }
 
         function saveDemoData() {
-            try {
-                localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify({
-                    students: state.students,
-                    journals: state.journals
-                }));
-            } catch (e) {
-                console.warn('Gagal simpan data demo:', e);
-            }
+            safeSetStorage(DEMO_STORAGE_KEY, JSON.stringify({
+                students: state.students,
+                journals: state.journals
+            }));
         }
 
         // ---------------------------------------------------------------------
@@ -1000,7 +1121,6 @@
                 jurnalSnap.forEach(d => {
                     const data = d.data() || {};
                     loadedJournals[d.id] = data;
-                    // Jika siswa ada di jurnal_ramadhan tapi belum ada di koleksi siswa, tetap tampilkan
                     if (!loadedStudents.some(s => s.nis === d.id)) {
                         loadedStudents.push({
                             nis: d.id,
@@ -1017,8 +1137,10 @@
                 state.students = loadedStudents;
                 state.journals = loadedJournals;
 
-                updateConnectionBadge(true, schoolCode || localStorage.getItem('sakti_school_code') || '');
+                await resolveUserAccess(db);
+                updateConnectionBadge(true, schoolCode || safeGetStorage('sakti_school_kode') || safeGetStorage('sakti_school_code') || '');
                 initFiltersAndDefaultDay();
+                updateAccessUI();
                 renderAll();
                 loadingOverlay.classList.add('hidden');
                 return true;
@@ -1036,8 +1158,10 @@
             state.db = null;
             state.students = demo.students;
             state.journals = demo.journals;
+            state.userAccess = { role: 'demo', name: 'Mode Pratinjau', waliKelas: null };
             updateConnectionBadge(false);
             initFiltersAndDefaultDay();
+            updateAccessUI();
             renderAll();
             loadingOverlay.classList.add('hidden');
         }
@@ -1069,8 +1193,8 @@
                     throw new Error('Konfigurasi Firebase sekolah belum lengkap.');
                 }
 
-                localStorage.setItem('sakti_school_config', JSON.stringify(schoolData.config));
-                localStorage.setItem('sakti_school_code', code);
+                safeSetStorage('sakti_school_config', JSON.stringify(schoolData.config));
+                safeSetStorage('sakti_school_code', code);
 
                 modalConnect.classList.add('hidden');
                 const ok = await loadFirebaseData(schoolData.config, code);
@@ -1091,7 +1215,6 @@
             const dayKey = String(dayNum);
             const nowIso = new Date().toISOString();
 
-            // Pastikan struktur lokal ada
             if (!state.journals[nis]) {
                 const st = state.students.find(s => s.nis === nis) || { nis, nama: nis, kelas: '-' };
                 state.journals[nis] = { nis, nama: st.nama, kelas: st.kelas, days: {} };
@@ -1106,10 +1229,9 @@
             const existingNote = state.journals[nis].days[dayKey].catatanGuru || '';
             const finalNote = catatanGuru !== null ? catatanGuru : existingNote;
 
-            // Update memori lokal
             Object.assign(state.journals[nis].days[dayKey], {
                 parafGuru: isParaf,
-                paraf: isParaf, // Kompatibel langsung dengan buku-ramadhan.html
+                paraf: isParaf,
                 catatanGuru: finalNote,
                 parafAt: isParaf ? nowIso : ''
             });
@@ -1142,7 +1264,6 @@
         // 7. FILTERING & RENDERING STATISTIK + TABEL
         // ---------------------------------------------------------------------
         function initFiltersAndDefaultDay() {
-            // Isi dropdown Hari 1 - 30
             if (filterHari.options.length === 0) {
                 for (let d = 1; d <= 30; d++) {
                     const opt = document.createElement('option');
@@ -1152,7 +1273,6 @@
                 }
             }
 
-            // Isi dropdown Kelas unik
             const uniqueClasses = [...new Set(state.students.map(s => s.kelas || 'Tanpa Kelas'))].sort();
             const prevClass = state.selectedClass;
             filterKelas.innerHTML = '<option value="ALL">Semua Kelas</option>';
@@ -1162,14 +1282,24 @@
                 opt.textContent = cls;
                 filterKelas.appendChild(opt);
             });
+
             if (uniqueClasses.includes(prevClass)) {
                 filterKelas.value = prevClass;
+            } else if (state.userAccess.role === 'wali' && state.userAccess.waliKelas) {
+                // Cocokkan kelas perwalian (case-insensitive)
+                const matchedClass = uniqueClasses.find(c => c.trim().toUpperCase() === state.userAccess.waliKelas.trim().toUpperCase());
+                if (matchedClass) {
+                    state.selectedClass = matchedClass;
+                    filterKelas.value = matchedClass;
+                } else {
+                    state.selectedClass = 'ALL';
+                    filterKelas.value = 'ALL';
+                }
             } else {
                 state.selectedClass = 'ALL';
                 filterKelas.value = 'ALL';
             }
 
-            // Pilih hari default = hari terakhir yang memiliki data (atau Hari ke-1)
             let latestDay = 1;
             Object.values(state.journals).forEach(j => {
                 const dMap = j.days || j.hari || {};
@@ -1294,6 +1424,7 @@
                 const hasKultum = Boolean(d && d.kultum.ringkasan && d.kultum.ringkasan.trim().length > 2);
                 const hasMisi = Boolean(d && d.misiSelesai);
                 const isParaf = Boolean(d && d.parafGuru);
+                const canParaf = canManageStudent(st);
 
                 return `
                     <tr class="hover:bg-slate-50/90 dark:hover:bg-slate-800/40 transition-colors">
@@ -1335,14 +1466,18 @@
                                 <button data-action="detail" data-nis="${escapeHtml(st.nis)}" data-day="${day}" class="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 text-slate-700 dark:text-slate-200 hover:text-emerald-700 dark:hover:text-emerald-300 border border-slate-200 dark:border-slate-700 text-[11px] font-bold transition cursor-pointer" title="Lihat Detail Jurnal">
                                     <i class="fa-solid fa-eye mr-1"></i>Detail
                                 </button>
-                                <button data-action="toggle-paraf" data-nis="${escapeHtml(st.nis)}" data-day="${day}" ${!d ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold transition flex items-center gap-1 ${!d
-                                    ? 'bg-slate-100 dark:bg-slate-800/60 text-slate-300 dark:text-slate-600 cursor-not-allowed'
+                                ${canParaf
+                                    ? `<button data-action="toggle-paraf" data-nis="${escapeHtml(st.nis)}" data-day="${day}" ${!d ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold transition flex items-center gap-1 ${!d
+                                        ? 'bg-slate-100 dark:bg-slate-800/60 text-slate-300 dark:text-slate-600 cursor-not-allowed'
+                                        : (isParaf
+                                            ? 'bg-sky-600 hover:bg-sky-700 text-white shadow-sm cursor-pointer'
+                                            : 'bg-sky-50 dark:bg-sky-900/30 hover:bg-sky-600 text-sky-700 dark:text-sky-300 hover:text-white border border-sky-200 dark:border-sky-800 cursor-pointer')}" title="${!d ? 'Siswa belum mengisi' : (isParaf ? 'Klik untuk batalkan paraf' : 'Klik untuk beri paraf')}">
+                                        <i class="fa-solid ${isParaf ? 'fa-circle-check' : 'fa-stamp'}"></i>
+                                        <span>${isParaf ? 'Diparaf' : 'Paraf'}</span>
+                                    </button>`
                                     : (isParaf
-                                        ? 'bg-sky-600 hover:bg-sky-700 text-white shadow-sm cursor-pointer'
-                                        : 'bg-sky-50 dark:bg-sky-900/30 hover:bg-sky-600 text-sky-700 dark:text-sky-300 hover:text-white border border-sky-200 dark:border-sky-800 cursor-pointer')}" title="${!d ? 'Siswa belum mengisi' : (isParaf ? 'Klik untuk batalkan paraf' : 'Klik untuk beri paraf')}">
-                                    <i class="fa-solid ${isParaf ? 'fa-circle-check' : 'fa-stamp'}"></i>
-                                    <span>${isParaf ? 'Diparaf' : 'Paraf'}</span>
-                                </button>
+                                        ? '<span class="px-2 py-1 rounded-lg bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 text-[10px] font-bold"><i class="fa-solid fa-circle-check mr-1"></i>Diparaf</span>'
+                                        : '')}
                             </div>
                         </td>
                     </tr>
@@ -1351,7 +1486,6 @@
         }
 
         function renderMatrixTable(list) {
-            // Header 30 Hari
             let dayHeaders = '';
             for (let d = 1; d <= 30; d++) {
                 const isSel = d === state.selectedDay;
@@ -1425,7 +1559,7 @@
         }
 
         // ---------------------------------------------------------------------
-        // 8. MODAL DETAIL JURNAL SISWA & PARAF
+        // 8. MODAL DETAIL JURNAL SISWA & PARAF (MENDUKUNG MODE PANTAU READ-ONLY)
         // ---------------------------------------------------------------------
         function openDetailModal(nis, dayNum) {
             const st = state.students.find(s => s.nis === nis);
@@ -1441,6 +1575,19 @@
             const parafBadge = document.getElementById('md-paraf-badge');
             const btnUnparaf = document.getElementById('btn-md-unparaf');
             const noteInput = document.getElementById('md-teacher-note');
+            const canEdit = canManageStudent(st);
+
+            document.getElementById('md-teacher-actions').classList.toggle('hidden', !canEdit);
+            document.getElementById('md-readonly-info').classList.toggle('hidden', canEdit);
+
+            const readonlyNoteBox = document.getElementById('md-readonly-note-box');
+            const readonlyNoteText = document.getElementById('md-readonly-note-text');
+            if (!canEdit && d && d.catatanGuru) {
+                readonlyNoteBox.classList.remove('hidden');
+                readonlyNoteText.textContent = d.catatanGuru;
+            } else {
+                readonlyNoteBox.classList.add('hidden');
+            }
 
             if (d && d.parafGuru) {
                 parafBadge.classList.remove('hidden');
@@ -1457,7 +1604,7 @@
                     <div class="p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-dashed border-slate-300 dark:border-slate-700 text-center space-y-2">
                         <i class="fa-regular fa-calendar-xmark text-4xl text-slate-400"></i>
                         <p class="font-bold text-slate-700 dark:text-slate-200">Siswa Belum Mengisi Jurnal Hari ke-${dayNum}</p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Anda tetap dapat meninggalkan catatan pengingat jika diperlukan.</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">${canEdit ? 'Anda tetap dapat meninggalkan catatan pengingat jika diperlukan.' : 'Belum ada data jurnal untuk hari ini.'}</p>
                     </div>
                 `;
             } else {
@@ -1475,7 +1622,6 @@
                 }).join('');
 
                 body.innerHTML = `
-                    <!-- Baris Puasa & Misi -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
                             <p class="text-[10px] font-extrabold uppercase text-slate-400 mb-1">Status Puasa</p>
@@ -1492,13 +1638,11 @@
                         </div>
                     </div>
 
-                    <!-- Sholat Wajib 5 Waktu -->
                     <div>
                         <p class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mb-2">Sholat Wajib 5 Waktu</p>
                         <div class="grid grid-cols-5 gap-1.5 sm:gap-2">${sholatGrid}</div>
                     </div>
 
-                    <!-- Sholat Sunnah & Tadarus -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
                             <p class="text-[10px] font-extrabold uppercase text-teal-600 dark:text-teal-400 mb-1.5">Sholat Sunnah</p>
@@ -1515,7 +1659,6 @@
                         </div>
                     </div>
 
-                    <!-- Siraman Rohani / Kultum -->
                     <div class="p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/70 dark:border-indigo-800/50 space-y-1">
                         <p class="text-[10px] font-extrabold uppercase text-indigo-600 dark:text-indigo-400">
                             <i class="fa-solid fa-microphone-lines mr-1"></i> Siraman Rohani / Kultum
@@ -1526,7 +1669,6 @@
                             : '<p class="text-xs text-slate-400 italic">Siswa belum mengisi rangkuman kultum.</p>'}
                     </div>
 
-                    <!-- Kebaikan Harian -->
                     <div class="p-3.5 rounded-2xl bg-rose-50/60 dark:bg-rose-950/25 border border-rose-200/60 dark:border-rose-800/50">
                         <p class="text-[10px] font-extrabold uppercase text-rose-600 dark:text-rose-400 mb-1.5">
                             <i class="fa-solid fa-heart mr-1"></i> Kebaikan Harian
@@ -1619,7 +1761,6 @@
                     else missingList.forEach((st, i) => lines.push(`${i + 1}. ${st.nama}`));
                 }
             } else {
-                // Rekap Akumulasi s.d. Hari ke-X
                 const rows = list.map(st => ({ st, sum: getStudentSummary(st.nis, day) }));
                 const totalAyatAll = rows.reduce((a, r) => a + r.sum.totalAyat, 0);
                 const avgFill = rows.length > 0 ? Math.round(rows.reduce((a, r) => a + r.sum.fillPct, 0) / rows.length) : 0;
@@ -1683,7 +1824,6 @@
             const kelasRaw = state.selectedClass === 'ALL' ? 'Semua_Kelas' : state.selectedClass;
             const kelasClean = kelasRaw.replace(/[^a-zA-Z0-9_-]/g, '_');
 
-            // Sheet 1: Rekap 30 Hari
             const sheet1Data = list.map((st, idx) => {
                 const s = getStudentSummary(st.nis, 30);
                 return {
@@ -1702,7 +1842,6 @@
                 };
             });
 
-            // Sheet 2: Detail Hari Ke-X
             const sheet2Data = list.map((st, idx) => {
                 const d = getNormalizedDay(st.nis, day);
                 const cap = (v) => v ? v.charAt(0).toUpperCase() + v.slice(1) : '-';
@@ -1755,22 +1894,22 @@
         // ---------------------------------------------------------------------
         // 11. EVENT LISTENERS
         // ---------------------------------------------------------------------
-        // Tema Gelap / Terang
         document.getElementById('btn-theme').addEventListener('click', () => {
             const nowDark = !document.documentElement.classList.contains('dark');
             document.documentElement.classList.toggle('dark', nowDark);
-            localStorage.theme = nowDark ? 'dark' : 'light';
+            safeSetStorage('theme', nowDark ? 'dark' : 'light');
             applyTheme();
         });
 
-        // Refresh Data
         document.getElementById('btn-refresh').addEventListener('click', async () => {
             const icon = document.getElementById('icon-refresh');
             icon.classList.add('fa-spin');
-            const savedConfig = localStorage.getItem('sakti_school_config');
+            const savedConfig = safeGetStorage('sakti_school_config');
             if (!state.isDemo && savedConfig) {
-                await loadFirebaseData(JSON.parse(savedConfig));
-                showToast('Data Firebase berhasil diperbarui');
+                try {
+                    await loadFirebaseData(JSON.parse(savedConfig));
+                    showToast('Data Firebase berhasil diperbarui');
+                } catch (_) {}
             } else {
                 renderAll();
                 showToast('Tampilan data diperbarui');
@@ -1778,9 +1917,8 @@
             setTimeout(() => icon.classList.remove('fa-spin'), 450);
         });
 
-        // Modal Hubungkan Sekolah
         document.getElementById('btn-open-connect').addEventListener('click', () => {
-            document.getElementById('input-school-code').value = localStorage.getItem('sakti_school_code') || '';
+            document.getElementById('input-school-code').value = safeGetStorage('sakti_school_kode') || safeGetStorage('sakti_school_code') || '';
             document.getElementById('connect-error-msg').classList.add('hidden');
             modalConnect.classList.remove('hidden');
         });
@@ -1796,9 +1934,9 @@
             if (code) connectBySchoolCode(code);
         });
 
-        // Filter Kelas, Hari, & Pencarian
         filterKelas.addEventListener('change', (e) => {
             state.selectedClass = e.target.value;
+            updateAccessUI();
             renderAll();
         });
         filterHari.addEventListener('change', (e) => {
@@ -1817,7 +1955,6 @@
             renderAll();
         });
 
-        // Switch 2 Tab Mode Tampilan
         function switchViewTab(tab) {
             state.activeTab = tab;
             document.getElementById('tab-btn-daily').classList.toggle('active', tab === 'daily');
@@ -1831,7 +1968,6 @@
         document.getElementById('tab-btn-daily').addEventListener('click', () => switchViewTab('daily'));
         document.getElementById('tab-btn-matrix').addEventListener('click', () => switchViewTab('matrix'));
 
-        // Delegasi Klik di Tabel Harian & Matriks 30 Hari
         async function handleTableClick(e) {
             const btn = e.target.closest('button[data-action]');
             if (!btn) return;
@@ -1843,6 +1979,11 @@
             if (action === 'detail') {
                 openDetailModal(nis, day);
             } else if (action === 'toggle-paraf') {
+                const st = state.students.find(s => s.nis === nis);
+                if (!canManageStudent(st)) {
+                    showToast('Akses terbatas: hanya Wali Kelas atau Admin yang dapat memberi paraf.');
+                    return;
+                }
                 const d = getNormalizedDay(nis, day);
                 if (!d) return;
                 const nextParaf = !d.parafGuru;
@@ -1858,7 +1999,6 @@
         dailyTableBody.addEventListener('click', handleTableClick);
         matrixTableBody.addEventListener('click', handleTableClick);
 
-        // Interaksi Modal Detail Jurnal & Paraf
         document.getElementById('btn-close-detail').addEventListener('click', () => modalDetail.classList.add('hidden'));
         document.querySelectorAll('.praise-chip').forEach(chip => {
             chip.addEventListener('click', () => {
@@ -1872,6 +2012,11 @@
         document.getElementById('btn-md-save-paraf').addEventListener('click', async () => {
             if (!state.detailTarget) return;
             const { nis, day } = state.detailTarget;
+            const st = state.students.find(s => s.nis === nis);
+            if (!canManageStudent(st)) {
+                showToast('Akses terbatas: hanya Wali Kelas atau Admin yang dapat memberi paraf.');
+                return;
+            }
             const note = document.getElementById('md-teacher-note').value.trim();
             const ok = await saveTeacherParaf(nis, day, true, note);
             if (ok) {
@@ -1884,6 +2029,11 @@
         document.getElementById('btn-md-unparaf').addEventListener('click', async () => {
             if (!state.detailTarget) return;
             const { nis, day } = state.detailTarget;
+            const st = state.students.find(s => s.nis === nis);
+            if (!canManageStudent(st)) {
+                showToast('Akses terbatas: hanya Wali Kelas atau Admin yang dapat mengubah paraf.');
+                return;
+            }
             const note = document.getElementById('md-teacher-note').value.trim();
             const ok = await saveTeacherParaf(nis, day, false, note);
             if (ok) {
@@ -1893,13 +2043,16 @@
             }
         });
 
-        // Paraf Massal Hari Ini (dengan Modal Konfirmasi)
         document.getElementById('btn-mass-paraf').addEventListener('click', () => {
+            if (!canManageCurrentClass()) {
+                showToast('Paraf massal hanya tersedia untuk Wali Kelas (di kelasnya) atau Admin.');
+                return;
+            }
             const list = getFilteredStudents();
             const day = state.selectedDay;
             const targets = list.filter(st => {
                 const d = getNormalizedDay(st.nis, day);
-                return d && !d.parafGuru;
+                return d && !d.parafGuru && canManageStudent(st);
             });
 
             if (targets.length === 0) {
@@ -1915,6 +2068,7 @@
 
         document.getElementById('btn-cancel-mass').addEventListener('click', () => modalMassParaf.classList.add('hidden'));
         document.getElementById('btn-confirm-mass').addEventListener('click', async () => {
+            if (!canManageCurrentClass()) return;
             const btn = document.getElementById('btn-confirm-mass');
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses...';
@@ -1923,7 +2077,7 @@
             const day = state.selectedDay;
             const targets = list.filter(st => {
                 const d = getNormalizedDay(st.nis, day);
-                return d && !d.parafGuru;
+                return d && !d.parafGuru && canManageStudent(st);
             });
 
             let successCount = 0;
@@ -1939,8 +2093,11 @@
             showToast(`Alhamdulillah! ${successCount} jurnal Hari ke-${day} berhasil diparaf.`);
         });
 
-        // Modal Rekap WhatsApp
         document.getElementById('btn-open-wa').addEventListener('click', () => {
+            if (!canManageCurrentClass()) {
+                showToast('Rekap WhatsApp hanya tersedia untuk Wali Kelas (di kelasnya) atau Admin.');
+                return;
+            }
             document.getElementById('wa-opt-daily-sub').textContent = `Khusus Hari ke-${state.selectedDay}`;
             document.getElementById('wa-opt-cum-sub').textContent = `Hari ke-1 s.d. Hari ke-${state.selectedDay}`;
             generateWhatsAppText();
@@ -1952,7 +2109,6 @@
             el.addEventListener('change', generateWhatsAppText);
         });
 
-        // Salin Teks WA dengan document.execCommand('copy') (aman di dalam iFrame)
         document.getElementById('btn-wa-copy').addEventListener('click', () => {
             const textarea = document.getElementById('wa-preview-text');
             textarea.select();
@@ -1971,7 +2127,6 @@
             window.open(url, '_blank', 'noopener,noreferrer');
         });
 
-        // Ekspor Excel (.xlsx)
         document.getElementById('btn-export-excel').addEventListener('click', exportToExcel);
 
         // ---------------------------------------------------------------------
@@ -1979,7 +2134,7 @@
         // ---------------------------------------------------------------------
         async function bootstrap() {
             applyTheme();
-            const savedConfig = localStorage.getItem('sakti_school_config');
+            const savedConfig = safeGetStorage('sakti_school_config');
             if (savedConfig) {
                 try {
                     const configObj = JSON.parse(savedConfig);

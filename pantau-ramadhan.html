@@ -1,0 +1,1996 @@
+<!DOCTYPE html>
+<html lang="id" class="antialiased">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pantau Jurnal Ramadhan - SAKTI</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome 6 CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- SheetJS (XLSX) CDN untuk Ekspor Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        };
+    </script>
+
+    <style>
+        /* Scrollbar halus untuk tabel matriks 30 hari */
+        .custom-scroll::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(148, 163, 184, 0.15);
+            border-radius: 9999px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(16, 185, 129, 0.45);
+            border-radius: 9999px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(16, 185, 129, 0.75);
+        }
+
+        /* Animasi masuk modal & toast */
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(12px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .animate-modal {
+            animation: fadeSlideUp 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        #toast-box {
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+        #toast-box.toast-hidden {
+            opacity: 0;
+            transform: translate(-50%, 16px);
+            pointer-events: none;
+        }
+        #toast-box.toast-show {
+            opacity: 1;
+            transform: translate(-50%, 0);
+        }
+
+        /* Tab mode tampilan aktif */
+        .view-tab.active {
+            background: linear-gradient(135deg, #059669, #0d9488);
+            color: #ffffff !important;
+            box-shadow: 0 4px 14px rgba(5, 150, 105, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
+
+    <!-- ===================================================================== -->
+    <!-- OVERLAY LOADING AWAL                                                  -->
+    <!-- ===================================================================== -->
+    <div id="loading-overlay" class="fixed inset-0 z-[100] bg-slate-100/90 dark:bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center">
+        <div class="w-14 h-14 border-4 border-slate-300 dark:border-slate-700 border-t-emerald-500 rounded-full animate-spin mb-4"></div>
+        <p id="loading-text" class="text-xs font-mono font-bold uppercase tracking-[0.25em] text-emerald-600 dark:text-emerald-400 animate-pulse">Memuat Data Jurnal Ramadhan...</p>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- HEADER STICKY RESPONSIF                                               -->
+    <!-- ===================================================================== -->
+    <header class="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm">
+        <div class="max-w-7xl mx-auto px-3 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+            
+            <!-- Kiri: Kembali ke Tools Guru + Identitas Aplikasi -->
+            <div class="flex items-center gap-3 min-w-0">
+                <a href="tools-guru.html" class="h-10 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 border border-slate-200 dark:border-slate-700 text-xs font-bold flex items-center gap-2 transition shrink-0" title="Kembali ke Tools Guru">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <span class="hidden md:inline">Tools Guru</span>
+                </a>
+
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center text-lg shadow-sm shrink-0">
+                        <i class="fa-solid fa-mosque"></i>
+                    </div>
+                    <div class="leading-tight min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h1 class="font-extrabold text-sm sm:text-lg tracking-tight text-slate-800 dark:text-white truncate">Pantau Jurnal Ramadhan</h1>
+                            <!-- Badge Status Koneksi -->
+                            <span id="conn-badge" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-700/60">
+                                <span id="conn-dot" class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                <span id="conn-text">Mode Pratinjau</span>
+                            </span>
+                        </div>
+                        <p class="text-[10px] sm:text-[11px] font-semibold text-teal-600 dark:text-teal-400 uppercase tracking-wider truncate">SAKTI • Dasbor Pemantauan Ibadah Siswa</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kanan: Tombol Hubungkan Sekolah, Refresh, Dark/Light Mode -->
+            <div class="flex items-center gap-1.5 sm:gap-2">
+                <button id="btn-open-connect" class="h-10 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer" title="Hubungkan Kode Sekolah Firebase">
+                    <i class="fa-solid fa-link"></i>
+                    <span class="hidden sm:inline">Hubungkan Sekolah</span>
+                </button>
+
+                <button id="btn-refresh" class="h-10 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer" title="Muat Ulang Data">
+                    <i id="icon-refresh" class="fa-solid fa-arrows-rotate"></i>
+                    <span class="hidden lg:inline">Refresh</span>
+                </button>
+
+                <button id="btn-theme" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center justify-center transition cursor-pointer" title="Ganti Mode Gelap / Terang">
+                    <i id="icon-theme" class="fa-solid fa-moon text-sm"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===================================================================== -->
+    <!-- KONTEN UTAMA                                                          -->
+    <!-- ===================================================================== -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-5 space-y-5">
+
+        <!-- 1. TOOLBAR FILTER & AKSI CEPAT -->
+        <section class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3.5">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+                
+                <!-- Filter Kelas -->
+                <div class="lg:col-span-3">
+                    <label for="filter-kelas" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                        <i class="fa-solid fa-users-rectangle text-emerald-500 mr-1"></i> Pilih Kelas
+                    </label>
+                    <select id="filter-kelas" class="w-full h-10 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs sm:text-sm font-bold text-slate-800 dark:text-white focus:border-emerald-500 outline-none cursor-pointer">
+                        <option value="ALL">Semua Kelas</option>
+                    </select>
+                </div>
+
+                <!-- Filter Hari Ramadhan -->
+                <div class="lg:col-span-3">
+                    <label for="filter-hari" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                        <i class="fa-solid fa-calendar-day text-teal-500 mr-1"></i> Hari Ramadhan
+                    </label>
+                    <select id="filter-hari" class="w-full h-10 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs sm:text-sm font-bold text-slate-800 dark:text-white focus:border-emerald-500 outline-none cursor-pointer">
+                        <!-- 1..30 diisi via JS -->
+                    </select>
+                </div>
+
+                <!-- Cari Nama / NIS -->
+                <div class="sm:col-span-2 lg:col-span-6">
+                    <label for="filter-search" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                        <i class="fa-solid fa-magnifying-glass text-slate-400 mr-1"></i> Cari Nama / NIS Siswa
+                    </label>
+                    <div class="relative">
+                        <input type="text" id="filter-search" placeholder="Ketik nama siswa atau NIS..." class="w-full h-10 pl-3.5 pr-9 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs sm:text-sm font-medium text-slate-800 dark:text-white focus:border-emerald-500 outline-none">
+                        <button id="btn-clear-search" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-500 cursor-pointer">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bar Tombol Aksi Utama -->
+            <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2.5">
+                <div class="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    Menampilkan <strong id="count-filtered-students" class="text-slate-800 dark:text-white">0</strong> siswa pada <strong id="label-active-day" class="text-emerald-600 dark:text-emerald-400">Hari ke-1</strong>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    <button id="btn-mass-paraf" class="h-10 px-4 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-extrabold flex items-center gap-2 shadow-sm active:scale-95 transition cursor-pointer">
+                        <i class="fa-solid fa-check-double"></i>
+                        <span>Paraf Massal Hari Ini</span>
+                    </button>
+
+                    <button id="btn-open-wa" class="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center gap-2 shadow-sm active:scale-95 transition cursor-pointer">
+                        <i class="fa-brands fa-whatsapp text-sm"></i>
+                        <span>Rekap WhatsApp</span>
+                    </button>
+
+                    <button id="btn-export-excel" class="h-10 px-4 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-extrabold flex items-center gap-2 shadow-sm active:scale-95 transition cursor-pointer">
+                        <i class="fa-solid fa-file-excel"></i>
+                        <span>Ekspor Excel (.xlsx)</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. 4 KARTU RINGKASAN STATISTIK -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5 sm:gap-4">
+            <!-- Kartu 1: Partisipasi Hari Ini -->
+            <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between gap-3">
+                <div class="flex items-start justify-between gap-2">
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Partisipasi Hari Ini</p>
+                        <div class="flex items-baseline gap-2 mt-1">
+                            <span id="stat-part-val" class="text-2xl font-black font-mono text-slate-800 dark:text-white">0 / 0</span>
+                            <span id="stat-part-pct" class="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">0%</span>
+                        </div>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-lg shrink-0">
+                        <i class="fa-solid fa-user-check"></i>
+                    </div>
+                </div>
+                <div class="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                    <div id="stat-part-bar" class="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Kartu 2: Rata-rata Sholat Wajib & Jamaah -->
+            <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between gap-2">
+                <div class="flex items-start justify-between gap-2">
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Sholat Wajib &amp; Jamaah</p>
+                        <div class="flex items-baseline gap-2 mt-1">
+                            <span id="stat-sholat-pct" class="text-2xl font-black font-mono text-teal-600 dark:text-teal-400">0%</span>
+                            <span class="text-[11px] font-semibold text-slate-400">terlaksana</span>
+                        </div>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-teal-100 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400 flex items-center justify-center text-lg shrink-0">
+                        <i class="fa-solid fa-person-praying"></i>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400">
+                    Berjamaah: <strong id="stat-jamaah-pct" class="text-emerald-600 dark:text-emerald-400 font-mono">0%</strong> dari siswa yang mengisi
+                </p>
+            </div>
+
+            <!-- Kartu 3: Total Tadarus Kelas -->
+            <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between gap-2">
+                <div class="flex items-start justify-between gap-2">
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Tadarus Kelas</p>
+                        <div class="flex items-baseline gap-1.5 mt-1">
+                            <span id="stat-tadarus-total" class="text-2xl font-black font-mono text-amber-600 dark:text-amber-400">0</span>
+                            <span class="text-xs font-bold text-slate-400">ayat</span>
+                        </div>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center text-lg shrink-0">
+                        <i class="fa-solid fa-book-quran"></i>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400">
+                    Rata-rata: <strong id="stat-tadarus-avg" class="text-slate-700 dark:text-slate-200 font-mono">0</strong> ayat/siswa • Hari ini: <strong id="stat-tadarus-today" class="text-amber-600 dark:text-amber-400 font-mono">0</strong>
+                </p>
+            </div>
+
+            <!-- Kartu 4: Status Paraf Guru -->
+            <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between gap-2">
+                <div class="flex items-start justify-between gap-2">
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Status Paraf Hari Ini</p>
+                        <div class="flex items-baseline gap-2 mt-1">
+                            <span id="stat-paraf-done" class="text-2xl font-black font-mono text-sky-600 dark:text-sky-400">0</span>
+                            <span class="text-xs font-semibold text-slate-400">sudah diparaf</span>
+                        </div>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400 flex items-center justify-center text-lg shrink-0">
+                        <i class="fa-solid fa-stamp"></i>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400">
+                    Menunggu paraf: <strong id="stat-paraf-wait" class="text-rose-600 dark:text-rose-400 font-mono">0</strong> jurnal terisi
+                </p>
+            </div>
+        </section>
+
+        <!-- 3. NAVIGASI 2 TAB MODE TAMPILAN -->
+        <section class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+            
+            <!-- Header Tab + Legenda -->
+            <div class="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-50/70 dark:bg-slate-900/80">
+                <div class="inline-flex p-1 rounded-xl bg-slate-200/70 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 gap-1">
+                    <button id="tab-btn-daily" data-tab="daily" class="view-tab active px-4 py-2 rounded-lg text-xs font-extrabold text-slate-600 dark:text-slate-300 flex items-center gap-2 transition cursor-pointer">
+                        <i class="fa-solid fa-table-list"></i>
+                        <span>Pantauan Harian &amp; Paraf</span>
+                    </button>
+                    <button id="tab-btn-matrix" data-tab="matrix" class="view-tab px-4 py-2 rounded-lg text-xs font-extrabold text-slate-600 dark:text-slate-300 flex items-center gap-2 transition cursor-pointer">
+                        <i class="fa-solid fa-table-cells"></i>
+                        <span>Peta Matriks 30 Hari</span>
+                    </button>
+                </div>
+
+                <!-- Legenda Dinamis -->
+                <div id="legend-daily" class="flex flex-wrap items-center gap-3 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                    <span class="flex items-center gap-1.5"><span class="w-4 h-4 rounded bg-emerald-600 text-white text-[9px] font-bold inline-flex items-center justify-center">S</span> Jamaah</span>
+                    <span class="flex items-center gap-1.5"><span class="w-4 h-4 rounded bg-emerald-200 dark:bg-emerald-900/70 text-emerald-800 dark:text-emerald-200 text-[9px] font-bold inline-flex items-center justify-center">S</span> Sendiri</span>
+                    <span class="flex items-center gap-1.5"><span class="w-4 h-4 rounded bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-[9px] font-bold inline-flex items-center justify-center">S</span> Belum</span>
+                </div>
+
+                <div id="legend-matrix" class="hidden flex-wrap items-center gap-3 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                    <span class="flex items-center gap-1.5"><span class="w-4 h-4 rounded bg-sky-500 text-white text-[9px] inline-flex items-center justify-center"><i class="fa-solid fa-check"></i></span> Diisi &amp; Diparaf</span>
+                    <span class="flex items-center gap-1.5"><span class="w-4 h-4 rounded bg-emerald-500 inline-block"></span> Diisi (Menunggu Paraf)</span>
+                    <span class="flex items-center gap-1.5"><span class="w-4 h-4 rounded bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 inline-block"></span> Belum Mengisi</span>
+                </div>
+            </div>
+
+            <!-- TAB 1: PANTAUAN HARIAN & PARAF (TABEL DETAIL) -->
+            <div id="panel-daily" class="overflow-x-auto custom-scroll">
+                <table class="w-full text-left border-collapse min-w-[820px]">
+                    <thead>
+                        <tr class="bg-slate-50 dark:bg-slate-800/70 border-b border-slate-200 dark:border-slate-800 text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            <th class="py-3 px-3.5 w-12 text-center">No</th>
+                            <th class="py-3 px-3.5">Nama &amp; NIS Siswa</th>
+                            <th class="py-3 px-3 text-center">Status</th>
+                            <th class="py-3 px-3 text-center">Puasa</th>
+                            <th class="py-3 px-3 text-center">Sholat Wajib (S-D-A-M-I)</th>
+                            <th class="py-3 px-3">Tadarus</th>
+                            <th class="py-3 px-3 text-center">Misi &amp; Kultum</th>
+                            <th class="py-3 px-3.5 text-right">Aksi &amp; Paraf</th>
+                        </tr>
+                    </thead>
+                    <tbody id="daily-table-body" class="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                        <!-- Dirender via JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- TAB 2: PETA MATRIKS 30 HARI (HEATMAP) -->
+            <div id="panel-matrix" class="hidden overflow-x-auto custom-scroll">
+                <table class="w-full text-left border-collapse">
+                    <thead id="matrix-table-head">
+                        <!-- Dirender via JS -->
+                    </thead>
+                    <tbody id="matrix-table-body" class="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                        <!-- Dirender via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL 1: HUBUNGKAN KODE SEKOLAH (FIREBASE MASTER)                     -->
+    <!-- ===================================================================== -->
+    <div id="modal-connect" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="animate-modal bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div class="flex items-start justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 rounded-2xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xl shrink-0">
+                        <i class="fa-solid fa-school"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-extrabold text-slate-800 dark:text-white">Hubungkan Sekolah SAKTI</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Masukkan Kode Sekolah untuk sinkronisasi Firebase.</p>
+                    </div>
+                </div>
+                <button id="btn-close-connect" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-rose-500 flex items-center justify-center cursor-pointer">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form id="form-connect-school" class="space-y-4">
+                <div>
+                    <label for="input-school-code" class="block text-xs font-bold text-slate-600 dark:text-slate-300 uppercase mb-1.5">Kode Sekolah</label>
+                    <input type="text" id="input-school-code" required placeholder="Contoh: SMAN1BDG" class="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-center font-mono font-extrabold text-lg uppercase tracking-[0.2em] text-slate-800 dark:text-white focus:border-emerald-500 outline-none">
+                </div>
+
+                <p id="connect-error-msg" class="hidden text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/60 px-3 py-2 rounded-xl"></p>
+
+                <div class="flex items-center justify-between gap-2 pt-1">
+                    <button type="button" id="btn-use-demo" class="px-3.5 py-2.5 rounded-xl bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 text-xs font-bold transition cursor-pointer">
+                        Gunakan Mode Pratinjau
+                    </button>
+                    <button type="submit" id="btn-submit-connect" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-md flex items-center gap-2 transition cursor-pointer">
+                        <i class="fa-solid fa-plug"></i>
+                        <span>Hubungkan</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL 2: DETAIL JURNAL SISWA & PARAF GURU                             -->
+    <!-- ===================================================================== -->
+    <div id="modal-detail" class="hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+        <div class="animate-modal bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden my-auto">
+            
+            <!-- Header Modal Detail -->
+            <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 bg-slate-50/80 dark:bg-slate-900">
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span id="md-day-badge" class="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 text-[11px] font-extrabold">Hari ke-1</span>
+                        <span id="md-paraf-badge" class="hidden px-2.5 py-0.5 rounded-full bg-sky-100 dark:bg-sky-900/50 text-sky-700 dark:text-sky-300 text-[11px] font-extrabold"><i class="fa-solid fa-circle-check mr-1"></i>Sudah Diparaf</span>
+                    </div>
+                    <h3 id="md-student-name" class="text-base sm:text-lg font-extrabold text-slate-800 dark:text-white truncate mt-1">Nama Siswa</h3>
+                    <p id="md-student-meta" class="text-xs font-mono text-slate-500 dark:text-slate-400">NIS • Kelas</p>
+                </div>
+                <button id="btn-close-detail" class="w-9 h-9 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-500 hover:text-rose-500 flex items-center justify-center shrink-0 cursor-pointer">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                </button>
+            </div>
+
+            <!-- Isi Scrollable Modal Detail -->
+            <div id="md-body" class="p-5 overflow-y-auto custom-scroll space-y-4 text-xs sm:text-sm">
+                <!-- Dirender dinamis via JS -->
+            </div>
+
+            <!-- Footer Form Catatan & Paraf Guru -->
+            <div class="px-5 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/95 space-y-3">
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label for="md-teacher-note" class="text-xs font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                            <i class="fa-solid fa-comment-dots text-emerald-500 mr-1"></i> Catatan / Apresiasi Guru
+                        </label>
+                    </div>
+                    <!-- Chip Pujian Cepat -->
+                    <div class="flex flex-wrap gap-1.5 mb-2">
+                        <button type="button" data-praise="MasyaAllah, pertahankan!" class="praise-chip px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 text-[11px] font-bold transition cursor-pointer">MasyaAllah, pertahankan!</button>
+                        <button type="button" data-praise="Tadarusnya luar biasa!" class="praise-chip px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 text-[11px] font-bold transition cursor-pointer">Tadarusnya luar biasa!</button>
+                        <button type="button" data-praise="Yuk tingkatkan sholat berjamaahnya!" class="praise-chip px-2.5 py-1 rounded-full bg-sky-50 dark:bg-sky-900/30 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800/60 text-[11px] font-bold transition cursor-pointer">Yuk tingkatkan sholat berjamaahnya!</button>
+                        <button type="button" data-praise="Ringkasan kultum sangat baik & inspiratif!" class="praise-chip px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 text-[11px] font-bold transition cursor-pointer">Catatan kultum sangat baik!</button>
+                    </div>
+                    <textarea id="md-teacher-note" rows="2" placeholder="Tulis pesan motivasi atau catatan untuk siswa..." class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-white focus:border-emerald-500 outline-none resize-none"></textarea>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-end gap-2">
+                    <button id="btn-md-unparaf" class="hidden px-4 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 text-xs font-extrabold transition cursor-pointer">
+                        <i class="fa-solid fa-rotate-left mr-1"></i> Batalkan Paraf
+                    </button>
+                    <button id="btn-md-save-paraf" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-extrabold shadow-md flex items-center gap-2 transition cursor-pointer">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span>Simpan &amp; Beri Paraf</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL 3: KONFIRMASI PARAF MASSAL (TANPA confirm())                    -->
+    <!-- ===================================================================== -->
+    <div id="modal-mass-paraf" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="animate-modal bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div class="flex items-start gap-3.5">
+                <div class="w-12 h-12 rounded-2xl bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400 flex items-center justify-center text-xl shrink-0">
+                    <i class="fa-solid fa-check-double"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-extrabold text-slate-800 dark:text-white">Paraf Massal Hari Ini?</h3>
+                    <p id="mass-paraf-desc" class="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed"></p>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button id="btn-cancel-mass" class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition cursor-pointer">Batal</button>
+                <button id="btn-confirm-mass" class="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-extrabold shadow-md flex items-center gap-1.5 transition cursor-pointer">
+                    <i class="fa-solid fa-stamp"></i> Ya, Paraf Semua
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL 4: GENERATOR REKAP WHATSAPP                                     -->
+    <!-- ===================================================================== -->
+    <div id="modal-wa" class="hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+        <div class="animate-modal bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-xl w-full max-h-[92vh] flex flex-col overflow-hidden my-auto">
+            
+            <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xl">
+                        <i class="fa-brands fa-whatsapp"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-extrabold text-slate-800 dark:text-white">Rekap Siap Kirim ke WhatsApp</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Sesuaikan opsi laporan lalu salin atau kirim langsung.</p>
+                    </div>
+                </div>
+                <button id="btn-close-wa" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-rose-500 flex items-center justify-center cursor-pointer">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="p-5 overflow-y-auto custom-scroll space-y-4">
+                <!-- Pilihan Cakupan Laporan -->
+                <div class="grid grid-cols-2 gap-2">
+                    <label class="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 cursor-pointer">
+                        <input type="radio" name="wa-scope" value="daily" checked class="accent-emerald-600">
+                        <div>
+                            <p class="text-xs font-extrabold text-slate-800 dark:text-white">Laporan Harian</p>
+                            <p id="wa-opt-daily-sub" class="text-[10px] text-slate-500">Khusus Hari ke-1</p>
+                        </div>
+                    </label>
+                    <label class="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 cursor-pointer">
+                        <input type="radio" name="wa-scope" value="cumulative" class="accent-emerald-600">
+                        <div>
+                            <p class="text-xs font-extrabold text-slate-800 dark:text-white">Rekap Akumulasi</p>
+                            <p id="wa-opt-cum-sub" class="text-[10px] text-slate-500">Hari ke-1 s.d. Hari ke-1</p>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Checkbox Opsi Konten -->
+                <div class="flex flex-wrap gap-3 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label class="inline-flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="wa-inc-done" checked class="accent-emerald-600 rounded">
+                        <span>Daftar Sudah Mengisi</span>
+                    </label>
+                    <label class="inline-flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="wa-inc-missing" checked class="accent-emerald-600 rounded">
+                        <span>Daftar Belum Mengisi</span>
+                    </label>
+                    <label class="inline-flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="wa-inc-stats" checked class="accent-emerald-600 rounded">
+                        <span>Top Tadarus &amp; Statistik Sholat</span>
+                    </label>
+                </div>
+
+                <!-- Pratinjau Teks WA (Bisa diedit) -->
+                <div>
+                    <label for="wa-preview-text" class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Pratinjau Pesan (Dapat Diedit)</label>
+                    <textarea id="wa-preview-text" rows="11" class="w-full p-3.5 rounded-2xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-mono leading-relaxed text-slate-800 dark:text-slate-100 focus:border-emerald-500 outline-none"></textarea>
+                </div>
+            </div>
+
+            <div class="px-5 py-4 border-t border-slate-200 dark:border-slate-800 flex flex-wrap justify-end gap-2 bg-slate-50/80 dark:bg-slate-900">
+                <button id="btn-wa-copy" class="px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-white text-xs font-extrabold flex items-center gap-2 transition cursor-pointer">
+                    <i class="fa-regular fa-copy"></i>
+                    <span>Salin Teks</span>
+                </button>
+                <button id="btn-wa-send" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-md flex items-center gap-2 transition cursor-pointer">
+                    <i class="fa-brands fa-whatsapp text-sm"></i>
+                    <span>Kirim ke WhatsApp</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifikasi Melayang -->
+    <div id="toast-box" class="toast-hidden fixed bottom-6 left-1/2 z-[70] px-4 py-2.5 rounded-full bg-slate-900/95 dark:bg-white/95 text-white dark:text-slate-900 text-xs font-bold shadow-xl backdrop-blur-md flex items-center gap-2">
+        <i class="fa-solid fa-circle-check text-emerald-400 dark:text-emerald-600"></i>
+        <span id="toast-msg">Berhasil</span>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- LOGIKA JAVASCRIPT & FIREBASE v11.6.1 MODULAR                          -->
+    <!-- ===================================================================== -->
+    <script type="module">
+        import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+        import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+        import { getFirestore, collection, doc, getDoc, getDocs, setDoc } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+
+        // ---------------------------------------------------------------------
+        // 1. KONFIGURASI FIREBASE MASTER & KONSTANTA
+        // ---------------------------------------------------------------------
+        const MASTER_CONFIG = {
+            apiKey: "AIzaSyAwIwimlyrE4qQqYa2gA8Pfygd59USsveQ",
+            authDomain: "aplikasi-ulangan-01.firebaseapp.com",
+            projectId: "aplikasi-ulangan-01",
+            storageBucket: "aplikasi-ulangan-01.firebasestorage.app",
+            messagingSenderId: "409085062439",
+            appId: "1:409085062439:web:280589d1a3e12e7b980d02"
+        };
+
+        const DEMO_STORAGE_KEY = 'sakti_demo_pantau_ramadhan_v1';
+        const SHOLAT_KEYS = [
+            { key: 'subuh',   short: 'S', label: 'Subuh' },
+            { key: 'dzuhur',  short: 'D', label: 'Dzuhur' },
+            { key: 'ashar',   short: 'A', label: 'Ashar' },
+            { key: 'maghrib', short: 'M', label: 'Maghrib' },
+            { key: 'isya',    short: 'I', label: 'Isya' }
+        ];
+        const SUNNAH_LABELS = {
+            tarawih: 'Tarawih',
+            witir: 'Witir',
+            dhuha: 'Dhuha',
+            tahajud: 'Tahajud',
+            rawatib: 'Rawatib'
+        };
+        const KEBAIKAN_LABELS = {
+            ortu: 'Membantu Orang Tua',
+            sedekah: 'Sedekah / Infak',
+            teman: 'Menolong Teman',
+            lisan: 'Menjaga Lisan & Medsos',
+            rumah: 'Merapikan Rumah / Kamar'
+        };
+
+        // ---------------------------------------------------------------------
+        // 2. STATE GLOBAL APLIKASI
+        // ---------------------------------------------------------------------
+        const state = {
+            isDemo: true,
+            db: null,
+            students: [],       // [{ nis, nama, kelas }]
+            journals: {},       // { [nis]: rawDocData }
+            selectedClass: 'ALL',
+            selectedDay: 1,
+            searchQuery: '',
+            activeTab: 'daily', // 'daily' | 'matrix'
+            detailTarget: null, // { nis, day }
+            toastTimer: null
+        };
+
+        // Referensi DOM Utama
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+        const connBadge = document.getElementById('conn-badge');
+        const connDot = document.getElementById('conn-dot');
+        const connText = document.getElementById('conn-text');
+
+        const filterKelas = document.getElementById('filter-kelas');
+        const filterHari = document.getElementById('filter-hari');
+        const filterSearch = document.getElementById('filter-search');
+        const btnClearSearch = document.getElementById('btn-clear-search');
+
+        const dailyTableBody = document.getElementById('daily-table-body');
+        const matrixTableHead = document.getElementById('matrix-table-head');
+        const matrixTableBody = document.getElementById('matrix-table-body');
+
+        const modalConnect = document.getElementById('modal-connect');
+        const modalDetail = document.getElementById('modal-detail');
+        const modalMassParaf = document.getElementById('modal-mass-paraf');
+        const modalWa = document.getElementById('modal-wa');
+
+        // ---------------------------------------------------------------------
+        // 3. UTILITAS: TEMA, TOAST, ESCAPE HTML, & NORMALISASI DATA FIRESTORE
+        // ---------------------------------------------------------------------
+        function applyTheme() {
+            const isDark = localStorage.theme === 'dark' ||
+                (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            document.documentElement.classList.toggle('dark', isDark);
+            const icon = document.getElementById('icon-theme');
+            icon.className = isDark ? 'fa-solid fa-sun text-sm text-amber-400' : 'fa-solid fa-moon text-sm';
+        }
+
+        function showToast(msg) {
+            const box = document.getElementById('toast-box');
+            document.getElementById('toast-msg').textContent = msg;
+            box.classList.remove('toast-hidden');
+            box.classList.add('toast-show');
+            if (state.toastTimer) clearTimeout(state.toastTimer);
+            state.toastTimer = setTimeout(() => {
+                box.classList.remove('toast-show');
+                box.classList.add('toast-hidden');
+            }, 2600);
+        }
+
+        function escapeHtml(str) {
+            return String(str ?? '').replace(/[&<>"']/g, s => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[s]));
+        }
+
+        function updateConnectionBadge(connected, schoolLabel = '') {
+            if (connected) {
+                connBadge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-700/60';
+                connDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse';
+                connText.textContent = schoolLabel ? `Firebase (${schoolLabel})` : 'Terhubung Firebase';
+            } else {
+                connBadge.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-700/60';
+                connDot.className = 'w-1.5 h-1.5 rounded-full bg-amber-500';
+                connText.textContent = 'Mode Pratinjau';
+            }
+        }
+
+        /**
+         * Normalisasi struktur dokumen jurnal_ramadhan/{nis} secara fleksibel
+         * Mendukung variasi schema dari buku-ramadhan.html maupun schema kustom.
+         */
+        function getRawDaysMap(nis) {
+            const docData = state.journals[nis];
+            if (!docData) return {};
+            return docData.days || docData.hari || {};
+        }
+
+        function getNormalizedDay(nis, dayNum) {
+            const docData = state.journals[nis] || {};
+            const daysMap = getRawDaysMap(nis);
+            const raw = daysMap[String(dayNum)];
+            if (!raw) return null;
+
+            // Normalisasi sholat wajib
+            const rawSholat = raw.sholat || {};
+            const sholat = {};
+            SHOLAT_KEYS.forEach(s => {
+                const v = String(rawSholat[s.key] || 'belum').toLowerCase();
+                sholat[s.key] = (v === 'jamaah' || v === 'sendiri') ? v : 'belum';
+            });
+
+            // Normalisasi sholat sunnah (objek atau array)
+            const sunnahList = [];
+            if (Array.isArray(raw.sunnah)) {
+                raw.sunnah.forEach(item => {
+                    const k = String(item).toLowerCase();
+                    sunnahList.push(SUNNAH_LABELS[k] || item);
+                });
+            } else if (raw.sunnah && typeof raw.sunnah === 'object') {
+                Object.entries(raw.sunnah).forEach(([k, val]) => {
+                    if (val) sunnahList.push(SUNNAH_LABELS[k.toLowerCase()] || k);
+                });
+            }
+
+            // Normalisasi tadarus
+            let tadarusSurah = '';
+            let tadarusAyat = '';
+            let tadarusJumlah = 0;
+            if (typeof raw.tadarus === 'number') {
+                tadarusJumlah = raw.tadarus;
+            } else if (raw.tadarus && typeof raw.tadarus === 'object') {
+                tadarusSurah = raw.tadarus.surah || '';
+                tadarusAyat = raw.tadarus.ayat || (raw.tadarus.awal && raw.tadarus.akhir ? `${raw.tadarus.awal}-${raw.tadarus.akhir}` : '');
+                tadarusJumlah = Number(raw.tadarus.jumlahAyat ?? raw.tadarus.jumlah ?? 0) || 0;
+            }
+            if (!tadarusJumlah && raw.jumlahAyat) {
+                tadarusJumlah = Number(raw.jumlahAyat) || 0;
+            }
+
+            // Normalisasi kultum
+            let kultumPenceramah = '';
+            let kultumTempat = '';
+            let kultumJudul = '';
+            let kultumRingkasan = '';
+            if (typeof raw.kultum === 'string') {
+                kultumRingkasan = raw.kultum;
+            } else if (raw.kultum && typeof raw.kultum === 'object') {
+                kultumPenceramah = raw.kultum.penceramah || '';
+                kultumTempat = raw.kultum.tempat || '';
+                kultumJudul = raw.kultum.judul || '';
+                kultumRingkasan = raw.kultum.ringkasan || '';
+            }
+
+            // Normalisasi kebaikan harian
+            const kebaikanList = [];
+            if (typeof raw.kebaikan === 'string' && raw.kebaikan.trim()) {
+                kebaikanList.push(raw.kebaikan.trim());
+            } else if (Array.isArray(raw.kebaikan)) {
+                raw.kebaikan.forEach(item => { if (item) kebaikanList.push(String(item)); });
+            } else if (raw.kebaikan && typeof raw.kebaikan === 'object') {
+                Object.entries(raw.kebaikan).forEach(([k, val]) => {
+                    if (k === 'lain' && typeof val === 'string' && val.trim()) {
+                        kebaikanList.push(val.trim());
+                    } else if (val === true) {
+                        kebaikanList.push(KEBAIKAN_LABELS[k] || k);
+                    }
+                });
+            }
+
+            // Normalisasi misi harian & paraf guru
+            const misiSelesai = Boolean(
+                raw.misiSelesai ||
+                (docData.missionsCompleted && docData.missionsCompleted[String(dayNum)])
+            );
+            const parafGuru = Boolean(raw.parafGuru ?? raw.paraf ?? false);
+            const catatanGuru = raw.catatanGuru || '';
+
+            return {
+                puasa: String(raw.puasa || 'penuh').toLowerCase(),
+                puasaAlasan: raw.puasaAlasan || '',
+                sholat,
+                sunnahList,
+                tadarus: { surah: tadarusSurah, ayat: tadarusAyat, jumlahAyat: tadarusJumlah },
+                kultum: { penceramah: kultumPenceramah, tempat: kultumTempat, judul: kultumJudul, ringkasan: kultumRingkasan },
+                kebaikanList,
+                misiSelesai,
+                parafGuru,
+                catatanGuru,
+                parafAt: raw.parafAt || '',
+                updatedAt: raw.updatedAt || ''
+            };
+        }
+
+        // Hitung ringkasan 30 hari (atau s.d. maxDay) untuk 1 siswa
+        function getStudentSummary(nis, maxDay = 30) {
+            let filledDays = 0;
+            let puasaPenuh = 0;
+            let sholatDone = 0;
+            let sholatJamaah = 0;
+            let totalAyat = 0;
+            let misiCount = 0;
+            let parafCount = 0;
+
+            for (let d = 1; d <= maxDay; d++) {
+                const dayData = getNormalizedDay(nis, d);
+                if (!dayData) continue;
+                filledDays++;
+                if (dayData.puasa === 'penuh') puasaPenuh++;
+                SHOLAT_KEYS.forEach(s => {
+                    if (dayData.sholat[s.key] === 'jamaah') {
+                        sholatDone++;
+                        sholatJamaah++;
+                    } else if (dayData.sholat[s.key] === 'sendiri') {
+                        sholatDone++;
+                    }
+                });
+                totalAyat += dayData.tadarus.jumlahAyat;
+                if (dayData.misiSelesai) misiCount++;
+                if (dayData.parafGuru) parafCount++;
+            }
+
+            const totalSlots = filledDays * 5;
+            return {
+                filledDays,
+                fillPct: Math.round((filledDays / maxDay) * 100),
+                puasaPenuh,
+                sholatPct: totalSlots > 0 ? Math.round((sholatDone / totalSlots) * 100) : 0,
+                jamaahPct: totalSlots > 0 ? Math.round((sholatJamaah / totalSlots) * 100) : 0,
+                totalAyat,
+                misiCount,
+                parafCount
+            };
+        }
+
+        // ---------------------------------------------------------------------
+        // 4. GENERATOR DATA SIMULASI REALISTIS (MODE PRATINJAU)
+        // ---------------------------------------------------------------------
+        function buildDemoData() {
+            const demoStudents = [
+                { nis: '2425.12.001', nama: 'Ahmad Fauzan Hakim',     kelas: 'XII-IPA-1' },
+                { nis: '2425.12.002', nama: 'Aisyah Nur Rahmawati',   kelas: 'XII-IPA-1' },
+                { nis: '2425.12.003', nama: 'Bagas Pratama Putra',    kelas: 'XII-IPA-1' },
+                { nis: '2425.12.004', nama: 'Citra Dewi Lestari',     kelas: 'XII-IPA-1' },
+                { nis: '2425.12.005', nama: 'Dimas Arya Saputra',     kelas: 'XII-IPA-1' },
+                { nis: '2425.12.006', nama: 'Fatimah Az-Zahra',       kelas: 'XII-IPA-1' },
+                { nis: '2425.12.007', nama: 'Gilang Ramadhan',        kelas: 'XII-IPA-1' },
+                { nis: '2425.12.008', nama: 'Hana Salsabila Putri',   kelas: 'XII-IPA-2' },
+                { nis: '2425.12.009', nama: 'Irfan Maulana Yusuf',    kelas: 'XII-IPA-2' },
+                { nis: '2425.12.010', nama: 'Keisha Azzahra',         kelas: 'XII-IPA-2' },
+                { nis: '2425.12.011', nama: 'Muhammad Rizky Fadilah', kelas: 'XII-IPA-2' },
+                { nis: '2425.12.012', nama: 'Nadia Putri Maharani',   kelas: 'XII-IPA-2' },
+                { nis: '2425.12.013', nama: 'Rafi Akbar Nugroho',     kelas: 'XII-IPA-2' },
+                { nis: '2425.12.014', nama: 'Salma Khoirunnisa',      kelas: 'XII-IPA-2' }
+            ];
+
+            const surahs = ['Al-Baqarah', 'Ali Imran', 'An-Nisa', 'Yasin', 'Al-Kahfi', 'Al-Mulk', 'Ar-Rahman', 'Al-Waqi\'ah'];
+            const penceramahs = ['Ust. H. Ahmad Fauzi', 'Ust. Dr. Adi Hidayat (Kajian)', 'KH. Abdullah Gymnastiar', 'Ust. Syamsul Arifin', 'Ust. Ridwan Kamiluddin'];
+            const kultumNotes = [
+                'Puasa melatih kejujuran dan mengendalikan emosi saat berinteraksi dengan teman di sekolah maupun media sosial.',
+                'Keutamaan sholat berjamaah 27 derajat lebih utama dibandingkan sholat sendirian.',
+                'Al-Qur\'an adalah pedoman hidup; membaca satu huruf saja diganjar sepuluh kebaikan.',
+                'Berbakti kepada orang tua saat menyiapkan sahur dan berbuka menjadi pintu keberkahan ilmu.',
+                'Menjaga lisan dan menjauhi ghibah agar pahala puasa tetap utuh hingga waktu maghrib.'
+            ];
+
+            // Cek apakah sudah ada data demo tersimpan di localStorage
+            try {
+                const saved = localStorage.getItem(DEMO_STORAGE_KEY);
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (parsed && parsed.students && parsed.journals) {
+                        return parsed;
+                    }
+                }
+            } catch (_) {}
+
+            const demoJournals = {};
+            demoStudents.forEach((st, idx) => {
+                const days = {};
+                const missionsCompleted = {};
+                // Variasi keaktifan siswa pada Hari 1 s.d. 10
+                for (let d = 1; d <= 10; d++) {
+                    const seed = (idx * 7 + d * 13) % 10;
+                    // Sebagian siswa belum mengisi hari-hari tertentu (khususnya hari ke-10 agar terlihat realistis)
+                    if (d === 10 && (idx === 4 || idx === 6 || idx === 12)) continue;
+                    if (d > 7 && idx % 5 === 4 && seed < 4) continue;
+                    if (seed === 0 && d > 2) continue;
+
+                    const isHalangan = (idx % 2 === 1) && (d >= 5 && d <= 7) && (idx === 3 || idx === 9);
+                    const puasa = isHalangan ? 'halangan' : (seed === 1 && idx === 4 ? 'setengah' : 'penuh');
+
+                    const sholat = {};
+                    SHOLAT_KEYS.forEach((sk, si) => {
+                        if (isHalangan) {
+                            sholat[sk.key] = 'belum';
+                        } else {
+                            const r = (idx + d + si * 3) % 5;
+                            if (r <= 2) sholat[sk.key] = 'jamaah';
+                            else if (r === 3) sholat[sk.key] = 'sendiri';
+                            else sholat[sk.key] = (sk.key === 'subuh' && idx % 4 === 0) ? 'belum' : 'sendiri';
+                        }
+                    });
+
+                    const jumlahAyat = isHalangan ? 0 : (10 + ((idx * 5 + d * 7) % 35));
+                    const awal = 1 + ((d - 1) * 15);
+                    const akhir = awal + Math.max(1, jumlahAyat) - 1;
+                    const hasKultum = (idx + d) % 3 !== 0;
+                    const misiDone = (idx + d) % 4 !== 0;
+                    if (misiDone) missionsCompleted[String(d)] = true;
+
+                    // Hari 1-7 mayoritas sudah diparaf, hari 8-10 sebagian menunggu paraf
+                    const isParaf = d <= 7 ? ((idx + d) % 4 !== 0) : (d <= 9 ? ((idx + d) % 3 === 0) : (idx % 4 === 0));
+
+                    days[String(d)] = {
+                        puasa,
+                        puasaAlasan: isHalangan ? 'Berhalangan (Udzur Syar\'i)' : '',
+                        sholat,
+                        sunnah: {
+                            tarawih: !isHalangan && ((idx + d) % 3 !== 0),
+                            witir: !isHalangan && ((idx + d) % 3 !== 0),
+                            dhuha: (idx + d) % 2 === 0,
+                            tahajud: (idx + d) % 5 === 0,
+                            rawatib: (idx + d) % 4 === 0
+                        },
+                        tadarus: {
+                            surah: jumlahAyat > 0 ? surahs[(idx + d) % surahs.length] : '',
+                            awal: jumlahAyat > 0 ? awal : '',
+                            akhir: jumlahAyat > 0 ? akhir : '',
+                            jumlah: jumlahAyat,
+                            jumlahAyat: jumlahAyat
+                        },
+                        kultum: hasKultum ? {
+                            penceramah: penceramahs[(idx + d) % penceramahs.length],
+                            tempat: d % 2 === 0 ? 'Masjid' : 'Sekolah',
+                            ringkasan: kultumNotes[(idx + d) % kultumNotes.length]
+                        } : { penceramah: '', tempat: 'Masjid', ringkasan: '' },
+                        kebaikan: {
+                            ortu: (idx + d) % 2 === 0,
+                            sedekah: (idx + d) % 3 === 0,
+                            teman: (idx + d) % 4 === 0,
+                            lisan: true,
+                            rumah: (idx + d) % 2 === 1,
+                            lain: d % 3 === 0 ? 'Membantu menyiapkan takjil keluarga' : ''
+                        },
+                        misiSelesai: misiDone,
+                        paraf: isParaf,
+                        parafGuru: isParaf,
+                        catatanGuru: isParaf && (idx + d) % 2 === 0 ? 'MasyaAllah, pertahankan!' : '',
+                        updatedAt: new Date(Date.now() - (10 - d) * 86400000).toISOString()
+                    };
+                }
+
+                demoJournals[st.nis] = {
+                    nis: st.nis,
+                    nama: st.nama,
+                    kelas: st.kelas,
+                    days,
+                    missionsCompleted
+                };
+            });
+
+            const bundle = { students: demoStudents, journals: demoJournals };
+            try {
+                localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(bundle));
+            } catch (_) {}
+            return bundle;
+        }
+
+        function saveDemoData() {
+            try {
+                localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify({
+                    students: state.students,
+                    journals: state.journals
+                }));
+            } catch (e) {
+                console.warn('Gagal simpan data demo:', e);
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // 5. KONEKSI FIREBASE SEKOLAH & MASTERAPP
+        // ---------------------------------------------------------------------
+        async function loadFirebaseData(configObj, schoolCode = '') {
+            loadingText.textContent = 'Menyambungkan ke Firebase Sekolah...';
+            loadingOverlay.classList.remove('hidden');
+
+            try {
+                const appName = 'PantauRamadhanSchool_' + (configObj.projectId || 'default');
+                let fbApp = getApps().find(a => a.name === appName);
+                if (!fbApp) fbApp = initializeApp(configObj, appName);
+
+                const auth = getAuth(fbApp);
+                const db = getFirestore(fbApp);
+                await signInAnonymously(auth);
+
+                loadingText.textContent = 'Mengambil Data Siswa & Jurnal...';
+                const [siswaSnap, jurnalSnap] = await Promise.all([
+                    getDocs(collection(db, 'siswa')),
+                    getDocs(collection(db, 'jurnal_ramadhan'))
+                ]);
+
+                const loadedStudents = [];
+                siswaSnap.forEach(d => {
+                    const data = d.data() || {};
+                    loadedStudents.push({
+                        nis: d.id,
+                        nama: data.nama || d.id,
+                        kelas: data.kelas || 'Tanpa Kelas'
+                    });
+                });
+
+                const loadedJournals = {};
+                jurnalSnap.forEach(d => {
+                    const data = d.data() || {};
+                    loadedJournals[d.id] = data;
+                    // Jika siswa ada di jurnal_ramadhan tapi belum ada di koleksi siswa, tetap tampilkan
+                    if (!loadedStudents.some(s => s.nis === d.id)) {
+                        loadedStudents.push({
+                            nis: d.id,
+                            nama: data.nama || d.id,
+                            kelas: data.kelas || 'Tanpa Kelas'
+                        });
+                    }
+                });
+
+                loadedStudents.sort((a, b) => (a.kelas || '').localeCompare(b.kelas || '') || (a.nama || '').localeCompare(b.nama || ''));
+
+                state.isDemo = false;
+                state.db = db;
+                state.students = loadedStudents;
+                state.journals = loadedJournals;
+
+                updateConnectionBadge(true, schoolCode || localStorage.getItem('sakti_school_code') || '');
+                initFiltersAndDefaultDay();
+                renderAll();
+                loadingOverlay.classList.add('hidden');
+                return true;
+            } catch (err) {
+                console.warn('Koneksi Firebase gagal, beralih ke Mode Pratinjau:', err);
+                enterDemoMode();
+                showToast('Gagal terhubung Firebase — Menampilkan Mode Pratinjau');
+                return false;
+            }
+        }
+
+        function enterDemoMode() {
+            const demo = buildDemoData();
+            state.isDemo = true;
+            state.db = null;
+            state.students = demo.students;
+            state.journals = demo.journals;
+            updateConnectionBadge(false);
+            initFiltersAndDefaultDay();
+            renderAll();
+            loadingOverlay.classList.add('hidden');
+        }
+
+        async function connectBySchoolCode(code) {
+            const errEl = document.getElementById('connect-error-msg');
+            const submitBtn = document.getElementById('btn-submit-connect');
+            errEl.classList.add('hidden');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menghubungkan...';
+
+            try {
+                let masterApp = getApps().find(a => a.name === 'MasterAppPantau');
+                if (!masterApp) masterApp = initializeApp(MASTER_CONFIG, 'MasterAppPantau');
+
+                const masterAuth = getAuth(masterApp);
+                const masterDb = getFirestore(masterApp);
+                await signInAnonymously(masterAuth);
+
+                const schoolSnap = await getDoc(doc(masterDb, 'daftar_sekolah', code));
+                if (!schoolSnap.exists()) {
+                    throw new Error(`Kode sekolah "${code}" tidak ditemukan.`);
+                }
+                const schoolData = schoolSnap.data();
+                if (schoolData.status && schoolData.status !== 'Aktif') {
+                    throw new Error('Lisensi sekolah sedang tidak aktif.');
+                }
+                if (!schoolData.config) {
+                    throw new Error('Konfigurasi Firebase sekolah belum lengkap.');
+                }
+
+                localStorage.setItem('sakti_school_config', JSON.stringify(schoolData.config));
+                localStorage.setItem('sakti_school_code', code);
+
+                modalConnect.classList.add('hidden');
+                const ok = await loadFirebaseData(schoolData.config, code);
+                if (ok) showToast(`Berhasil terhubung ke sekolah ${code}`);
+            } catch (err) {
+                errEl.textContent = err.message || 'Gagal menghubungkan kode sekolah.';
+                errEl.classList.remove('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-plug"></i> <span>Hubungkan</span>';
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // 6. SIMPAN PARAF & CATATAN GURU (FIRESTORE / DEMO)
+        // ---------------------------------------------------------------------
+        async function saveTeacherParaf(nis, dayNum, isParaf, catatanGuru = null) {
+            const dayKey = String(dayNum);
+            const nowIso = new Date().toISOString();
+
+            // Pastikan struktur lokal ada
+            if (!state.journals[nis]) {
+                const st = state.students.find(s => s.nis === nis) || { nis, nama: nis, kelas: '-' };
+                state.journals[nis] = { nis, nama: st.nama, kelas: st.kelas, days: {} };
+            }
+            if (!state.journals[nis].days) {
+                state.journals[nis].days = state.journals[nis].hari ? { ...state.journals[nis].hari } : {};
+            }
+            if (!state.journals[nis].days[dayKey]) {
+                state.journals[nis].days[dayKey] = {};
+            }
+
+            const existingNote = state.journals[nis].days[dayKey].catatanGuru || '';
+            const finalNote = catatanGuru !== null ? catatanGuru : existingNote;
+
+            // Update memori lokal
+            Object.assign(state.journals[nis].days[dayKey], {
+                parafGuru: isParaf,
+                paraf: isParaf, // Kompatibel langsung dengan buku-ramadhan.html
+                catatanGuru: finalNote,
+                parafAt: isParaf ? nowIso : ''
+            });
+
+            if (state.isDemo) {
+                saveDemoData();
+                return true;
+            }
+
+            try {
+                await setDoc(doc(state.db, 'jurnal_ramadhan', nis), {
+                    days: {
+                        [dayKey]: {
+                            parafGuru: isParaf,
+                            paraf: isParaf,
+                            catatanGuru: finalNote,
+                            parafAt: isParaf ? nowIso : ''
+                        }
+                    }
+                }, { merge: true });
+                return true;
+            } catch (err) {
+                console.error('Gagal menyimpan paraf ke Firestore:', err);
+                showToast('Gagal menyimpan paraf ke server Firebase');
+                return false;
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // 7. FILTERING & RENDERING STATISTIK + TABEL
+        // ---------------------------------------------------------------------
+        function initFiltersAndDefaultDay() {
+            // Isi dropdown Hari 1 - 30
+            if (filterHari.options.length === 0) {
+                for (let d = 1; d <= 30; d++) {
+                    const opt = document.createElement('option');
+                    opt.value = String(d);
+                    opt.textContent = `Hari ke-${d} Ramadhan`;
+                    filterHari.appendChild(opt);
+                }
+            }
+
+            // Isi dropdown Kelas unik
+            const uniqueClasses = [...new Set(state.students.map(s => s.kelas || 'Tanpa Kelas'))].sort();
+            const prevClass = state.selectedClass;
+            filterKelas.innerHTML = '<option value="ALL">Semua Kelas</option>';
+            uniqueClasses.forEach(cls => {
+                const opt = document.createElement('option');
+                opt.value = cls;
+                opt.textContent = cls;
+                filterKelas.appendChild(opt);
+            });
+            if (uniqueClasses.includes(prevClass)) {
+                filterKelas.value = prevClass;
+            } else {
+                state.selectedClass = 'ALL';
+                filterKelas.value = 'ALL';
+            }
+
+            // Pilih hari default = hari terakhir yang memiliki data (atau Hari ke-1)
+            let latestDay = 1;
+            Object.values(state.journals).forEach(j => {
+                const dMap = j.days || j.hari || {};
+                Object.keys(dMap).forEach(k => {
+                    const n = parseInt(k, 10);
+                    if (!isNaN(n) && n >= 1 && n <= 30 && n > latestDay) latestDay = n;
+                });
+            });
+            state.selectedDay = latestDay;
+            filterHari.value = String(latestDay);
+        }
+
+        function getFilteredStudents() {
+            const q = state.searchQuery.toLowerCase().trim();
+            return state.students.filter(s => {
+                if (state.selectedClass !== 'ALL' && s.kelas !== state.selectedClass) return false;
+                if (q && !s.nama.toLowerCase().includes(q) && !s.nis.toLowerCase().includes(q)) return false;
+                return true;
+            });
+        }
+
+        function renderStats(list) {
+            const day = state.selectedDay;
+            const totalStudents = list.length;
+            let filledToday = 0;
+            let sholatDoneToday = 0;
+            let sholatJamaahToday = 0;
+            let tadarusToday = 0;
+            let tadarusAccumulated = 0;
+            let parafDoneToday = 0;
+            let parafWaitToday = 0;
+
+            list.forEach(st => {
+                const d = getNormalizedDay(st.nis, day);
+                const sum = getStudentSummary(st.nis, 30);
+                tadarusAccumulated += sum.totalAyat;
+
+                if (d) {
+                    filledToday++;
+                    SHOLAT_KEYS.forEach(sk => {
+                        if (d.sholat[sk.key] === 'jamaah') {
+                            sholatDoneToday++;
+                            sholatJamaahToday++;
+                        } else if (d.sholat[sk.key] === 'sendiri') {
+                            sholatDoneToday++;
+                        }
+                    });
+                    tadarusToday += d.tadarus.jumlahAyat;
+                    if (d.parafGuru) parafDoneToday++;
+                    else parafWaitToday++;
+                }
+            });
+
+            const partPct = totalStudents > 0 ? Math.round((filledToday / totalStudents) * 100) : 0;
+            const totalSholatSlots = filledToday * 5;
+            const sholatPct = totalSholatSlots > 0 ? Math.round((sholatDoneToday / totalSholatSlots) * 100) : 0;
+            const jamaahPct = totalSholatSlots > 0 ? Math.round((sholatJamaahToday / totalSholatSlots) * 100) : 0;
+            const avgAyat = totalStudents > 0 ? Math.round(tadarusAccumulated / totalStudents) : 0;
+
+            document.getElementById('count-filtered-students').textContent = String(totalStudents);
+            document.getElementById('label-active-day').textContent = `Hari ke-${day}`;
+
+            document.getElementById('stat-part-val').textContent = `${filledToday} / ${totalStudents}`;
+            document.getElementById('stat-part-pct').textContent = `${partPct}%`;
+            document.getElementById('stat-part-bar').style.width = `${partPct}%`;
+
+            document.getElementById('stat-sholat-pct').textContent = `${sholatPct}%`;
+            document.getElementById('stat-jamaah-pct').textContent = `${jamaahPct}%`;
+
+            document.getElementById('stat-tadarus-total').textContent = tadarusAccumulated.toLocaleString('id-ID');
+            document.getElementById('stat-tadarus-avg').textContent = avgAyat.toLocaleString('id-ID');
+            document.getElementById('stat-tadarus-today').textContent = `${tadarusToday.toLocaleString('id-ID')} ayat`;
+
+            document.getElementById('stat-paraf-done').textContent = String(parafDoneToday);
+            document.getElementById('stat-paraf-wait').textContent = String(parafWaitToday);
+        }
+
+        function renderPuasaBadge(d) {
+            if (!d) return '<span class="text-slate-400">-</span>';
+            if (d.puasa === 'penuh') {
+                return '<span class="px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-bold text-[11px]">Penuh</span>';
+            }
+            if (d.puasa === 'setengah') {
+                return '<span class="px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-bold text-[11px]">1/2 Hari</span>';
+            }
+            if (d.puasa === 'halangan') {
+                return '<span class="px-2.5 py-1 rounded-lg bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 font-bold text-[11px]">Halangan</span>';
+            }
+            return '<span class="px-2.5 py-1 rounded-lg bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 font-bold text-[11px]">Tidak</span>';
+        }
+
+        function renderDailyTable(list) {
+            const day = state.selectedDay;
+            if (list.length === 0) {
+                dailyTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="py-12 text-center text-slate-400">
+                            <i class="fa-solid fa-user-slash text-3xl mb-2 block opacity-40"></i>
+                            Tidak ada data siswa yang cocok dengan filter.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            dailyTableBody.innerHTML = list.map((st, idx) => {
+                const d = getNormalizedDay(st.nis, day);
+                const sholatBadges = SHOLAT_KEYS.map(sk => {
+                    const status = d ? d.sholat[sk.key] : 'belum';
+                    let cls = 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500';
+                    let tip = `${sk.label}: Belum`;
+                    if (status === 'jamaah') {
+                        cls = 'bg-emerald-600 text-white shadow-sm';
+                        tip = `${sk.label}: Berjamaah`;
+                    } else if (status === 'sendiri') {
+                        cls = 'bg-emerald-200 dark:bg-emerald-900/70 text-emerald-800 dark:text-emerald-200';
+                        tip = `${sk.label}: Sendiri`;
+                    }
+                    return `<span title="${tip}" class="w-6 h-6 rounded-md ${cls} text-[10px] font-extrabold inline-flex items-center justify-center">${sk.short}</span>`;
+                }).join('');
+
+                const hasKultum = Boolean(d && d.kultum.ringkasan && d.kultum.ringkasan.trim().length > 2);
+                const hasMisi = Boolean(d && d.misiSelesai);
+                const isParaf = Boolean(d && d.parafGuru);
+
+                return `
+                    <tr class="hover:bg-slate-50/90 dark:hover:bg-slate-800/40 transition-colors">
+                        <td class="py-3 px-3.5 text-center font-mono text-slate-400 font-bold">${idx + 1}</td>
+                        <td class="py-3 px-3.5">
+                            <div class="font-bold text-slate-800 dark:text-white">${escapeHtml(st.nama)}</div>
+                            <div class="flex items-center gap-1.5 mt-0.5">
+                                <span class="text-[10px] font-mono text-slate-500 dark:text-slate-400">${escapeHtml(st.nis)}</span>
+                                ${state.selectedClass === 'ALL' ? `<span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[9px] font-bold text-teal-600 dark:text-teal-400">${escapeHtml(st.kelas)}</span>` : ''}
+                            </div>
+                        </td>
+                        <td class="py-3 px-3 text-center">
+                            ${d
+                                ? '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-extrabold"><i class="fa-solid fa-check"></i> Sudah</span>'
+                                : '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-bold">Belum</span>'}
+                        </td>
+                        <td class="py-3 px-3 text-center">${renderPuasaBadge(d)}</td>
+                        <td class="py-3 px-3">
+                            <div class="flex items-center justify-center gap-1">${sholatBadges}</div>
+                        </td>
+                        <td class="py-3 px-3">
+                            ${d && (d.tadarus.jumlahAyat > 0 || d.tadarus.surah)
+                                ? `<div class="font-bold text-slate-800 dark:text-slate-200">${escapeHtml(d.tadarus.surah || 'Tadarus')}</div>
+                                   <div class="text-[10px] font-mono text-amber-600 dark:text-amber-400 font-bold">${d.tadarus.jumlahAyat} ayat ${d.tadarus.ayat ? `(${escapeHtml(d.tadarus.ayat)})` : ''}</div>`
+                                : '<span class="text-slate-400">-</span>'}
+                        </td>
+                        <td class="py-3 px-3 text-center">
+                            <div class="flex items-center justify-center gap-1.5">
+                                <span title="${hasMisi ? 'Misi Harian Selesai' : 'Misi Belum Selesai'}" class="w-7 h-7 rounded-lg inline-flex items-center justify-center ${hasMisi ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600'}">
+                                    <i class="fa-solid fa-star text-xs"></i>
+                                </span>
+                                <span title="${hasKultum ? 'Catatan Kultum Terisi' : 'Belum Ada Catatan Kultum'}" class="w-7 h-7 rounded-lg inline-flex items-center justify-center ${hasKultum ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600'}">
+                                    <i class="fa-solid fa-microphone-lines text-xs"></i>
+                                </span>
+                            </div>
+                        </td>
+                        <td class="py-3 px-3.5 text-right">
+                            <div class="inline-flex items-center gap-1.5">
+                                <button data-action="detail" data-nis="${escapeHtml(st.nis)}" data-day="${day}" class="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 text-slate-700 dark:text-slate-200 hover:text-emerald-700 dark:hover:text-emerald-300 border border-slate-200 dark:border-slate-700 text-[11px] font-bold transition cursor-pointer" title="Lihat Detail Jurnal">
+                                    <i class="fa-solid fa-eye mr-1"></i>Detail
+                                </button>
+                                <button data-action="toggle-paraf" data-nis="${escapeHtml(st.nis)}" data-day="${day}" ${!d ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold transition flex items-center gap-1 ${!d
+                                    ? 'bg-slate-100 dark:bg-slate-800/60 text-slate-300 dark:text-slate-600 cursor-not-allowed'
+                                    : (isParaf
+                                        ? 'bg-sky-600 hover:bg-sky-700 text-white shadow-sm cursor-pointer'
+                                        : 'bg-sky-50 dark:bg-sky-900/30 hover:bg-sky-600 text-sky-700 dark:text-sky-300 hover:text-white border border-sky-200 dark:border-sky-800 cursor-pointer')}" title="${!d ? 'Siswa belum mengisi' : (isParaf ? 'Klik untuk batalkan paraf' : 'Klik untuk beri paraf')}">
+                                    <i class="fa-solid ${isParaf ? 'fa-circle-check' : 'fa-stamp'}"></i>
+                                    <span>${isParaf ? 'Diparaf' : 'Paraf'}</span>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderMatrixTable(list) {
+            // Header 30 Hari
+            let dayHeaders = '';
+            for (let d = 1; d <= 30; d++) {
+                const isSel = d === state.selectedDay;
+                dayHeaders += `<th class="py-2.5 px-1 text-center font-mono text-[10px] min-w-[30px] ${isSel ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300' : ''}">${d}</th>`;
+            }
+
+            matrixTableHead.innerHTML = `
+                <tr class="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <th class="sticky left-0 z-20 bg-slate-50 dark:bg-slate-800 py-2.5 px-3.5 min-w-[190px] border-r border-slate-200 dark:border-slate-700 shadow-[2px_0_6px_-2px_rgba(0,0,0,0.08)]">Siswa</th>
+                    ${dayHeaders}
+                    <th class="py-2.5 px-2.5 text-center border-l border-slate-200 dark:border-slate-700">% Isi</th>
+                    <th class="py-2.5 px-2.5 text-center">Ayat</th>
+                    <th class="py-2.5 px-2.5 text-center">Paraf</th>
+                </tr>
+            `;
+
+            if (list.length === 0) {
+                matrixTableBody.innerHTML = `<tr><td colspan="34" class="py-10 text-center text-slate-400">Tidak ada siswa yang ditampilkan.</td></tr>`;
+                return;
+            }
+
+            matrixTableBody.innerHTML = list.map(st => {
+                const sum = getStudentSummary(st.nis, 30);
+                let cells = '';
+                for (let d = 1; d <= 30; d++) {
+                    const dayData = getNormalizedDay(st.nis, d);
+                    let cellCls = 'bg-slate-200/70 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-transparent';
+                    let icon = '';
+                    let title = `${st.nama} • Hari ${d}: Belum mengisi`;
+
+                    if (dayData && dayData.parafGuru) {
+                        cellCls = 'bg-sky-500 hover:bg-sky-600 text-white shadow-sm';
+                        icon = '<i class="fa-solid fa-check text-[9px]"></i>';
+                        title = `${st.nama} • Hari ${d}: Sudah diisi & Diparaf`;
+                    } else if (dayData) {
+                        cellCls = 'bg-emerald-500 hover:bg-emerald-600 text-white';
+                        icon = '<span class="w-1.5 h-1.5 rounded-full bg-white/90"></span>';
+                        title = `${st.nama} • Hari ${d}: Sudah diisi (Menunggu Paraf)`;
+                    }
+
+                    cells += `
+                        <td class="p-1 text-center">
+                            <button data-action="detail" data-nis="${escapeHtml(st.nis)}" data-day="${d}" title="${escapeHtml(title)}"
+                                class="w-6 h-6 rounded-md ${cellCls} inline-flex items-center justify-center transition active:scale-90 cursor-pointer">
+                                ${icon}
+                            </button>
+                        </td>
+                    `;
+                }
+
+                return `
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                        <td class="sticky left-0 z-10 bg-white dark:bg-slate-900 py-2.5 px-3.5 border-r border-slate-200 dark:border-slate-800 shadow-[2px_0_6px_-2px_rgba(0,0,0,0.06)]">
+                            <div class="font-bold text-slate-800 dark:text-white truncate max-w-[175px]">${escapeHtml(st.nama)}</div>
+                            <div class="text-[10px] font-mono text-slate-400">${escapeHtml(st.kelas)} • ${escapeHtml(st.nis)}</div>
+                        </td>
+                        ${cells}
+                        <td class="py-2.5 px-2.5 text-center font-mono font-extrabold text-emerald-600 dark:text-emerald-400 border-l border-slate-200 dark:border-slate-800">${sum.fillPct}%</td>
+                        <td class="py-2.5 px-2.5 text-center font-mono font-bold text-amber-600 dark:text-amber-400">${sum.totalAyat}</td>
+                        <td class="py-2.5 px-2.5 text-center font-mono font-bold text-sky-600 dark:text-sky-400">${sum.parafCount}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderAll() {
+            const list = getFilteredStudents();
+            renderStats(list);
+            renderDailyTable(list);
+            renderMatrixTable(list);
+        }
+
+        // ---------------------------------------------------------------------
+        // 8. MODAL DETAIL JURNAL SISWA & PARAF
+        // ---------------------------------------------------------------------
+        function openDetailModal(nis, dayNum) {
+            const st = state.students.find(s => s.nis === nis);
+            if (!st) return;
+
+            state.detailTarget = { nis, day: dayNum };
+            const d = getNormalizedDay(nis, dayNum);
+
+            document.getElementById('md-day-badge').textContent = `Hari ke-${dayNum} Ramadhan`;
+            document.getElementById('md-student-name').textContent = st.nama;
+            document.getElementById('md-student-meta').textContent = `${st.nis} • ${st.kelas}`;
+
+            const parafBadge = document.getElementById('md-paraf-badge');
+            const btnUnparaf = document.getElementById('btn-md-unparaf');
+            const noteInput = document.getElementById('md-teacher-note');
+
+            if (d && d.parafGuru) {
+                parafBadge.classList.remove('hidden');
+                btnUnparaf.classList.remove('hidden');
+            } else {
+                parafBadge.classList.add('hidden');
+                btnUnparaf.classList.add('hidden');
+            }
+            noteInput.value = d ? (d.catatanGuru || '') : '';
+
+            const body = document.getElementById('md-body');
+            if (!d) {
+                body.innerHTML = `
+                    <div class="p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-dashed border-slate-300 dark:border-slate-700 text-center space-y-2">
+                        <i class="fa-regular fa-calendar-xmark text-4xl text-slate-400"></i>
+                        <p class="font-bold text-slate-700 dark:text-slate-200">Siswa Belum Mengisi Jurnal Hari ke-${dayNum}</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Anda tetap dapat meninggalkan catatan pengingat jika diperlukan.</p>
+                    </div>
+                `;
+            } else {
+                const sholatGrid = SHOLAT_KEYS.map(sk => {
+                    const val = d.sholat[sk.key];
+                    let badge = '<span class="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-500 text-[10px] font-bold">Belum</span>';
+                    if (val === 'jamaah') badge = '<span class="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-bold">Jamaah</span>';
+                    else if (val === 'sendiri') badge = '<span class="px-2 py-0.5 rounded-md bg-emerald-200 dark:bg-emerald-900/70 text-emerald-800 dark:text-emerald-200 text-[10px] font-bold">Sendiri</span>';
+                    return `
+                        <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 flex flex-col items-center gap-1.5">
+                            <span class="text-[11px] font-bold text-slate-600 dark:text-slate-300">${sk.label}</span>
+                            ${badge}
+                        </div>
+                    `;
+                }).join('');
+
+                body.innerHTML = `
+                    <!-- Baris Puasa & Misi -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                            <p class="text-[10px] font-extrabold uppercase text-slate-400 mb-1">Status Puasa</p>
+                            <div class="flex items-center gap-2">
+                                ${renderPuasaBadge(d)}
+                                ${d.puasaAlasan ? `<span class="text-xs text-slate-500 dark:text-slate-400">(${escapeHtml(d.puasaAlasan)})</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                            <p class="text-[10px] font-extrabold uppercase text-slate-400 mb-1">Misi Harian Ramadhan</p>
+                            ${d.misiSelesai
+                                ? '<span class="inline-flex items-center gap-1.5 text-xs font-extrabold text-amber-600 dark:text-amber-400"><i class="fa-solid fa-star"></i> Selesai (+10 Bintang)</span>'
+                                : '<span class="text-xs font-semibold text-slate-400">Belum diselesaikan</span>'}
+                        </div>
+                    </div>
+
+                    <!-- Sholat Wajib 5 Waktu -->
+                    <div>
+                        <p class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mb-2">Sholat Wajib 5 Waktu</p>
+                        <div class="grid grid-cols-5 gap-1.5 sm:gap-2">${sholatGrid}</div>
+                    </div>
+
+                    <!-- Sholat Sunnah & Tadarus -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                            <p class="text-[10px] font-extrabold uppercase text-teal-600 dark:text-teal-400 mb-1.5">Sholat Sunnah</p>
+                            ${d.sunnahList.length > 0
+                                ? `<div class="flex flex-wrap gap-1.5">${d.sunnahList.map(s => `<span class="px-2.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 text-[11px] font-bold">${escapeHtml(s)}</span>`).join('')}</div>`
+                                : '<span class="text-xs text-slate-400">Tidak ada catatan sholat sunnah</span>'}
+                        </div>
+                        <div class="p-3.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-800/50">
+                            <p class="text-[10px] font-extrabold uppercase text-amber-600 dark:text-amber-400 mb-1">Tadarus Al-Qur'an</p>
+                            ${d.tadarus.jumlahAyat > 0 || d.tadarus.surah
+                                ? `<p class="font-extrabold text-slate-800 dark:text-white text-sm">${escapeHtml(d.tadarus.surah || 'Tadarus Al-Qur\'an')}</p>
+                                   <p class="text-xs font-mono font-bold text-amber-700 dark:text-amber-300 mt-0.5">${d.tadarus.jumlahAyat} ayat ${d.tadarus.ayat ? `(Ayat ${escapeHtml(d.tadarus.ayat)})` : ''}</p>`
+                                : '<span class="text-xs text-slate-400">Belum mencatat tadarus</span>'}
+                        </div>
+                    </div>
+
+                    <!-- Siraman Rohani / Kultum -->
+                    <div class="p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/70 dark:border-indigo-800/50 space-y-1">
+                        <p class="text-[10px] font-extrabold uppercase text-indigo-600 dark:text-indigo-400">
+                            <i class="fa-solid fa-microphone-lines mr-1"></i> Siraman Rohani / Kultum
+                        </p>
+                        ${d.kultum.ringkasan
+                            ? `<p class="text-[11px] font-bold text-slate-600 dark:text-slate-300">${escapeHtml(d.kultum.penceramah || 'Penceramah')} ${d.kultum.tempat ? `• ${escapeHtml(d.kultum.tempat)}` : ''} ${d.kultum.judul ? `— ${escapeHtml(d.kultum.judul)}` : ''}</p>
+                               <p class="text-xs text-slate-700 dark:text-slate-200 leading-relaxed pt-1">${escapeHtml(d.kultum.ringkasan)}</p>`
+                            : '<p class="text-xs text-slate-400 italic">Siswa belum mengisi rangkuman kultum.</p>'}
+                    </div>
+
+                    <!-- Kebaikan Harian -->
+                    <div class="p-3.5 rounded-2xl bg-rose-50/60 dark:bg-rose-950/25 border border-rose-200/60 dark:border-rose-800/50">
+                        <p class="text-[10px] font-extrabold uppercase text-rose-600 dark:text-rose-400 mb-1.5">
+                            <i class="fa-solid fa-heart mr-1"></i> Kebaikan Harian
+                        </p>
+                        ${d.kebaikanList.length > 0
+                            ? `<ul class="list-disc list-inside space-y-0.5 text-xs text-slate-700 dark:text-slate-200">${d.kebaikanList.map(k => `<li>${escapeHtml(k)}</li>`).join('')}</ul>`
+                            : '<span class="text-xs text-slate-400">Belum ada catatan kebaikan harian.</span>'}
+                    </div>
+                `;
+            }
+
+            modalDetail.classList.remove('hidden');
+        }
+
+        // ---------------------------------------------------------------------
+        // 9. GENERATOR REKAP WHATSAPP
+        // ---------------------------------------------------------------------
+        function generateWhatsAppText() {
+            const list = getFilteredStudents();
+            const day = state.selectedDay;
+            const kelasLabel = state.selectedClass === 'ALL' ? 'Semua Kelas' : `Kelas ${state.selectedClass}`;
+            const scope = document.querySelector('input[name="wa-scope"]:checked').value;
+            const incDone = document.getElementById('wa-inc-done').checked;
+            const incMissing = document.getElementById('wa-inc-missing').checked;
+            const incStats = document.getElementById('wa-inc-stats').checked;
+
+            const todayStr = new Date().toLocaleDateString('id-ID', {
+                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+            });
+
+            let lines = [];
+            lines.push(`🌙 *LAPORAN JURNAL RAMADHAN SAKTI*`);
+            lines.push(`📚 *${kelasLabel}*`);
+            lines.push(`📅 ${scope === 'daily' ? `Hari ke-${day} Ramadhan` : `Rekap Akumulasi (Hari 1 s.d. ${day})`} • ${todayStr}`);
+            lines.push(`━━━━━━━━━━━━━━━━━━━━`);
+
+            if (scope === 'daily') {
+                const doneList = [];
+                const missingList = [];
+                let sholatDone = 0, sholatJamaah = 0, totalAyat = 0;
+
+                list.forEach(st => {
+                    const d = getNormalizedDay(st.nis, day);
+                    if (d) {
+                        doneList.push({ st, d });
+                        SHOLAT_KEYS.forEach(sk => {
+                            if (d.sholat[sk.key] === 'jamaah') { sholatDone++; sholatJamaah++; }
+                            else if (d.sholat[sk.key] === 'sendiri') { sholatDone++; }
+                        });
+                        totalAyat += d.tadarus.jumlahAyat;
+                    } else {
+                        missingList.push(st);
+                    }
+                });
+
+                const pct = list.length > 0 ? Math.round((doneList.length / list.length) * 100) : 0;
+                lines.push(`📊 *Partisipasi:* ${doneList.length}/${list.length} siswa (${pct}%)`);
+
+                if (incStats) {
+                    const slots = doneList.length * 5;
+                    const sPct = slots > 0 ? Math.round((sholatDone / slots) * 100) : 0;
+                    const jPct = slots > 0 ? Math.round((sholatJamaah / slots) * 100) : 0;
+                    lines.push(`🕌 *Sholat Wajib:* ${sPct}% (Berjamaah: ${jPct}%)`);
+                    lines.push(`📖 *Total Tadarus Hari Ini:* ${totalAyat} ayat`);
+
+                    const topTadarus = [...doneList]
+                        .filter(x => x.d.tadarus.jumlahAyat > 0)
+                        .sort((a, b) => b.d.tadarus.jumlahAyat - a.d.tadarus.jumlahAyat)
+                        .slice(0, 3);
+                    if (topTadarus.length > 0) {
+                        lines.push(``);
+                        lines.push(`🌟 *Apresiasi Tadarus Terbanyak Hari Ini:*`);
+                        topTadarus.forEach((item, i) => {
+                            lines.push(`${i + 1}. ${item.st.nama} (${item.d.tadarus.jumlahAyat} ayat - ${item.d.tadarus.surah || 'Al-Qur\'an'})`);
+                        });
+                    }
+                }
+
+                if (incDone) {
+                    lines.push(``);
+                    lines.push(`✅ *Sudah Mengisi (${doneList.length}):*`);
+                    if (doneList.length === 0) lines.push(`- Belum ada`);
+                    else doneList.forEach((item, i) => lines.push(`${i + 1}. ${item.st.nama}${item.d.parafGuru ? ' ✓' : ''}`));
+                }
+
+                if (incMissing) {
+                    lines.push(``);
+                    lines.push(`⏳ *Belum Mengisi (${missingList.length}):*`);
+                    if (missingList.length === 0) lines.push(`Alhamdulillah, semua siswa sudah mengisi! 🎉`);
+                    else missingList.forEach((st, i) => lines.push(`${i + 1}. ${st.nama}`));
+                }
+            } else {
+                // Rekap Akumulasi s.d. Hari ke-X
+                const rows = list.map(st => ({ st, sum: getStudentSummary(st.nis, day) }));
+                const totalAyatAll = rows.reduce((a, r) => a + r.sum.totalAyat, 0);
+                const avgFill = rows.length > 0 ? Math.round(rows.reduce((a, r) => a + r.sum.fillPct, 0) / rows.length) : 0;
+                const avgSholat = rows.length > 0 ? Math.round(rows.reduce((a, r) => a + r.sum.sholatPct, 0) / rows.length) : 0;
+
+                lines.push(`📊 *Rata-rata Kehadiran Jurnal:* ${avgFill}%`);
+                if (incStats) {
+                    lines.push(`🕌 *Rata-rata Sholat Wajib:* ${avgSholat}%`);
+                    lines.push(`📖 *Akumulasi Tadarus Kelas:* ${totalAyatAll.toLocaleString('id-ID')} ayat`);
+
+                    const top3 = [...rows].sort((a, b) => b.sum.totalAyat - a.sum.totalAyat).slice(0, 3);
+                    if (top3.length > 0 && top3[0].sum.totalAyat > 0) {
+                        lines.push(``);
+                        lines.push(`🌟 *Top Tadarus (s.d. Hari ke-${day}):*`);
+                        top3.forEach((r, i) => {
+                            if (r.sum.totalAyat > 0) lines.push(`${i + 1}. ${r.st.nama} — ${r.sum.totalAyat} ayat`);
+                        });
+                    }
+                }
+
+                if (incDone) {
+                    const activeRows = rows.filter(r => r.sum.filledDays > 0);
+                    lines.push(``);
+                    lines.push(`✅ *Ringkasan Progres Siswa (${activeRows.length}/${rows.length}):*`);
+                    activeRows.forEach((r, i) => {
+                        lines.push(`${i + 1}. ${r.st.nama}: ${r.sum.filledDays}/${day} hari • ${r.sum.totalAyat} ayat`);
+                    });
+                }
+
+                if (incMissing) {
+                    const zeroRows = rows.filter(r => r.sum.filledDays === 0);
+                    lines.push(``);
+                    lines.push(`⏳ *Belum Pernah Mengisi (${zeroRows.length}):*`);
+                    if (zeroRows.length === 0) lines.push(`Alhamdulillah, semua siswa sudah aktif mengisi! 🎉`);
+                    else zeroRows.forEach((r, i) => lines.push(`${i + 1}. ${r.st.nama}`));
+                }
+            }
+
+            lines.push(``);
+            lines.push(`_Mohon dukungan Bapak/Ibu Orang Tua untuk terus mendampingi ibadah ananda. Terima kasih._ 🙏`);
+
+            document.getElementById('wa-preview-text').value = lines.join('\n');
+        }
+
+        // ---------------------------------------------------------------------
+        // 10. EKSPOR EXCEL (.XLSX) DENGAN SHEETJS (2 SHEET)
+        // ---------------------------------------------------------------------
+        function exportToExcel() {
+            if (typeof XLSX === 'undefined') {
+                showToast('Pustaka Excel (SheetJS) belum termuat. Periksa koneksi internet.');
+                return;
+            }
+
+            const list = getFilteredStudents();
+            if (list.length === 0) {
+                showToast('Tidak ada data siswa untuk diekspor.');
+                return;
+            }
+
+            const day = state.selectedDay;
+            const kelasRaw = state.selectedClass === 'ALL' ? 'Semua_Kelas' : state.selectedClass;
+            const kelasClean = kelasRaw.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+            // Sheet 1: Rekap 30 Hari
+            const sheet1Data = list.map((st, idx) => {
+                const s = getStudentSummary(st.nis, 30);
+                return {
+                    'No': idx + 1,
+                    'NIS': st.nis,
+                    'Nama Siswa': st.nama,
+                    'Kelas': st.kelas,
+                    'Total Hari Mengisi': s.filledDays,
+                    '% Kehadiran Jurnal': `${s.fillPct}%`,
+                    'Puasa Penuh (Hari)': s.puasaPenuh,
+                    '% Sholat Wajib': `${s.sholatPct}%`,
+                    '% Berjamaah': `${s.jamaahPct}%`,
+                    'Total Ayat Tadarus': s.totalAyat,
+                    'Misi Selesai': s.misiCount,
+                    'Total Paraf Guru': s.parafCount
+                };
+            });
+
+            // Sheet 2: Detail Hari Ke-X
+            const sheet2Data = list.map((st, idx) => {
+                const d = getNormalizedDay(st.nis, day);
+                const cap = (v) => v ? v.charAt(0).toUpperCase() + v.slice(1) : '-';
+                return {
+                    'No': idx + 1,
+                    'NIS': st.nis,
+                    'Nama Siswa': st.nama,
+                    'Kelas': st.kelas,
+                    'Status Mengisi': d ? 'Sudah' : 'Belum',
+                    'Puasa': d ? cap(d.puasa) : '-',
+                    'Subuh': d ? cap(d.sholat.subuh) : '-',
+                    'Dzuhur': d ? cap(d.sholat.dzuhur) : '-',
+                    'Ashar': d ? cap(d.sholat.ashar) : '-',
+                    'Maghrib': d ? cap(d.sholat.maghrib) : '-',
+                    'Isya': d ? cap(d.sholat.isya) : '-',
+                    'Sholat Sunnah': d && d.sunnahList.length ? d.sunnahList.join(', ') : '-',
+                    'Surah Tadarus': d && d.tadarus.surah ? d.tadarus.surah : '-',
+                    'Jumlah Ayat': d ? d.tadarus.jumlahAyat : 0,
+                    'Penceramah Kultum': d && d.kultum.penceramah ? d.kultum.penceramah : '-',
+                    'Ringkasan Kultum': d && d.kultum.ringkasan ? d.kultum.ringkasan : '-',
+                    'Kebaikan Harian': d && d.kebaikanList.length ? d.kebaikanList.join('; ') : '-',
+                    'Misi Harian': d && d.misiSelesai ? 'Selesai' : 'Belum',
+                    'Paraf Guru': d && d.parafGuru ? 'Sudah Diparaf' : 'Belum',
+                    'Catatan Guru': d && d.catatanGuru ? d.catatanGuru : '-'
+                };
+            });
+
+            const wb = XLSX.utils.book_new();
+            const ws1 = XLSX.utils.json_to_sheet(sheet1Data);
+            const ws2 = XLSX.utils.json_to_sheet(sheet2Data);
+
+            ws1['!cols'] = [
+                { wch: 5 }, { wch: 15 }, { wch: 26 }, { wch: 12 }, { wch: 18 },
+                { wch: 18 }, { wch: 18 }, { wch: 15 }, { wch: 14 }, { wch: 18 }, { wch: 14 }, { wch: 16 }
+            ];
+            ws2['!cols'] = [
+                { wch: 5 }, { wch: 15 }, { wch: 26 }, { wch: 12 }, { wch: 14 }, { wch: 12 },
+                { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 22 },
+                { wch: 18 }, { wch: 12 }, { wch: 22 }, { wch: 40 }, { wch: 30 }, { wch: 12 }, { wch: 14 }, { wch: 28 }
+            ];
+
+            XLSX.utils.book_append_sheet(wb, ws1, 'Rekap 30 Hari');
+            XLSX.utils.book_append_sheet(wb, ws2, `Detail Hari Ke-${day}`);
+
+            const fileName = `Rekap_Ramadhan_${kelasClean}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            showToast(`Berhasil mengunduh ${fileName}`);
+        }
+
+        // ---------------------------------------------------------------------
+        // 11. EVENT LISTENERS
+        // ---------------------------------------------------------------------
+        // Tema Gelap / Terang
+        document.getElementById('btn-theme').addEventListener('click', () => {
+            const nowDark = !document.documentElement.classList.contains('dark');
+            document.documentElement.classList.toggle('dark', nowDark);
+            localStorage.theme = nowDark ? 'dark' : 'light';
+            applyTheme();
+        });
+
+        // Refresh Data
+        document.getElementById('btn-refresh').addEventListener('click', async () => {
+            const icon = document.getElementById('icon-refresh');
+            icon.classList.add('fa-spin');
+            const savedConfig = localStorage.getItem('sakti_school_config');
+            if (!state.isDemo && savedConfig) {
+                await loadFirebaseData(JSON.parse(savedConfig));
+                showToast('Data Firebase berhasil diperbarui');
+            } else {
+                renderAll();
+                showToast('Tampilan data diperbarui');
+            }
+            setTimeout(() => icon.classList.remove('fa-spin'), 450);
+        });
+
+        // Modal Hubungkan Sekolah
+        document.getElementById('btn-open-connect').addEventListener('click', () => {
+            document.getElementById('input-school-code').value = localStorage.getItem('sakti_school_code') || '';
+            document.getElementById('connect-error-msg').classList.add('hidden');
+            modalConnect.classList.remove('hidden');
+        });
+        document.getElementById('btn-close-connect').addEventListener('click', () => modalConnect.classList.add('hidden'));
+        document.getElementById('btn-use-demo').addEventListener('click', () => {
+            modalConnect.classList.add('hidden');
+            enterDemoMode();
+            showToast('Beralih ke Mode Pratinjau (Demo)');
+        });
+        document.getElementById('form-connect-school').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const code = document.getElementById('input-school-code').value.toUpperCase().trim();
+            if (code) connectBySchoolCode(code);
+        });
+
+        // Filter Kelas, Hari, & Pencarian
+        filterKelas.addEventListener('change', (e) => {
+            state.selectedClass = e.target.value;
+            renderAll();
+        });
+        filterHari.addEventListener('change', (e) => {
+            state.selectedDay = parseInt(e.target.value, 10) || 1;
+            renderAll();
+        });
+        filterSearch.addEventListener('input', (e) => {
+            state.searchQuery = e.target.value;
+            btnClearSearch.classList.toggle('hidden', !state.searchQuery);
+            renderAll();
+        });
+        btnClearSearch.addEventListener('click', () => {
+            filterSearch.value = '';
+            state.searchQuery = '';
+            btnClearSearch.classList.add('hidden');
+            renderAll();
+        });
+
+        // Switch 2 Tab Mode Tampilan
+        function switchViewTab(tab) {
+            state.activeTab = tab;
+            document.getElementById('tab-btn-daily').classList.toggle('active', tab === 'daily');
+            document.getElementById('tab-btn-matrix').classList.toggle('active', tab === 'matrix');
+            document.getElementById('panel-daily').classList.toggle('hidden', tab !== 'daily');
+            document.getElementById('panel-matrix').classList.toggle('hidden', tab !== 'matrix');
+            document.getElementById('legend-daily').classList.toggle('hidden', tab !== 'daily');
+            document.getElementById('legend-matrix').classList.toggle('hidden', tab !== 'matrix');
+            document.getElementById('legend-matrix').classList.toggle('flex', tab === 'matrix');
+        }
+        document.getElementById('tab-btn-daily').addEventListener('click', () => switchViewTab('daily'));
+        document.getElementById('tab-btn-matrix').addEventListener('click', () => switchViewTab('matrix'));
+
+        // Delegasi Klik di Tabel Harian & Matriks 30 Hari
+        async function handleTableClick(e) {
+            const btn = e.target.closest('button[data-action]');
+            if (!btn) return;
+
+            const action = btn.dataset.action;
+            const nis = btn.dataset.nis;
+            const day = parseInt(btn.dataset.day, 10);
+
+            if (action === 'detail') {
+                openDetailModal(nis, day);
+            } else if (action === 'toggle-paraf') {
+                const d = getNormalizedDay(nis, day);
+                if (!d) return;
+                const nextParaf = !d.parafGuru;
+                btn.disabled = true;
+                const ok = await saveTeacherParaf(nis, day, nextParaf);
+                btn.disabled = false;
+                if (ok) {
+                    renderAll();
+                    showToast(nextParaf ? 'Jurnal berhasil diparaf' : 'Paraf jurnal dibatalkan');
+                }
+            }
+        }
+        dailyTableBody.addEventListener('click', handleTableClick);
+        matrixTableBody.addEventListener('click', handleTableClick);
+
+        // Interaksi Modal Detail Jurnal & Paraf
+        document.getElementById('btn-close-detail').addEventListener('click', () => modalDetail.classList.add('hidden'));
+        document.querySelectorAll('.praise-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                const noteEl = document.getElementById('md-teacher-note');
+                const txt = chip.dataset.praise;
+                noteEl.value = noteEl.value.trim() ? `${noteEl.value.trim()} ${txt}` : txt;
+                noteEl.focus();
+            });
+        });
+
+        document.getElementById('btn-md-save-paraf').addEventListener('click', async () => {
+            if (!state.detailTarget) return;
+            const { nis, day } = state.detailTarget;
+            const note = document.getElementById('md-teacher-note').value.trim();
+            const ok = await saveTeacherParaf(nis, day, true, note);
+            if (ok) {
+                modalDetail.classList.add('hidden');
+                renderAll();
+                showToast(`Jurnal Hari ke-${day} berhasil disimpan & diparaf!`);
+            }
+        });
+
+        document.getElementById('btn-md-unparaf').addEventListener('click', async () => {
+            if (!state.detailTarget) return;
+            const { nis, day } = state.detailTarget;
+            const note = document.getElementById('md-teacher-note').value.trim();
+            const ok = await saveTeacherParaf(nis, day, false, note);
+            if (ok) {
+                modalDetail.classList.add('hidden');
+                renderAll();
+                showToast(`Paraf Hari ke-${day} dibatalkan`);
+            }
+        });
+
+        // Paraf Massal Hari Ini (dengan Modal Konfirmasi)
+        document.getElementById('btn-mass-paraf').addEventListener('click', () => {
+            const list = getFilteredStudents();
+            const day = state.selectedDay;
+            const targets = list.filter(st => {
+                const d = getNormalizedDay(st.nis, day);
+                return d && !d.parafGuru;
+            });
+
+            if (targets.length === 0) {
+                showToast(`Semua jurnal yang terisi pada Hari ke-${day} sudah diparaf.`);
+                return;
+            }
+
+            const kelasName = state.selectedClass === 'ALL' ? 'Semua Kelas' : state.selectedClass;
+            document.getElementById('mass-paraf-desc').innerHTML =
+                `Terdapat <strong>${targets.length} siswa</strong> di <strong>${escapeHtml(kelasName)}</strong> yang sudah mengisi jurnal pada <strong>Hari ke-${day}</strong> dan menunggu paraf. Beri paraf semuanya sekaligus?`;
+            modalMassParaf.classList.remove('hidden');
+        });
+
+        document.getElementById('btn-cancel-mass').addEventListener('click', () => modalMassParaf.classList.add('hidden'));
+        document.getElementById('btn-confirm-mass').addEventListener('click', async () => {
+            const btn = document.getElementById('btn-confirm-mass');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses...';
+
+            const list = getFilteredStudents();
+            const day = state.selectedDay;
+            const targets = list.filter(st => {
+                const d = getNormalizedDay(st.nis, day);
+                return d && !d.parafGuru;
+            });
+
+            let successCount = 0;
+            for (const st of targets) {
+                const ok = await saveTeacherParaf(st.nis, day, true);
+                if (ok) successCount++;
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-stamp"></i> Ya, Paraf Semua';
+            modalMassParaf.classList.add('hidden');
+            renderAll();
+            showToast(`Alhamdulillah! ${successCount} jurnal Hari ke-${day} berhasil diparaf.`);
+        });
+
+        // Modal Rekap WhatsApp
+        document.getElementById('btn-open-wa').addEventListener('click', () => {
+            document.getElementById('wa-opt-daily-sub').textContent = `Khusus Hari ke-${state.selectedDay}`;
+            document.getElementById('wa-opt-cum-sub').textContent = `Hari ke-1 s.d. Hari ke-${state.selectedDay}`;
+            generateWhatsAppText();
+            modalWa.classList.remove('hidden');
+        });
+        document.getElementById('btn-close-wa').addEventListener('click', () => modalWa.classList.add('hidden'));
+
+        document.querySelectorAll('input[name="wa-scope"], #wa-inc-done, #wa-inc-missing, #wa-inc-stats').forEach(el => {
+            el.addEventListener('change', generateWhatsAppText);
+        });
+
+        // Salin Teks WA dengan document.execCommand('copy') (aman di dalam iFrame)
+        document.getElementById('btn-wa-copy').addEventListener('click', () => {
+            const textarea = document.getElementById('wa-preview-text');
+            textarea.select();
+            textarea.setSelectionRange(0, 99999);
+            try {
+                document.execCommand('copy');
+                showToast('Teks rekap WhatsApp berhasil disalin!');
+            } catch (e) {
+                showToast('Gagal menyalin otomatis, silakan salin manual.');
+            }
+        });
+
+        document.getElementById('btn-wa-send').addEventListener('click', () => {
+            const text = document.getElementById('wa-preview-text').value;
+            const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+            window.open(url, '_blank', 'noopener,noreferrer');
+        });
+
+        // Ekspor Excel (.xlsx)
+        document.getElementById('btn-export-excel').addEventListener('click', exportToExcel);
+
+        // ---------------------------------------------------------------------
+        // 12. INISIALISASI SAAT HALAMAN DIMUAT
+        // ---------------------------------------------------------------------
+        async function bootstrap() {
+            applyTheme();
+            const savedConfig = localStorage.getItem('sakti_school_config');
+            if (savedConfig) {
+                try {
+                    const configObj = JSON.parse(savedConfig);
+                    await loadFirebaseData(configObj);
+                    return;
+                } catch (_) {}
+            }
+            enterDemoMode();
+        }
+
+        bootstrap();
+    </script>
+</body>
+</html>
